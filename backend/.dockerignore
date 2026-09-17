@@ -1,0 +1,8 @@
+vendor/
+.env
+storage/logs/*.log
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+.git/
+tests/

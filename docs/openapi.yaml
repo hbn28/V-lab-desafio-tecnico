@@ -1,0 +1,299 @@
+openapi: '3.0.3'
+info:
+  title: V-Lab Solicitações API
+  description: API de gerenciamento de solicitações de atendimento — CIn/UFPE V-Lab
+  version: '1.0.0'
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Servidor local de desenvolvimento
+
+tags:
+  - name: health
+    description: Saúde da API
+  - name: solicitacoes
+    description: Solicitações de atendimento
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      operationId: health
+      responses:
+        '200':
+          description: API e banco saudáveis
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthOk'
+        '503':
+          description: Banco indisponível
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthDegraded'
+
+  /solicitacoes:
+    get:
+      tags: [solicitacoes]
+      summary: Listar solicitações (paginado)
+      operationId: listarSolicitacoes
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/Status'
+          description: Filtrar por status
+        - name: categoria
+          in: query
+          schema:
+            $ref: '#/components/schemas/Categoria'
+          description: Filtrar por categoria
+        - name: prioridade
+          in: query
+          schema:
+            $ref: '#/components/schemas/Prioridade'
+          description: Filtrar por prioridade
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 15
+      responses:
+        '200':
+          description: Lista paginada de solicitações
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacoesPaginadas'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    post:
+      tags: [solicitacoes]
+      summary: Criar solicitação
+      operationId: criarSolicitacao
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CriarSolicitacaoBody'
+      responses:
+        '201':
+          description: Solicitação criada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacaoResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /solicitacoes/{id}:
+    get:
+      tags: [solicitacoes]
+      summary: Buscar solicitação por ID
+      operationId: buscarSolicitacao
+      parameters:
+        - $ref: '#/components/parameters/SolicitacaoId'
+      responses:
+        '200':
+          description: Solicitação encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacaoResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /solicitacoes/{id}/status:
+    patch:
+      tags: [solicitacoes]
+      summary: Atualizar status da solicitação
+      operationId: atualizarStatus
+      parameters:
+        - $ref: '#/components/parameters/SolicitacaoId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/Status'
+      responses:
+        '200':
+          description: Status atualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacaoResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/InvalidTransition'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+components:
+  parameters:
+    SolicitacaoId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: ID da solicitação
+
+  schemas:
+    Status:
+      type: string
+      enum: [RECEBIDA, EM_ANALISE, AGENDADA, CONCLUIDA, CANCELADA]
+
+    Categoria:
+      type: string
+      enum: [CONSULTA, EXAME, VACINACAO, OUTRO]
+
+    Prioridade:
+      type: string
+      enum: [BAIXA, MEDIA, ALTA, URGENTE]
+
+    Solicitacao:
+      type: object
+      properties:
+        id:
+          type: integer
+        protocolo:
+          type: string
+          example: SOL-2026-0001
+        nome_solicitante:
+          type: string
+        cpf_solicitante:
+          type: string
+          example: '123.456.789-00'
+        data_nascimento:
+          type: string
+          format: date
+        categoria:
+          $ref: '#/components/schemas/Categoria'
+        prioridade:
+          $ref: '#/components/schemas/Prioridade'
+        status:
+          $ref: '#/components/schemas/Status'
+        descricao:
+          type: string
+        justificativa_prioridade:
+          type: string
+          nullable: true
+        data_criacao:
+          type: string
+          format: date-time
+        data_atualizacao:
+          type: string
+          format: date-time
+
+    SolicitacaoResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Solicitacao'
+
+    SolicitacoesPaginadas:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Solicitacao'
+        meta:
+          type: object
+          properties:
+            total:       { type: integer }
+            per_page:    { type: integer }
+            current_page:{ type: integer }
+            last_page:   { type: integer }
+        links:
+          type: object
+          properties:
+            first: { type: string, nullable: true }
+            last:  { type: string, nullable: true }
+            next:  { type: string, nullable: true }
+            prev:  { type: string, nullable: true }
+
+    CriarSolicitacaoBody:
+      type: object
+      required: [nome_solicitante, cpf_solicitante, data_nascimento, categoria, prioridade, descricao]
+      properties:
+        nome_solicitante:
+          type: string
+          minLength: 3
+        cpf_solicitante:
+          type: string
+          example: '123.456.789-00'
+        data_nascimento:
+          type: string
+          format: date
+        categoria:
+          $ref: '#/components/schemas/Categoria'
+        prioridade:
+          $ref: '#/components/schemas/Prioridade'
+        descricao:
+          type: string
+          minLength: 10
+        justificativa_prioridade:
+          type: string
+          description: Obrigatório quando prioridade=URGENTE
+
+    HealthOk:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        db:     { type: string, example: ok }
+
+    HealthDegraded:
+      type: object
+      properties:
+        status: { type: string, example: degraded }
+        db:     { type: string, example: error }
+
+    ErrorEnvelope:
+      type: object
+      properties:
+        message: { type: string }
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: { type: string }
+
+  responses:
+    ValidationError:
+      description: Erro de validação
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: Recurso não encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    InvalidTransition:
+      description: Transição de status inválida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'

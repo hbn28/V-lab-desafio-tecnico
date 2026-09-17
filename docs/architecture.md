@@ -1,115 +1,113 @@
-# Arquitetura — Solicitações de Atendimento
+# Arquitetura — V-Lab Solicitações
 
-> Este documento é preenchido após o fluxo integrado estar estável. O esqueleto já existe para que o agente final o complete sem criar um arquivo do zero.
+## Visão Geral
 
-## 1. Visão geral
+```
+┌─────────────┐   HTTP/JSON   ┌──────────────────────────┐   pg_pdo   ┌──────────────┐
+│  React SPA  │ ───────────► │   Laravel 11 API (PHP 8.3) │ ─────────► │ PostgreSQL 16│
+│  (Vite/TS)  │ ◄─────────── │   porta 8000               │ ◄───────── │  porta 5432  │
+└─────────────┘               └──────────────────────────┘            └──────────────┘
+   porta 5173                         │
+                              RequestId Middleware
+                              (X-Request-ID header)
+                              Logs JSON → stderr
+```
 
-Sistema full stack para registro e acompanhamento de solicitações de atendimento em unidades públicas de saúde. Composto por três camadas desacopladas: interface React, API Laravel e banco PostgreSQL, orquestradas via Docker Compose.
-
-## 2. Diagrama de camadas
+## Fluxo de uma requisição
 
 ```mermaid
-graph TD
-    subgraph Browser
-        FE["Frontend React + TypeScript\n(Vite · React Router)"]
-    end
+sequenceDiagram
+    participant C as Client (React)
+    participant M as RequestId Middleware
+    participant FR as FormRequest
+    participant A as Action
+    participant DB as PostgreSQL
 
-    subgraph Docker Compose
-        FE -->|"HTTP/REST JSON\nX-Request-ID"| API
-        API["Backend Laravel 11\nPHP 8.3 · artisan serve"]
-        API -->|"TCP 5432\nEloquent ORM"| DB[("PostgreSQL 16\nsolicitacoes\nprotocolo_counters")]
-    end
+    C->>M: POST /api/v1/solicitacoes
+    M->>M: Gera / propaga UUID X-Request-ID
+    M->>FR: CriarSolicitacaoRequest::authorize + rules
+    FR-->>C: 422 {message, errors} se inválido
+    FR->>A: CriarSolicitacao::execute(validated)
+    A->>DB: BEGIN TRANSACTION
+    A->>DB: INSERT INTO protocolo_counters ON CONFLICT... FOR UPDATE
+    A->>DB: INSERT INTO solicitacoes
+    A->>DB: COMMIT
+    A-->>FR: Solicitacao
+    FR-->>M: 201 SolicitacaoResource
+    M->>M: Anexa X-Request-ID na resposta
+    M-->>C: 201 {data: {...}} + X-Request-ID header
 ```
 
-*(Preencher com diagrama Mermaid real após a integração estar funcionando)*
+## Diagrama de Status
 
-## 3. Fluxo de uma requisição — criação de solicitação
-
-```
-Browser → POST /api/v1/solicitacoes
-  → RequestId middleware (propaga/gera X-Request-ID)
-  → CriarSolicitacaoRequest (valida campos, rejeita status no body)
-  → SolicitacaoController::store()
-  → CriarSolicitacao::execute() [DB::transaction]
-      → INSERT ... ON CONFLICT DO NOTHING em protocolo_counters
-      → SELECT ... FOR UPDATE em protocolo_counters
-      → incrementa ultimo_numero, formata SOL-AAAA-NNNN
-      → INSERT em solicitacoes (status = RECEBIDA)
-  → SolicitacaoResource (serializa data_criacao, data_atualizacao)
-  → 201 JSON { "data": Solicitacao }
-  → RequestId middleware.terminate() loga api_request com request_id, duration_ms
+```mermaid
+stateDiagram-v2
+    [*] --> RECEBIDA: POST /solicitacoes
+    RECEBIDA --> EM_ANALISE: PATCH status
+    RECEBIDA --> CANCELADA: PATCH status
+    EM_ANALISE --> AGENDADA: PATCH status
+    EM_ANALISE --> CANCELADA: PATCH status
+    AGENDADA --> CONCLUIDA: PATCH status
+    AGENDADA --> CANCELADA: PATCH status
+    CONCLUIDA --> [*]
+    CANCELADA --> [*]
 ```
 
-## 4. Organização do backend
-
-| Camada | Responsabilidade |
-|---|---|
-| `FormRequest` | Validação e normalização de entradas |
-| `Controller` | Orquestração: Request → Action → Resource |
-| `Action` | Regras de negócio, transações, geração de protocolo, máquina de estados |
-| `Resource` | Serialização e contrato de saída (renomeia created_at → data_criacao) |
-| `Model` | Persistência, casts, relações; não decide transições nem gera protocolo |
-| `Middleware RequestId` | Propagação de X-Request-ID e logs estruturados JSON |
-
-## 5. Máquina de estados
-
-Centralizada exclusivamente em `AtualizarStatusSolicitacao`. O frontend pode esconder opções impossíveis por usabilidade, mas não é fonte de verdade.
+## Estrutura de Pastas (Backend)
 
 ```
-RECEBIDA → EM_ANALISE | CANCELADA
-EM_ANALISE → AGENDADA | CANCELADA
-AGENDADA → CONCLUIDA | CANCELADA
-CONCLUIDA → (terminal)
-CANCELADA → (terminal)
+backend/
+├── app/
+│   ├── Domain/
+│   │   ├── Health/
+│   │   │   └── HealthController.php
+│   │   └── Solicitacoes/
+│   │       ├── Actions/
+│   │       │   ├── CriarSolicitacao.php       # lógica de negócio + protocolo
+│   │       │   └── AtualizarStatusSolicitacao.php  # máquina de estados
+│   │       └── Http/
+│   │           ├── Controllers/
+│   │           │   └── SolicitacaoController.php  # thin controller
+│   │           ├── Requests/
+│   │           │   ├── CriarSolicitacaoRequest.php
+│   │           │   ├── ListarSolicitacoesRequest.php
+│   │           │   └── AtualizarStatusRequest.php
+│   │           └── Resources/
+│   │               └── SolicitacaoResource.php
+│   ├── Http/
+│   │   └── Middleware/
+│   │       └── RequestId.php
+│   └── Models/
+│       └── Solicitacao.php
+├── database/
+│   ├── factories/SolicitacaoFactory.php
+│   ├── migrations/
+│   └── seeders/
+│       ├── DatabaseSeeder.php
+│       └── SolicitacoesSeeder.php       # idempotente via firstOrCreate
+├── routes/api.php
+└── tests/
+    └── Feature/
+        ├── HealthTest.php
+        ├── CriarSolicitacaoTest.php
+        ├── AtualizarStatusTest.php
+        └── ListarSolicitacoesTest.php
 ```
 
-Toda transição executa sob `DB::transaction` com `lockForUpdate` para garantir consistência em requisições concorrentes.
+## Decisões de Design
 
-## 6. Geração de protocolo
+| Decisão | Escolha | Motivo |
+|---|---|---|
+| Protocolo único | Upsert + `lockForUpdate` em `protocolo_counters` | Evita race condition sem sequence global; suporta rollback |
+| Transições de status | Tabela `TRANSICOES` em Action | Toda regra de negócio fora do controller; fácil de testar |
+| Geração de X-Request-ID | Middleware global no grupo `api` | Rastreabilidade sem acoplamento ao domínio |
+| Seeders idempotentes | `firstOrCreate(['protocolo' => ...])` | `db:seed` pode rodar N vezes sem duplicar dados |
+| Logs estruturados | JSON via `JsonFormatter` → stderr | Compatível com Loki/CloudWatch sem parsear texto |
+| Error envelope único | `{message, errors}` em todos os erros | Frontend trata erros de forma uniforme |
 
-Formato: `SOL-AAAA-NNNN`. Estratégia upsert + lock:
+## Evolução Futura
 
-1. `INSERT INTO protocolo_counters (ano, ultimo_numero) VALUES (?, 0) ON CONFLICT DO NOTHING`
-2. `SELECT ... FOR UPDATE` na linha do ano
-3. Incrementa `ultimo_numero`, formata protocolo
-4. Insere a solicitação na mesma transação
-
-Garante unicidade sem race condition. O índice UNIQUE em `protocolo` é defesa final.
-
-## 7. Banco de dados
-
-Tabelas: `solicitacoes` e `protocolo_counters`. Schema evolui exclusivamente por migrations do Laravel.
-
-Índices em `status`, `categoria` e `prioridade` para otimizar os filtros da listagem.
-
-CHECK constraints garantem enums válidos e que `justificativa_prioridade` seja preenchida quando `prioridade = 'URGENTE'`.
-
-## 8. Decisões técnicas e justificativas
-
-| Decisão | Justificativa |
-|---|---|
-| Organização por domínio (`app/Domain/Solicitacoes/`) | Agrupa por funcionalidade em vez de camada técnica; facilita extração futura |
-| Sem Repository/CQRS/DTO | O domínio tem um único agregado simples; abstrações adicionais aumentariam complexidade sem benefício demonstrável |
-| `php artisan serve` no Docker | Pragmático para ambiente de avaliação; produção usaria FPM + Nginx |
-| PostgreSQL nos testes | Testes de constraints, locks e concorrência exigem comportamento real do banco |
-| 409 para transição inválida | Distingue conflito de estado (409) de entrada malformada (422) semanticamente |
-| `APP_SEED=true` no Compose | Facilita avaliação sem exigir passo manual; idempotente para não duplicar dados |
-
-## 9. Visão de evolução e integração com microsserviços
-
-*(Preencher após o fluxo integrado estar estável)*
-
-O módulo atual é um monólito Laravel coeso, organizado por domínio. Uma evolução natural seria:
-
-- **Serviço de Notificações**: ao transicionar para `AGENDADA` ou `CONCLUIDA`, publicar evento em fila (ex: Laravel Queues + Redis) consumido por serviço separado responsável por notificar o solicitante.
-- **API Gateway**: se outros domínios (Agenda, Prontuário) precisarem consultar solicitações, expor contratos estáveis e versionar a API (`/api/v2/...`).
-- **Separação de leitura/escrita**: a listagem com filtros/paginação poderia ser atendida por uma réplica de leitura do PostgreSQL, sem alterar a estrutura de Commands/Queries no Laravel.
-- **Event Sourcing eventual**: se o histórico completo de transições de status se tornar requisito de auditoria, o modelo poderia evoluir para persistir `SolicitacaoStatusAtualizado` como eventos imutáveis.
-
-## 10. Limites e limitações conhecidas
-
-*(Preencher antes da entrega final)*
-
-- [ ] Descrever limitações conhecidas da implementação atual
-- [ ] Listar funcionalidades não implementadas (se houver)
-- [ ] Descrever eventuais ajustes necessários para executar em outros ambientes
+- **Autenticação:** Laravel Sanctum com tokens API para operadores
+- **Fila de notificações:** Job `NotificarSolicitante` via `database` driver → SQS em produção
+- **Eventos de domínio:** `SolicitacaoStatusAtualizado` → listeners desacoplados
+- **Microsserviços:** Health + Solicitações já estão em namespaces separados — isolamento trivial
