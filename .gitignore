@@ -15,3 +15,7 @@ dist/
 .claude/
 *.swp
 *.tmp
+
+.agents/
+.superpowers/
+.claude/
