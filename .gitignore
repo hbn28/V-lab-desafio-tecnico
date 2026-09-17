@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+backend/.env
+frontend/.env
+node_modules/
+vendor/
+tmp/
+storage/logs/*.log
+coverage/
+dist/
+.idea/
+.vscode/
+.agents/
+.claude/
+*.swp
+*.tmp
