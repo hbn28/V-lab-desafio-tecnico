@@ -61,3 +61,42 @@ PHP 8.3, Laravel 11, Node 20, React 18 + TypeScript, Vite, PostgreSQL 16, Docker
 2. Marque a tarefa como concluída em `TASKS.md`.
 3. Reescreva `HANDOFF.md` com a última tarefa, a próxima e bloqueios.
 4. Se houver repositório Git, faça `git add -A && git commit -m "<resumo da tarefa>"`. Se não houver, registre o bloqueio; não finja que houve commit.
+
+## Bônus — Health Check
+
+- Rota `GET /api/v1/health` em `app/Domain/Health/HealthController.php`.
+- Invoca `DB::select('SELECT 1')` dentro de try/catch; retorna 200 ou 503.
+- Registrar a rota em `routes/api.php` fora do grupo com rate-limit de avaliação.
+- O Docker Compose `healthcheck` do serviço `backend` deve chamar esse endpoint.
+
+## Bônus — Middleware RequestId e Logs Estruturados
+
+- Criar `app/Http/Middleware/RequestId.php`.
+- Prioridade: header `X-Request-ID` de entrada (se UUID válido) > `Str::uuid()`.
+- Propagar para: `request->attributes`, header de resposta, `Log::withContext`.
+- Registrar no grupo `api` em `bootstrap/app.php`.
+- Configurar `JsonFormatter` no canal `stack` em `config/logging.php`.
+- No método `terminate()`, logar `api_request` com `request_id`, `method`, `path`, `status`, `duration_ms`.
+- Nunca logar body completo de request/response — apenas metadados.
+
+## Bônus — Seeders Idempotentes
+
+- `SolicitacoesSeeder` usa `firstOrCreate` pelo campo `protocolo` — nunca duplica.
+- `SolicitacaoFactory` usa `Faker` pt_BR; preenche `justificativa_prioridade` quando `URGENTE`.
+- Entrypoint executa `php artisan db:seed --force` somente se `APP_SEED=true`.
+- Mínimo 10 registros cobrindo todos os status e pelo menos 1 URGENTE com justificativa.
+
+## Bônus — CI
+
+- Arquivo `.github/workflows/ci.yml` com jobs: `lint-backend`, `lint-frontend`, `test-backend`, `test-frontend`, `build-frontend`.
+- Job `test-backend` sobe PostgreSQL 16 como serviço e usa variáveis de ambiente `DB_*`.
+- Jobs de lint e build não precisam de banco.
+- Todos os jobs usam cache de dependências (`actions/cache` para `vendor/` e `node_modules/`).
+- CI só é adicionado após as suítes locais passarem consistentemente.
+
+## Bônus — architecture.md
+
+- Criar `docs/architecture.md` ao final, depois do fluxo integrado estar estável.
+- Incluir diagrama Mermaid com três camadas (frontend, backend, db) e fluxo de uma requisição.
+- Registrar as principais decisões: protocolo com upsert+lock, máquina de estados centralizada, organização por domínio, ausência de Repository/CQRS.
+- Adicionar parágrafo de evolução: como o módulo poderia separar-se em serviço independente (ex: fila para notificações, API Gateway, domínio de Agenda).

@@ -204,3 +204,156 @@ Usar PostgreSQL nos testes que exercitam constraints, transações ou locks.
 - primeira geração concorrente do ano não falha nem duplica protocolo;
 - filtros/paginação inválidos retornam 422;
 - frontend exibe erro 422 com cliente HTTP mockado.
+
+---
+
+## Bônus — Health Check
+
+### GET `/api/v1/health`
+
+Não requer autenticação. Verifica se a aplicação e o banco estão acessíveis.
+
+Resposta 200 (tudo ok):
+
+```json
+{ "status": "ok", "db": "ok" }
+```
+
+Resposta 503 (banco inacessível):
+
+```json
+{ "status": "degraded", "db": "error" }
+```
+
+Implementação:
+
+```php
+// app/Domain/Health/HealthController.php
+use Illuminate\Support\Facades\DB;
+
+public function __invoke(): JsonResponse
+{
+    try {
+        DB::select('SELECT 1');
+        $db = 'ok';
+        $code = 200;
+    } catch (\Throwable) {
+        $db = 'error';
+        $code = 503;
+    }
+    return response()->json(['status' => $code === 200 ? 'ok' : 'degraded', 'db' => $db], $code);
+}
+```
+
+Rota: `GET /api/v1/health` (sem prefixo de autenticação, sem throttle de avaliação).
+
+---
+
+## Bônus — Middleware RequestId e Logs Estruturados
+
+### Middleware `App\Http\Middleware\RequestId`
+
+Funciona em toda rota da API. Ordem de prioridade do ID:
+
+1. Usa o valor de `X-Request-ID` do request de entrada, se presente e válido (UUID v4).
+2. Gera `Str::uuid()` se ausente ou inválido.
+
+Adiciona o ID a:
+- `request` attributes: `request->attributes->set('request_id', $id)`
+- resposta: header `X-Request-ID: <id>`
+- contexto de log Laravel: `Log::withContext(['request_id' => $id])`
+
+### Formato de log (canal `stack`, driver `daily`)
+
+Usar `Monolog\Formatter\JsonFormatter`. Cada requisição à API emite uma linha ao final:
+
+```json
+{
+  "level": "INFO",
+  "message": "api_request",
+  "context": {
+    "request_id": "550e8400-e29b-41d4-a716-446655440000",
+    "method": "POST",
+    "path": "/api/v1/solicitacoes",
+    "status": 201,
+    "duration_ms": 47
+  },
+  "datetime": "2025-01-01T00:00:00+00:00"
+}
+```
+
+Implementar via `terminate()` do middleware com `microtime(true)` no `handle()`.
+
+### Configuração em `bootstrap/app.php`
+
+```php
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->appendToGroup('api', [
+        \App\Http\Middleware\RequestId::class,
+    ]);
+})
+```
+
+---
+
+## Bônus — Seeders Idempotentes
+
+### Estratégia
+
+- `DatabaseSeeder` chama `SolicitacoesSeeder`.
+- `SolicitacoesSeeder` usa `Solicitacao::firstOrCreate(['protocolo' => ...])` para não duplicar dados a cada `db:seed`.
+- O Docker Compose entrypoint do backend executa `php artisan db:seed` somente quando `APP_SEED=true` (default no `.env.example`: `APP_SEED=false`; default no `docker-compose.yml` para avaliação: `APP_SEED=true`).
+- Mínimo 10 solicitações cobrindo combinações representativas: pelo menos 1 URGENTE com justificativa, pelo menos 1 CONCLUIDA, 1 CANCELADA, demais em estados intermediários.
+- `SolicitacaoFactory` gera dados com `Faker` em pt_BR; `justificativa_prioridade` é preenchida quando `prioridade = URGENTE`.
+
+### Entrypoint do backend (`docker/backend/entrypoint.sh`)
+
+```bash
+#!/bin/sh
+set -e
+php artisan migrate --force
+if [ "${APP_SEED:-false}" = "true" ]; then
+  php artisan db:seed --force
+fi
+php artisan serve --host=0.0.0.0 --port=8000
+```
+
+---
+
+## Bônus — CI (`.github/workflows/ci.yml`)
+
+### Jobs
+
+| Job | Runner | O que faz |
+|---|---|---|
+| `lint-backend` | ubuntu-latest | `./vendor/bin/pint --test` |
+| `lint-frontend` | ubuntu-latest | `npm run lint` |
+| `test-backend` | ubuntu-latest + postgres:16 | `./vendor/bin/pest --ci` com `DB_CONNECTION=pgsql` |
+| `test-frontend` | ubuntu-latest | `npm run test -- --run` |
+| `build-frontend` | ubuntu-latest | `npm run build` |
+
+### Serviço PostgreSQL no job de testes
+
+```yaml
+services:
+  postgres:
+    image: postgres:16-alpine
+    env:
+      POSTGRES_DB: vlab_test
+      POSTGRES_USER: vlab
+      POSTGRES_PASSWORD: secret
+    ports: ["5432:5432"]
+    options: >-
+      --health-cmd pg_isready
+      --health-interval 5s
+      --health-timeout 5s
+      --health-retries 5
+```
+
+Os testes do backend usam `DB_CONNECTION=pgsql`, `DB_DATABASE=vlab_test` etc. via variáveis de ambiente do job.
+
+---
+
+## Bônus — `docs/architecture.md`
+
+Ver o arquivo `docs/architecture.md` para diagrama e decisões. O arquivo segue a estrutura abaixo e deve ser preenchido ao final, após o fluxo integrado estar estável.

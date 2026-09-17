@@ -1,0 +1,42 @@
+<style>
+  .direction-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:24px}.direction{border:2px solid #e2e8f0;border-radius:16px;overflow:hidden;background:#fff;cursor:pointer;transition:.18s ease}.direction:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(15,23,42,.1)}.direction.selected{border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.15)}.dash{min-height:360px;padding:14px}.dash-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}.brand{font-weight:750;font-size:15px}.action{border:0;border-radius:8px;padding:8px 11px;color:#fff;font-size:11px;font-weight:700}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}.metric{padding:10px;border-radius:9px;background:#fff;border:1px solid}.metric b{display:block;font-size:19px}.metric span{font-size:9px}.filters{display:flex;gap:6px;margin-bottom:9px}.filter{height:24px;flex:1;border:1px solid;border-radius:6px;background:#fff}.table{background:#fff;border:1px solid;border-radius:9px;overflow:hidden}.row{display:grid;grid-template-columns:1.3fr 1fr .9fr;gap:6px;padding:9px;border-bottom:1px solid;font-size:9px;align-items:center}.row:last-child{border:0}.pill{justify-self:start;padding:4px 7px;border-radius:999px;font-weight:700}.direction-copy{padding:16px;border-top:1px solid #e2e8f0}.direction-copy h3{margin:0 0 6px}.direction-copy p{margin:0;font-size:13px;color:#64748b}.recommended{display:inline-block;margin-bottom:8px;padding:3px 7px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+  .a .dash{background:#f8fafc;color:#0f172a}.a .action{background:#0f766e}.a .metric,.a .filter,.a .table{border-color:#e2e8f0}.a .row{border-color:#eef2f7}.a .pill{background:#dbeafe;color:#1e40af}.a .brand{font-family:Arial,sans-serif}
+  .b .dash{background:#ecfeff;color:#164e63}.b .action{background:#0891b2;color:#061e25}.b .metric,.b .filter,.b .table{border-color:#a5f3fc}.b .row{border-color:#cffafe}.b .pill{background:#ccfbf1;color:#115e59}.b .brand{font-family:Arial,sans-serif}
+  .c .dash{background:#f5f7fb;color:#172554}.c .action{background:#1d4ed8}.c .metric,.c .filter,.c .table{border-color:#c7d2fe}.c .row{border-color:#e0e7ff}.c .pill{background:#fef3c7;color:#92400e}.c .brand{font-family:Georgia,serif}
+  @media(max-width:900px){.direction-grid{grid-template-columns:1fr}.dash{min-height:300px}}
+</style>
+
+<h2>Qual direção transmite melhor confiança e eficiência?</h2>
+<p class="subtitle">As três opções são acessíveis, responsivas e adequadas ao fluxo exigido no edital. Compare serenidade, densidade e personalidade — não os detalhes finais.</p>
+
+<div class="direction-grid">
+  <div class="direction a" data-choice="a" onclick="toggleSelect(this)">
+    <div class="dash">
+      <div class="dash-top"><span class="brand">Solicitações</span><button class="action">Nova solicitação</button></div>
+      <div class="metrics"><div class="metric"><b>24</b><span>Recebidas</span></div><div class="metric"><b>11</b><span>Em análise</span></div><div class="metric"><b>7</b><span>Agendadas</span></div></div>
+      <div class="filters"><div class="filter"></div><div class="filter"></div><div class="filter"></div></div>
+      <div class="table"><div class="row"><b>SOL-2026-0042</b><span>Consulta</span><span class="pill">Em análise</span></div><div class="row"><b>SOL-2026-0041</b><span>Exame</span><span class="pill">Recebida</span></div><div class="row"><b>SOL-2026-0040</b><span>Vacinação</span><span class="pill">Agendada</span></div></div>
+    </div>
+    <div class="direction-copy"><span class="recommended">Recomendação</span><h3>A · Institucional contemporâneo</h3><p>Neutros claros, azul-marinho e teal. Maior confiança, leitura rápida e aparência de sistema público moderno.</p></div>
+  </div>
+
+  <div class="direction b" data-choice="b" onclick="toggleSelect(this)">
+    <div class="dash">
+      <div class="dash-top"><span class="brand">Solicitações</span><button class="action">Nova solicitação</button></div>
+      <div class="metrics"><div class="metric"><b>24</b><span>Recebidas</span></div><div class="metric"><b>11</b><span>Em análise</span></div><div class="metric"><b>7</b><span>Agendadas</span></div></div>
+      <div class="filters"><div class="filter"></div><div class="filter"></div><div class="filter"></div></div>
+      <div class="table"><div class="row"><b>SOL-2026-0042</b><span>Consulta</span><span class="pill">Em análise</span></div><div class="row"><b>SOL-2026-0041</b><span>Exame</span><span class="pill">Recebida</span></div><div class="row"><b>SOL-2026-0040</b><span>Vacinação</span><span class="pill">Agendada</span></div></div>
+    </div>
+    <div class="direction-copy"><h3>B · Saúde acolhedora</h3><p>Ciano e verde mais presentes. Comunica cuidado e acessibilidade, mas pode parecer menos administrativo.</p></div>
+  </div>
+
+  <div class="direction c" data-choice="c" onclick="toggleSelect(this)">
+    <div class="dash">
+      <div class="dash-top"><span class="brand">Solicitações</span><button class="action">Nova solicitação</button></div>
+      <div class="metrics"><div class="metric"><b>24</b><span>Recebidas</span></div><div class="metric"><b>11</b><span>Em análise</span></div><div class="metric"><b>7</b><span>Agendadas</span></div></div>
+      <div class="filters"><div class="filter"></div><div class="filter"></div><div class="filter"></div></div>
+      <div class="table"><div class="row"><b>SOL-2026-0042</b><span>Consulta</span><span class="pill">Em análise</span></div><div class="row"><b>SOL-2026-0041</b><span>Exame</span><span class="pill">Recebida</span></div><div class="row"><b>SOL-2026-0040</b><span>Vacinação</span><span class="pill">Agendada</span></div></div>
+    </div>
+    <div class="direction-copy"><h3>C · Governo formal</h3><p>Azul institucional e tipografia mais tradicional. Autoridade alta, porém com sensação mais burocrática.</p></div>
+  </div>
+</div>
