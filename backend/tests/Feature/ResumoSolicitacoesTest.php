@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\Solicitacao;
+use Illuminate\Support\Carbon;
 
 function criarSolicitacaoResumo(string $protocolo, string $prioridade, string $status, string $categoria = 'CONSULTA'): Solicitacao
 {
@@ -14,6 +15,15 @@ function criarSolicitacaoResumo(string $protocolo, string $prioridade, string $s
         'status'           => $status,
         'descricao'        => 'Solicitação fictícia para o resumo do painel.',
     ]);
+}
+
+function criarSolicitacaoComData(string $protocolo, string $prioridade, string $status, string $criadaEm): Solicitacao
+{
+    $solicitacao = criarSolicitacaoResumo($protocolo, $prioridade, $status);
+    $solicitacao->timestamps = false;
+    $solicitacao->update(['created_at' => Carbon::parse($criadaEm), 'updated_at' => Carbon::parse($criadaEm)]);
+
+    return $solicitacao;
 }
 
 test('resumo agrega status e prioridade aberta globalmente, sem paginação', function () {
@@ -32,6 +42,21 @@ test('resumo agrega status e prioridade aberta globalmente, sem paginação', fu
     expect($response->json('data.prioridade_aberta.BAIXA'))->toBe(0);
     expect($response->json('data.total'))->toBe(4);
     expect($response->json('data.filtros_aplicados'))->toBe(['categoria' => null, 'prioridade' => null]);
+    // URGENTE tem 1 solicitação aberta -> data de nascimento preenchida; BAIXA não tem nenhuma aberta -> null.
+    expect($response->json('data.mais_antiga_aberta.URGENTE'))->not->toBeNull();
+    expect($response->json('data.mais_antiga_aberta.BAIXA'))->toBeNull();
+});
+
+test('mais_antiga_aberta reflete a solicitação em aberto mais antiga daquela prioridade, ignorando encerradas', function () {
+    criarSolicitacaoComData('SOL-2026-0040', 'URGENTE', 'RECEBIDA', '2026-09-10 08:00:00');
+    criarSolicitacaoComData('SOL-2026-0041', 'URGENTE', 'EM_ANALISE', '2026-09-05 08:00:00');
+    // Mais antiga de todas, mas encerrada — não deve contar como "esperando".
+    criarSolicitacaoComData('SOL-2026-0042', 'URGENTE', 'CONCLUIDA', '2026-08-01 08:00:00');
+
+    $response = $this->getJson('/api/v1/solicitacoes/resumo')->assertStatus(200);
+
+    expect($response->json('data.mais_antiga_aberta.URGENTE'))
+        ->toBe(Carbon::parse('2026-09-05 08:00:00')->toIso8601String());
 });
 
 test('resumo filtrado por categoria restringe os dois blocos', function () {

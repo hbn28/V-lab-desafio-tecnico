@@ -225,6 +225,33 @@ p, h1, h2, h3 { margin: 0; }
 }
 .dashboard-context strong { color: var(--navy-950); }
 
+.next-up {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--teal-600);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--teal-50), var(--color-surface));
+  box-shadow: var(--shadow-sm);
+}
+.next-up__content { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.next-up__info { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.next-up__badges { display: flex; align-items: center; gap: var(--space-2); margin-bottom: 0.1rem; }
+.next-up__title { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-2); margin: 0; }
+.next-up__title .protocol-link { display: inline; }
+.next-up__title .requester-name { display: inline; margin-top: 0; }
+.next-up__meta { margin: 0; color: var(--color-text-secondary); font-size: 0.82rem; }
+.next-up__action { flex-shrink: 0; }
+.next-up__empty { margin: 0; color: var(--color-text-secondary); font-size: 0.88rem; }
+
+.priority-card__aging {
+  color: var(--priority-ink, var(--slate-600));
+  font-size: 0.72rem;
+  font-weight: 650;
+  opacity: 0.85;
+}
+
 .section-heading, .panel__header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); }
 .section-heading h2, .panel__header h2 { font-size: 1.125rem; line-height: 1.3; color: var(--navy-950); }
 .list-order-hint { margin-top: var(--space-1); color: var(--color-text-secondary); font-size: 0.8rem; }
@@ -279,7 +306,16 @@ p, h1, h2, h3 { margin: 0; }
 .workflow-strip__pill strong { margin-left: 0.3rem; color: var(--navy-950); font-variant-numeric: tabular-nums; }
 .workflow-strip__pill:hover { background: var(--teal-50); border-color: var(--teal-600); color: var(--teal-800); }
 .workflow-strip__pill:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
-.workflow-strip__closed { margin-left: auto; color: var(--color-text-secondary); }
+.workflow-strip__pill--divider { margin-left: var(--space-2); padding-left: calc(var(--space-2) + 0.7rem); border-left: 1px dashed var(--color-border-strong); }
+.workflow-strip__pill--encerrada { color: var(--slate-500); }
+.workflow-strip__pill--encerrada strong { color: var(--slate-600); }
+.workflow-strip__pill--active {
+  border-color: var(--teal-700);
+  background: var(--teal-50);
+  color: var(--teal-800);
+  box-shadow: 0 0 0 1px var(--teal-700) inset;
+}
+.workflow-strip__pill--active strong { color: var(--teal-800); }
 
 /* Painel interativo: os cartões de prioridade e os blocos de status abrem
    o drill-down (DrilldownModal) com as solicitações daquele bloco. */
@@ -557,4 +593,9 @@ p, h1, h2, h3 { margin: 0; }
   .drilldown-modal { width: calc(100vw - var(--space-4)); max-height: calc(100vh - var(--space-4)); }
   .drilldown-modal__header { padding: var(--space-4); }
   .drilldown-modal__body { padding: var(--space-2) var(--space-4); }
+}
+
+@media (max-width: 640px) {
+  .next-up__content { flex-direction: column; align-items: stretch; }
+  .next-up__action { align-self: stretch; text-align: center; }
 }
