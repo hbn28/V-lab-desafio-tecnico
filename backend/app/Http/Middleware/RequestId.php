@@ -10,7 +10,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RequestId
 {
-    private float $startTime;
+    private ?float $startTime = null;
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -32,6 +32,8 @@ class RequestId
 
     public function terminate(Request $request, Response $response): void
     {
+        if ($this->startTime === null) return;
+
         $durationMs = (int) round((microtime(true) - $this->startTime) * 1000);
 
         Log::info('api_request', [
