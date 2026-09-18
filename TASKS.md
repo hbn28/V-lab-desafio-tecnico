@@ -18,6 +18,7 @@ Estado reconciliado em 2026-09-18. O CI permanece deliberadamente fora desta rod
 - [x] README, `docs/architecture.md`, mapa do código e manual de agentes
 - [ ] Revisão eliminatória em ambiente limpo com Docker Compose — bloqueada porque o daemon Docker não está disponível
 - [x] Fila operacional: estados ativos, prioridade descendente, mais antigas primeiro, com teste de feature e documentação
+- [x] Dashboard operacional: separar prioridades abertas do andamento, destacar urgente/alta e eliminar ambiguidade visual entre prioridade e status
 
 ## Bônus
 

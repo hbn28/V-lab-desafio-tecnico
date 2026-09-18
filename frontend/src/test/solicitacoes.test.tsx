@@ -129,12 +129,12 @@ describe('SolicitacoesPage', () => {
     vi.clearAllMocks();
   });
 
-  it('resume por status as solicitações visíveis na página carregada', async () => {
+  it('destaca prioridades abertas separadamente do andamento da fila', async () => {
     vi.mocked(solicitacoesApi.listar).mockResolvedValue({
       data: [
-        solicitacaoBase,
-        { ...solicitacaoBase, id: 2, protocolo: 'SOL-2026-0002' },
-        { ...solicitacaoBase, id: 3, protocolo: 'SOL-2026-0003', status: 'EM_ANALISE' },
+        { ...solicitacaoBase, prioridade: 'URGENTE' },
+        { ...solicitacaoBase, id: 2, protocolo: 'SOL-2026-0002', prioridade: 'ALTA', status: 'EM_ANALISE' },
+        { ...solicitacaoBase, id: 3, protocolo: 'SOL-2026-0003', prioridade: 'URGENTE', status: 'CONCLUIDA' },
       ],
       total: 3,
       last_page: 1,
@@ -146,9 +146,12 @@ describe('SolicitacoesPage', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole('heading', { name: 'Resumo desta página' })).toBeInTheDocument();
-    expect(screen.getByLabelText('2 solicitações recebidas')).toBeInTheDocument();
-    expect(screen.getByLabelText('1 solicitação em análise')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Prioridades em aberto nesta página' })).toBeInTheDocument();
+    expect(screen.getByLabelText('1 solicitação urgente em aberto')).toBeInTheDocument();
+    expect(screen.getByLabelText('1 solicitação de prioridade alta em aberto')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Andamento da fila' })).toBeInTheDocument();
+    expect(screen.getByText('Recebidas', { selector: 'dt' })).toBeInTheDocument();
+    expect(screen.getByText('Em análise', { selector: 'dt' })).toBeInTheDocument();
   });
 });
 

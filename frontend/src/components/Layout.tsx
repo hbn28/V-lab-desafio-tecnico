@@ -19,7 +19,7 @@ export function Layout() {
             end
             className={({ isActive }) => `main-nav__link${isActive ? ' is-active' : ''}`}
           >
-            Solicitações
+            Painel
           </NavLink>
           <NavLink
             to="/solicitacoes/nova"
