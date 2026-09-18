@@ -153,6 +153,15 @@ paths:
                         type: object
                         additionalProperties:
                           type: integer
+                      mais_antiga_aberta:
+                        type: object
+                        description: >-
+                          Data de criação (ISO 8601) da solicitação em aberto mais antiga
+                          de cada prioridade, ou null se não houver nenhuma em aberto.
+                        additionalProperties:
+                          type: string
+                          format: date-time
+                          nullable: true
                       total:
                         type: integer
                       filtros_aplicados:

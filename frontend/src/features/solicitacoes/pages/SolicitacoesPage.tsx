@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useSolicitacoes, useResumoSolicitacoes } from '../hooks/useSolicitacoes';
+import { useSolicitacoes, useResumoSolicitacoes, useProximoAtendimento } from '../hooks/useSolicitacoes';
 import { StatusBadge, PrioridadeBadge } from '../../../components/Badge';
 import { DrilldownModal } from '../components/DrilldownModal';
 import type { Status, Categoria, Prioridade } from '../types';
@@ -8,7 +8,6 @@ import type { FiltrosSolicitacoes } from '../types';
 import { LABEL_STATUS, LABEL_CATEGORIA, LABEL_PRIORIDADE } from '../types';
 
 const STATUS_LIST: Status[] = ['RECEBIDA', 'EM_ANALISE', 'AGENDADA', 'CONCLUIDA', 'CANCELADA'];
-const STATUS_ABERTO_LIST = ['RECEBIDA', 'EM_ANALISE', 'AGENDADA'] as const satisfies readonly Status[];
 const CATEGORIA_LIST: Categoria[] = ['CONSULTA', 'EXAME', 'VACINACAO', 'OUTRO'];
 const PRIORIDADE_LIST: Prioridade[] = ['URGENTE', 'ALTA', 'MEDIA', 'BAIXA'];
 
@@ -27,11 +26,15 @@ const PRIORIDADE_ARIA: Record<Prioridade, [string, string]> = {
   BAIXA: ['solicitação de prioridade baixa em aberto', 'solicitações de prioridade baixa em aberto'],
 };
 
-const LABEL_STATUS_ABERTO: Record<(typeof STATUS_ABERTO_LIST)[number], string> = {
+const LABEL_STATUS_PLURAL: Record<Status, string> = {
   RECEBIDA: 'Recebidas',
   EM_ANALISE: 'Em análise',
   AGENDADA: 'Agendadas',
+  CONCLUIDA: 'Concluídas',
+  CANCELADA: 'Canceladas',
 };
+
+const STATUS_ENCERRADO = ['CONCLUIDA', 'CANCELADA'] as const satisfies readonly Status[];
 
 const PRIORIDADE_ACCENT: Record<Prioridade, 'urgente' | 'alta' | 'media' | 'baixa'> = {
   URGENTE: 'urgente',
@@ -42,6 +45,16 @@ const PRIORIDADE_ACCENT: Record<Prioridade, 'urgente' | 'alta' | 'media' | 'baix
 
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('pt-BR').format(new Date(value));
+}
+
+function formatAging(iso: string): string {
+  const minutos = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (minutos < 1) return 'há poucos segundos';
+  if (minutos < 60) return `há ${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  if (horas < 24) return `há ${horas}h`;
+  const dias = Math.floor(horas / 24);
+  return `há ${dias} dia${dias === 1 ? '' : 's'}`;
 }
 
 interface Drilldown {
@@ -67,7 +80,11 @@ export function SolicitacoesPage() {
   });
 
   const resumoFiltros = { categoria: categoria || undefined, prioridade: prioridade || undefined };
-  const { data: resumo, loading: resumoLoading, error: resumoError } = useResumoSolicitacoes(resumoFiltros);
+  const isDrilldownAberto = Boolean(drilldown);
+  const { data: resumo, loading: resumoLoading, error: resumoError } = useResumoSolicitacoes(resumoFiltros, { paused: isDrilldownAberto });
+  // "Próximo atendimento" é um fato operacional fixo (a #1 na ordem da fila, ADR 001) —
+  // não muda com os filtros da listagem, que são só uma forma de explorar o resto da fila.
+  const { data: proximo, loading: proximoLoading, error: proximoError } = useProximoAtendimento({ paused: isDrilldownAberto });
 
   const hasFilters = Boolean(status || categoria || prioridade);
 
@@ -90,17 +107,15 @@ export function SolicitacoesPage() {
     });
   };
 
-  const abrirPorStatus = (item: (typeof STATUS_ABERTO_LIST)[number]) => {
+  const abrirPorStatus = (item: Status) => {
     const count = resumo?.status[item] ?? 0;
     setDrilldown({
-      title: LABEL_STATUS_ABERTO[item],
+      title: LABEL_STATUS_PLURAL[item],
       description: `${count} ${count === 1 ? STATUS_ARIA[item][0] : STATUS_ARIA[item][1]}`,
       accent: 'neutro',
       filtros: { status: item, categoria: categoria || undefined, prioridade: prioridade || undefined },
     });
   };
-
-  const encerradasTotal = (resumo?.status.CONCLUIDA ?? 0) + (resumo?.status.CANCELADA ?? 0);
 
   return (
     <div className="page-stack">
@@ -118,6 +133,34 @@ export function SolicitacoesPage() {
         </Link>
       </header>
 
+      {!proximoLoading && !proximoError && (
+        <section className="next-up" aria-labelledby="next-up-heading">
+          <p className="eyebrow" id="next-up-heading">Próximo atendimento</p>
+          {proximo ? (
+            <div className="next-up__content">
+              <div className="next-up__info">
+                <div className="next-up__badges">
+                  <PrioridadeBadge prioridade={proximo.prioridade} />
+                  <StatusBadge status={proximo.status} />
+                </div>
+                <p className="next-up__title">
+                  <span className="protocol-link">{proximo.protocolo}</span>
+                  <span className="requester-name">{proximo.nome_solicitante}</span>
+                </p>
+                <p className="next-up__meta">
+                  {LABEL_CATEGORIA[proximo.categoria]} · esperando {formatAging(proximo.data_criacao)}
+                </p>
+              </div>
+              <Link to={`/solicitacoes/${proximo.id}`} className="button button--primary next-up__action">
+                Atender ›
+              </Link>
+            </div>
+          ) : (
+            <p className="next-up__empty">Fila vazia — nada aguardando atendimento no momento.</p>
+          )}
+        </section>
+      )}
+
       {!resumoLoading && !resumoError && resumo && (
         <p className="dashboard-context" role="status">
           {resumoFiltros.categoria || resumoFiltros.prioridade ? (
@@ -132,7 +175,7 @@ export function SolicitacoesPage() {
           ) : (
             <>Painel considerando <strong>todas as solicitações</strong> — não apenas as desta página.</>
           )}
-          {status && ' O filtro de status da listagem não muda estes números: cada bloco já é a sua própria quebra por status ou prioridade.'}
+          {status && ` O bloco "${LABEL_STATUS_PLURAL[status]}" abaixo está destacado — é o que corresponde ao filtro de status escolhido.`}
         </p>
       )}
 
@@ -159,28 +202,38 @@ export function SolicitacoesPage() {
                 >
                   <span className="priority-card__label">{LABEL_PRIORIDADE[item]}</span>
                   <strong>{count}</strong>
+                  {resumo.mais_antiga_aberta[item] && (
+                    <span className="priority-card__aging">mais antiga: {formatAging(resumo.mais_antiga_aberta[item]!)}</span>
+                  )}
                   <span className="priority-card__action">Em aberto ›</span>
                 </button>
               );
             })}
           </div>
 
-          <div className="workflow-strip" aria-label="Andamento por etapa">
-            <span className="workflow-strip__label">Nas mesmas solicitações, por etapa:</span>
-            {STATUS_ABERTO_LIST.map(item => (
-              <button
-                type="button"
-                key={item}
-                className="workflow-strip__pill"
-                onClick={() => abrirPorStatus(item)}
-                aria-label={`${resumo.status[item]} ${resumo.status[item] === 1 ? STATUS_ARIA[item][0] : STATUS_ARIA[item][1]}. Ver lista.`}
-              >
-                {LABEL_STATUS_ABERTO[item]} <strong>{resumo.status[item]}</strong>
-              </button>
-            ))}
-            <span className="workflow-strip__closed">
-              {encerradasTotal} encerrada{encerradasTotal === 1 ? '' : 's'}
-            </span>
+          <div className="workflow-strip" aria-label="Andamento por etapa, nas mesmas solicitações">
+            <span className="workflow-strip__label">Por etapa:</span>
+            {STATUS_LIST.map((item, index) => {
+              const encerrada = (STATUS_ENCERRADO as readonly Status[]).includes(item);
+              const primeiraEncerrada = encerrada && index > 0 && !(STATUS_ENCERRADO as readonly Status[]).includes(STATUS_LIST[index - 1]);
+              return (
+                <button
+                  type="button"
+                  key={item}
+                  className={[
+                    'workflow-strip__pill',
+                    encerrada ? 'workflow-strip__pill--encerrada' : '',
+                    primeiraEncerrada ? 'workflow-strip__pill--divider' : '',
+                    status === item ? 'workflow-strip__pill--active' : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={() => abrirPorStatus(item)}
+                  aria-pressed={status === item}
+                  aria-label={`${resumo.status[item]} ${resumo.status[item] === 1 ? STATUS_ARIA[item][0] : STATUS_ARIA[item][1]}. Ver lista.`}
+                >
+                  {LABEL_STATUS_PLURAL[item]} <strong>{resumo.status[item]}</strong>
+                </button>
+              );
+            })}
           </div>
         </section>
       )}

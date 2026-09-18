@@ -66,6 +66,8 @@ export interface FiltrosSolicitacoes {
 export interface ResumoSolicitacoes {
   status: Record<Status, number>;
   prioridade_aberta: Record<Prioridade, number>;
+  /** ISO 8601 da solicitação em aberto mais antiga de cada prioridade, ou null se não houver nenhuma. */
+  mais_antiga_aberta: Record<Prioridade, string | null>;
   total: number;
   filtros_aplicados: { categoria: Categoria | null; prioridade: Prioridade | null };
 }

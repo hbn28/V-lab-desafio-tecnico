@@ -129,6 +129,7 @@ describe('SolicitacoesPage', () => {
   const resumoMock = {
     status: { RECEBIDA: 1, EM_ANALISE: 1, AGENDADA: 0, CONCLUIDA: 1, CANCELADA: 0 },
     prioridade_aberta: { URGENTE: 1, ALTA: 1, MEDIA: 0, BAIXA: 0 },
+    mais_antiga_aberta: { URGENTE: '2026-09-17T08:00:00Z', ALTA: '2026-09-17T09:00:00Z', MEDIA: null, BAIXA: null },
     total: 3,
     filtros_aplicados: { categoria: null, prioridade: null },
   };
@@ -136,6 +137,9 @@ describe('SolicitacoesPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(solicitacoesApi.resumo).mockResolvedValue(resumoMock);
+    // Próximo atendimento consulta a mesma listagem com status_grupo=aberto — cada teste
+    // que precisa de outro comportamento sobrescreve com o seu próprio mockResolvedValue.
+    vi.mocked(solicitacoesApi.listar).mockResolvedValue({ data: [], total: 0, last_page: 1 });
   });
 
   it('destaca prioridades abertas com contagem global, separadas do andamento da fila', async () => {
@@ -215,6 +219,31 @@ describe('SolicitacoesPage', () => {
     });
   });
 
+  it('mostra todas as etapas na tira compacta, incluindo as encerradas, e destaca a etapa filtrada', async () => {
+    vi.mocked(solicitacoesApi.resumo).mockResolvedValue({
+      status: { RECEBIDA: 1, EM_ANALISE: 0, AGENDADA: 1, CONCLUIDA: 0, CANCELADA: 0 },
+      prioridade_aberta: { URGENTE: 0, ALTA: 2, MEDIA: 0, BAIXA: 0 },
+      mais_antiga_aberta: { URGENTE: null, ALTA: '2026-09-16T08:00:00Z', MEDIA: null, BAIXA: null },
+      total: 2,
+      filtros_aplicados: { categoria: null, prioridade: 'ALTA' },
+    });
+    vi.mocked(solicitacoesApi.listar).mockResolvedValue({ data: [], total: 0, last_page: 1 });
+
+    render(
+      <MemoryRouter>
+        <SolicitacoesPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.change(await screen.findByLabelText('Status'), { target: { value: 'CONCLUIDA' } });
+
+    const concluidas = await screen.findByRole('button', { name: /0 solicitações concluídas/ });
+    expect(concluidas).toHaveTextContent('Concluídas');
+    expect(concluidas).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /0 solicitações canceladas/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /1 solicitação recebida/ })).toHaveAttribute('aria-pressed', 'false');
+  });
+
   it('informa no painel qual filtro está sendo considerado e propaga para o resumo e o drill-down', async () => {
     vi.mocked(solicitacoesApi.listar).mockResolvedValue({
       data: [{ ...solicitacaoBase, prioridade: 'URGENTE', categoria: 'EXAME' }],
@@ -245,6 +274,38 @@ describe('SolicitacoesPage', () => {
         expect.objectContaining({ prioridade: 'URGENTE', status_grupo: 'aberto', categoria: 'EXAME' })
       );
     });
+  });
+
+  it('mostra a próxima solicitação da fila no cartão de destaque, com atalho para atender', async () => {
+    vi.mocked(solicitacoesApi.listar).mockImplementation(async (filtros) => {
+      if (filtros?.per_page === 1) {
+        return { data: [{ ...solicitacaoBase, prioridade: 'URGENTE' }], total: 1, last_page: 1 };
+      }
+      return { data: [], total: 0, last_page: 1 };
+    });
+
+    render(
+      <MemoryRouter>
+        <SolicitacoesPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Próximo atendimento')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Atender/ })).toHaveAttribute('href', '/solicitacoes/1');
+    expect(screen.queryByText(/Fila vazia/)).not.toBeInTheDocument();
+  });
+
+  it('mostra mensagem de fila vazia quando não há solicitações em aberto', async () => {
+    vi.mocked(solicitacoesApi.listar).mockResolvedValue({ data: [], total: 0, last_page: 1 });
+
+    render(
+      <MemoryRouter>
+        <SolicitacoesPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText(/Fila vazia/)).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Atender/ })).not.toBeInTheDocument();
   });
 });
 
@@ -312,6 +373,7 @@ describe('Rotas da aplicação', () => {
     vi.mocked(solicitacoesApi.resumo).mockResolvedValue({
       status: { RECEBIDA: 0, EM_ANALISE: 0, AGENDADA: 0, CONCLUIDA: 0, CANCELADA: 0 },
       prioridade_aberta: { URGENTE: 0, ALTA: 0, MEDIA: 0, BAIXA: 0 },
+      mais_antiga_aberta: { URGENTE: null, ALTA: null, MEDIA: null, BAIXA: null },
       total: 0,
       filtros_aplicados: { categoria: null, prioridade: null },
     });
