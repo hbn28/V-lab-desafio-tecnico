@@ -303,7 +303,6 @@ components:
           $ref: '#/components/schemas/Prioridade'
         descricao:
           type: string
-          minLength: 10
           maxLength: 2000
         justificativa_prioridade:
           type: string

@@ -195,8 +195,8 @@ export function SolicitacaoForm({
 
             <div className="field field--full">
               <label htmlFor="descricao">Descrição <span aria-hidden="true">*</span></label>
-              <textarea id="descricao" value={form.descricao} onChange={event => set('descricao', event.target.value)} placeholder="Descreva a solicitação de atendimento..." minLength={10} maxLength={2000} required aria-invalid={Boolean(err('descricao'))} aria-describedby={describedBy('descricao', 'descricao-helper')} />
-              <p id="descricao-helper" className="field-helper">Entre 10 e 2.000 caracteres.</p>
+              <textarea id="descricao" value={form.descricao} onChange={event => set('descricao', event.target.value)} placeholder="Descreva a solicitação de atendimento..." maxLength={2000} required aria-invalid={Boolean(err('descricao'))} aria-describedby={describedBy('descricao', 'descricao-helper')} />
+              <p id="descricao-helper" className="field-helper">Até 2.000 caracteres.</p>
               {err('descricao') && <p id="descricao-error" className="field-error">{err('descricao')}</p>}
             </div>
 

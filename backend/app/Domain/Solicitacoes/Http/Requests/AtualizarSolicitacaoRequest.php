@@ -19,7 +19,7 @@ class AtualizarSolicitacaoRequest extends FormRequest
             'data_nascimento'          => ['required', 'date_format:Y-m-d', 'before:today', 'after:1900-01-01'],
             'categoria'                => ['required', 'string', 'in:CONSULTA,EXAME,VACINACAO,OUTRO'],
             'prioridade'               => ['required', 'string', 'in:BAIXA,MEDIA,ALTA,URGENTE'],
-            'descricao'                => ['required', 'string', 'min:10', 'max:2000'],
+            'descricao'                => ['required', 'string', 'max:2000'],
             'justificativa_prioridade' => ['nullable', 'string', 'max:1000'],
             // campos que não devem ser aceitos
             'id'        => ['prohibited'],
@@ -50,7 +50,6 @@ class AtualizarSolicitacaoRequest extends FormRequest
             'prioridade.in'              => 'A prioridade deve ser uma das seguintes: BAIXA, MEDIA, ALTA, URGENTE.',
 
             'descricao.required'         => 'A descrição é obrigatória.',
-            'descricao.min'              => 'A descrição deve ter no mínimo 10 caracteres.',
             'descricao.max'              => 'A descrição não pode ter mais de 2000 caracteres.',
 
             'justificativa_prioridade.max' => 'A justificativa não pode ter mais de 1000 caracteres.',
