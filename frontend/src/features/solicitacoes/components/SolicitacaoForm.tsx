@@ -45,7 +45,7 @@ const VALORES_VAZIOS: SolicitacaoFormValues = {
 interface SolicitacaoFormProps {
   eyebrow: string;
   heading: string;
-  description: string;
+  description?: string;
   initialValues?: Partial<SolicitacaoFormValues>;
   submitLabel: string;
   submittingLabel?: string;
@@ -113,7 +113,7 @@ export function SolicitacaoForm({
         <div>
           <p className="eyebrow">{eyebrow}</p>
           <h1>{heading}</h1>
-          <p className="page-heading__description">{description}</p>
+          {description && <p className="page-heading__description">{description}</p>}
         </div>
       </header>
 
@@ -139,7 +139,6 @@ export function SolicitacaoForm({
             <span>01</span>
             <div>
               <h2 id="personal-heading">Dados da pessoa solicitante</h2>
-              <p>Use somente informações fictícias neste desafio.</p>
             </div>
           </div>
 
