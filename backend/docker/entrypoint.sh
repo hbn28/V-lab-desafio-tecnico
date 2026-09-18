@@ -18,6 +18,16 @@ try {
     sleep 2
 done
 
+if [ ! -f .env ]; then
+    echo "Criando .env a partir de .env.example..."
+    cp .env.example .env
+fi
+
+if ! grep -q '^APP_KEY=base64:' .env 2>/dev/null; then
+    echo "Gerando APP_KEY (fica salva apenas em backend/.env, fora do controle de versão)..."
+    php artisan key:generate --force
+fi
+
 echo "Banco disponível. Executando migrations..."
 php artisan migrate --force
 

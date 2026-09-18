@@ -70,14 +70,18 @@ docker compose exec frontend npm test -- --run
 
 ## Variáveis de ambiente
 
-Copie os exemplos e ajuste conforme necessário:
+As variáveis de conexão (banco, URLs, etc.) já vêm configuradas no `docker-compose.yml` para ambiente local — nenhuma senha ou credencial real está versionada.
+
+A `APP_KEY` **não** fica no `docker-compose.yml` nem em nenhum arquivo versionado: no primeiro `docker compose up`, o entrypoint do backend cria `backend/.env` a partir de `backend/.env.example` e gera a chave automaticamente (`php artisan key:generate`), salvando-a só localmente nesse arquivo (que está no `.gitignore`). Como `backend/.env` está no volume montado do host, a chave permanece estável entre reinícios (`docker compose down`/`up`) — só muda se você apagar o arquivo.
+
+Se preferir gerar os `.env` manualmente antes de subir os containers:
 
 ```bash
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 ```
 
-As variáveis já estão configuradas no `docker-compose.yml` para ambiente local. Em produção, substitua `APP_KEY`, `DB_PASSWORD` e defina `APP_ENV=production`. Nenhuma senha ou credencial real está versionada.
+Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca reutilize a de desenvolvimento.
 
 ## Funcionalidades implementadas
 

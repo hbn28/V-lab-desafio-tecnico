@@ -28,7 +28,6 @@ services:
       APP_ENV: local
       APP_DEBUG: 'true'
       APP_URL: http://localhost:8000
-      APP_KEY: base64:jSoevSTqCqkU+KkgJE0cFKS+VupgxgFHYfvp8QWWtsI=
       DB_CONNECTION: pgsql
       DB_HOST: db
       DB_PORT: 5432
