@@ -164,33 +164,24 @@ export function SolicitacoesPage() {
               );
             })}
           </div>
-        </section>
-      )}
 
-      {!resumoLoading && !resumoError && resumo && (
-        <section className="workflow-section" aria-labelledby="workflow-heading">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Fluxo de trabalho</p>
-              <h2 id="workflow-heading">Andamento da fila</h2>
-            </div>
-            <p>{encerradasTotal} encerrada{encerradasTotal === 1 ? '' : 's'} no total</p>
-          </div>
-          <dl className="workflow-list">
+          <div className="workflow-strip" aria-label="Andamento por etapa">
+            <span className="workflow-strip__label">Nas mesmas solicitações, por etapa:</span>
             {STATUS_ABERTO_LIST.map(item => (
-              <div key={item}>
-                <button
-                  type="button"
-                  className="workflow-list__trigger"
-                  onClick={() => abrirPorStatus(item)}
-                  aria-label={`${resumo.status[item]} ${resumo.status[item] === 1 ? STATUS_ARIA[item][0] : STATUS_ARIA[item][1]}. Ver lista.`}
-                >
-                  <dt>{LABEL_STATUS_ABERTO[item]}</dt>
-                  <dd>{resumo.status[item]}</dd>
-                </button>
-              </div>
+              <button
+                type="button"
+                key={item}
+                className="workflow-strip__pill"
+                onClick={() => abrirPorStatus(item)}
+                aria-label={`${resumo.status[item]} ${resumo.status[item] === 1 ? STATUS_ARIA[item][0] : STATUS_ARIA[item][1]}. Ver lista.`}
+              >
+                {LABEL_STATUS_ABERTO[item]} <strong>{resumo.status[item]}</strong>
+              </button>
             ))}
-          </dl>
+            <span className="workflow-strip__closed">
+              {encerradasTotal} encerrada{encerradasTotal === 1 ? '' : 's'}
+            </span>
+          </div>
         </section>
       )}
 

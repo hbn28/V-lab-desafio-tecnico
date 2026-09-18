@@ -213,7 +213,7 @@ p, h1, h2, h3 { margin: 0; }
 .button--small { min-height: 2.15rem; padding: 0.4rem 0.75rem; font-size: 0.8rem; }
 .button:disabled { opacity: 0.48; }
 
-.dashboard-section, .workflow-section { display: grid; gap: var(--space-3); }
+.dashboard-section { display: grid; gap: var(--space-3); }
 .dashboard-context {
   margin: 0;
   padding: var(--space-2) var(--space-4);
@@ -255,12 +255,31 @@ p, h1, h2, h3 { margin: 0; }
 .priority-card--media { --priority-accent: var(--blue-700); --priority-ink: var(--blue-700); border-color: #bfdbfe; background: var(--blue-50); }
 .priority-card--baixa { --priority-accent: var(--slate-500); --priority-ink: var(--slate-700); border-color: var(--slate-300); background: var(--slate-50); }
 
-.workflow-section { padding: var(--space-4) var(--space-5); border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-sm); }
-.workflow-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; }
-.workflow-list > div { min-height: 4.75rem; display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); background: var(--slate-50); }
-.workflow-list > div + div { border-left: 1px solid var(--color-border); }
-.workflow-list dt { color: var(--slate-600); font-size: 0.8rem; font-weight: 750; }
-.workflow-list dd { margin: 0; color: var(--navy-950); font-size: 1.4rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.workflow-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--color-border);
+  font-size: 0.82rem;
+}
+.workflow-strip__label { color: var(--color-text-secondary); }
+.workflow-strip__pill {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  background: var(--slate-50);
+  color: var(--slate-700);
+  transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
+}
+.workflow-strip__pill strong { margin-left: 0.3rem; color: var(--navy-950); font-variant-numeric: tabular-nums; }
+.workflow-strip__pill:hover { background: var(--teal-50); border-color: var(--teal-600); color: var(--teal-800); }
+.workflow-strip__pill:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.workflow-strip__closed { margin-left: auto; color: var(--color-text-secondary); }
 
 /* Painel interativo: os cartões de prioridade e os blocos de status abrem
    o drill-down (DrilldownModal) com as solicitações daquele bloco. */
@@ -277,20 +296,7 @@ p, h1, h2, h3 { margin: 0; }
 .priority-card:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
 .priority-card strong { transition: color var(--transition-fast); }
 
-.workflow-list__trigger {
-  all: unset;
-  box-sizing: border-box;
-  cursor: pointer;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  transition: background var(--transition-fast);
-}
-.workflow-list__trigger:hover { background: var(--teal-50); }
-.workflow-list__trigger:focus-visible { outline: 2px solid var(--color-focus); outline-offset: -2px; }
-.workflow-list__trigger dt, .workflow-list__trigger dd { pointer-events: none; }
+
 
 
 .panel { overflow: hidden; border: 1px solid var(--color-border); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: var(--shadow-sm); }
@@ -420,9 +426,7 @@ p, h1, h2, h3 { margin: 0; }
   .page-container { width: min(100% - 1.5rem, var(--content-width)); padding-block: var(--space-6) var(--space-10); }
   .page-heading { align-items: stretch; flex-direction: column; }
   .page-heading .button { width: 100%; }
-  .workflow-section { padding: var(--space-4); }
-  .workflow-list { grid-template-columns: 1fr; }
-  .workflow-list > div + div { border-top: 1px solid var(--color-border); border-left: 0; }
+  .workflow-strip__closed { margin-left: 0; width: 100%; }
   .filter-bar { align-items: stretch; flex-direction: column; }
   .filter-field { min-width: 0; }
   .filter-bar__clear { width: 100%; margin-left: 0; }
@@ -542,7 +546,7 @@ p, h1, h2, h3 { margin: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .priority-card, .workflow-list__trigger, .drilldown-list__item, .priority-card strong {
+  .priority-card, .workflow-strip__pill, .drilldown-list__item, .priority-card strong {
     transition: none;
   }
   .priority-card:hover { transform: none; }
