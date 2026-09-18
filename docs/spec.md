@@ -17,6 +17,8 @@ export interface Solicitacao {
   id: number;
   protocolo: string;
   nome_solicitante: string;
+  cpf_solicitante: string;
+  data_nascimento: string;
   categoria: Categoria;
   prioridade: Prioridade;
   status: Status;
@@ -54,6 +56,8 @@ Request:
 ```json
 {
   "nome_solicitante": "Maria Silva",
+  "cpf_solicitante": "123.456.789-00",
+  "data_nascimento": "1985-06-15",
   "categoria": "CONSULTA",
   "prioridade": "ALTA",
   "descricao": "Consulta de rotina em cardiologia",
@@ -66,6 +70,8 @@ Resposta 201: `{ "data": Solicitacao }`.
 | Campo | Regra |
 | --- | --- |
 | `nome_solicitante` | required, string, max:255 |
+| `cpf_solicitante` | required, string no formato `000.000.000-00`, max:14; usar apenas valor fictício |
+| `data_nascimento` | required, data `YYYY-MM-DD`, posterior a `1900-01-01` e anterior ao dia atual |
 | `categoria` | required, enum `Categoria` |
 | `prioridade` | required, enum `Prioridade` |
 | `descricao` | required, string, max:2000 |
@@ -131,6 +137,8 @@ Criar `solicitacoes` e `protocolo_counters` antes dos endpoints.
 - `id`: bigint, PK;
 - `protocolo`: string, unique;
 - `nome_solicitante`: string;
+- `cpf_solicitante`: string de 14 caracteres;
+- `data_nascimento`: date;
 - `categoria`, `prioridade`, `status`: string com CHECK;
 - `descricao`: text;
 - `justificativa_prioridade`: text nullable;

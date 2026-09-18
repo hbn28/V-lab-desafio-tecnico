@@ -4,29 +4,32 @@ Reescrito a cada rodada pelo agente que acabou de trabalhar. O próximo agente (
 
 ## Última tarefa concluída
 
-Planejamento completo de bônus: health check, middleware RequestId + logs estruturados JSON, seeders idempotentes com entrypoint condicional (`APP_SEED`), CI com PostgreSQL, e `docs/architecture.md` com esqueleto Mermaid e tabela de decisões. Todos os artefatos de planejamento atualizados: `AGENTS.md`, `docs/spec.md`, `TASKS.md`, `prompts/arquitetura-inicial.md` e `docs/architecture.md`.
+Aplicação da direção visual **A — Institucional contemporâneo** no frontend React:
+
+- design system documentado em `docs/design-system.md` e implementado com tokens primitivos/semânticos em `frontend/src/index.css`;
+- rota `/` transformada na tela inicial real; `/solicitacoes` preservada como redirecionamento compatível;
+- dashboard com resumo por status explicitamente limitado à página carregada;
+- listagem, filtros, paginação, estados assíncronos e adaptação da tabela para celular;
+- formulário acessível com labels associados, erros inline e resumo focalizável;
+- detalhe responsivo com feedback de sucesso/erro para atualização de status;
+- contrato interno alinhado aos campos já implementados `cpf_solicitante` e `data_nascimento`, sem migration nova e sem alteração nos endpoints.
+
+Testes TDD adicionados para rota inicial, resumo por status, associação dos campos e foco do resumo de erro.
 
 ## Próxima tarefa
 
-**Arquitetura inicial** — ver `prompts/arquitetura-inicial.md` (atualizado).
-
-O prompt de arquitetura inicial agora inclui na mesma rodada:
-- `RequestId` middleware (custo baixo, registrado em `bootstrap/app.php`)
-- `HealthController` com rota `GET /api/v1/health`
-- `entrypoint.sh` com migrate + seed condicional
-
-Isso garante que health check e request-id estejam desde o primeiro commit, sem rodada extra.
+**Frontend: formulário de criação com validação** — revisar cobertura de cenários do formulário e marcar a tarefa somente quando os comportamentos obrigatórios estiverem protegidos.
 
 ## Bloqueios conhecidos
 
-Nenhum bloqueio ativo. O PDF oficial está em `C:\Users\Heitor\Downloads\DesafioTecnico_FullStack.docx.pdf` e deve ser preservado como referência.
+- Nenhum bloqueio funcional identificado.
+- `npm install` reporta advisories em dependências de desenvolvimento; não executar correção forçada sem avaliar breaking changes.
+- Vitest precisa ser executado fora da restrição local de leitura neste ambiente, pois o carregamento do `vite.config.ts` tenta acessar diretórios ancestrais.
+- `npm run lint` não inicia porque o projeto usa ESLint 9 sem `eslint.config.js`; criar a configuração deve ser uma tarefa corretiva explícita.
 
-## Estado dos arquivos de planejamento
+## Estado de verificação desta rodada
 
-- `AGENTS.md` — inclui convenções de health check, RequestId, seeders, CI e architecture.md
-- `docs/spec.md` — inclui especificação completa de todos os bônus com código de referência
-- `docs/architecture.md` — esqueleto com diagrama Mermaid, tabela de decisões e visão de evolução
-- `docs/plano-tecnico.md` — plano base (não alterado; spec.md é a fonte de verdade)
-- `TASKS.md` — bônus separados em seção própria com ordem de prioridade
-- `prompts/arquitetura-inicial.md` — inclui health check e RequestId na rodada 1
-- `prompts/rodada.md` — prompt genérico para rodadas subsequentes (não alterado)
+- `npm test -- --run`: 6 testes passaram.
+- `npm run build`: passou.
+- `npm run lint`: bloqueado antes da análise por ausência de `eslint.config.js`.
+- Inspeção visual desktop: dashboard e formulário conferidos no navegador local.
