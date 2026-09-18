@@ -241,10 +241,13 @@ components:
           minLength: 3
         cpf_solicitante:
           type: string
+          pattern: '^\d{3}\.\d{3}\.\d{3}-\d{2}$'
+          maxLength: 14
           example: '123.456.789-00'
         data_nascimento:
           type: string
           format: date
+          description: Formato AAAA-MM-DD. Deve ser anterior à data atual.
         categoria:
           $ref: '#/components/schemas/Categoria'
         prioridade:
@@ -252,6 +255,7 @@ components:
         descricao:
           type: string
           minLength: 10
+          maxLength: 2000
         justificativa_prioridade:
           type: string
           description: Obrigatório quando prioridade=URGENTE

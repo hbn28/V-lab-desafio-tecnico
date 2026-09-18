@@ -89,3 +89,31 @@ test('dois protocolos gerados são únicos e sequenciais', function () {
     $num2 = (int) substr($r2->json('data.protocolo'), -4);
     expect($num2)->toBe($num1 + 1);
 });
+
+test('rejeita cpf em formato inválido', function () {
+    $payload = payloadValido();
+    $payload['cpf_solicitante'] = '12345678900'; // sem pontuação
+
+    $response = $this->postJson('/api/v1/solicitacoes', $payload);
+
+    $response->assertStatus(422)
+        ->assertJsonStructure(['message', 'errors' => ['cpf_solicitante']]);
+});
+
+test('rejeita data de nascimento no futuro', function () {
+    $payload = payloadValido();
+    $payload['data_nascimento'] = date('Y-m-d', strtotime('+1 year'));
+
+    $response = $this->postJson('/api/v1/solicitacoes', $payload);
+
+    $response->assertStatus(422)
+        ->assertJsonStructure(['message', 'errors' => ['data_nascimento']]);
+});
+
+test('retorna cpf e data_nascimento na resposta', function () {
+    $response = $this->postJson('/api/v1/solicitacoes', payloadValido());
+
+    $response->assertStatus(201)
+        ->assertJsonPath('data.cpf_solicitante', '123.456.789-00')
+        ->assertJsonPath('data.data_nascimento', '1985-06-15');
+});
