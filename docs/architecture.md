@@ -64,14 +64,17 @@ backend/
 │   │   └── Solicitacoes/
 │   │       ├── Actions/
 │   │       │   ├── CriarSolicitacao.php       # lógica de negócio + protocolo
-│   │       │   └── AtualizarStatusSolicitacao.php  # máquina de estados
+│   │       │   ├── AtualizarSolicitacao.php   # edição de dados abertos
+│   │       │   ├── AtualizarStatusSolicitacao.php  # máquina de estados
+│   │       │   └── ApagarSolicitacao.php      # extensão documentada
 │   │       └── Http/
 │   │           ├── Controllers/
 │   │           │   └── SolicitacaoController.php  # thin controller
 │   │           ├── Requests/
 │   │           │   ├── CriarSolicitacaoRequest.php
 │   │           │   ├── ListarSolicitacoesRequest.php
-│   │           │   └── AtualizarStatusRequest.php
+│   │           │   ├── AtualizarStatusRequest.php
+│   │           │   └── AtualizarSolicitacaoRequest.php
 │   │           └── Resources/
 │   │               └── SolicitacaoResource.php
 │   ├── Http/
@@ -104,6 +107,7 @@ backend/
 | Seeders idempotentes | `firstOrCreate(['protocolo' => ...])` | `db:seed` pode rodar N vezes sem duplicar dados |
 | Logs estruturados | JSON via `JsonFormatter` → stderr | Compatível com Loki/CloudWatch sem parsear texto |
 | Error envelope único | `{message, errors}` em todos os erros | Frontend trata erros de forma uniforme |
+| Fila operacional | Abertas, prioridade descendente, mais antigas primeiro | Mantém a ordem de atenção estável com paginação |
 
 ## Evolução Futura
 
@@ -111,3 +115,7 @@ backend/
 - **Fila de notificações:** Job `NotificarSolicitante` via `database` driver → SQS em produção
 - **Eventos de domínio:** `SolicitacaoStatusAtualizado` → listeners desacoplados
 - **Microsserviços:** Health + Solicitações já estão em namespaces separados — isolamento trivial
+
+## Operação da fila
+
+A listagem é ordenada no backend: solicitações ativas aparecem antes das encerradas; dentro de cada grupo, a prioridade é `URGENTE`, `ALTA`, `MEDIA`, `BAIXA`; empates usam a data de criação mais antiga e o `id` como desempate. O frontend apenas comunica essa regra e não reordena a resposta.

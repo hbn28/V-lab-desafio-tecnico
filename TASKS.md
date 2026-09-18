@@ -1,28 +1,29 @@
-# TASKS.md
+# Fila de tarefas
 
-Fila de tarefas em ordem de dependência e valor para o edital.
+Estado reconciliado em 2026-09-18. O CI permanece deliberadamente fora desta rodada.
 
-- [ ] Arquitetura inicial: stack, pastas, migrations, Docker Compose, tipos e OpenAPI base — ver `prompts/arquitetura-inicial.md`
-- [ ] Backend: criar solicitação, protocolo concorrente e validações
-- [ ] Backend: listar com filtros/paginação e consultar detalhe
-- [ ] Backend: atualizar status com transação, lock e erros padronizados
+- [x] Arquitetura inicial: stack, pastas, migrations, Docker Compose, tipos e OpenAPI base
+- [x] Backend: criar solicitação, protocolo concorrente e validações
+- [x] Backend: listar com filtros/paginação e consultar detalhe
+- [x] Backend: atualizar status com transação, lock e erros padronizados
 - [x] Frontend: estrutura visual, resumo inicial, listagem, filtros e paginação
-- [ ] Frontend: formulário de criação com validação
-- [ ] Frontend: detalhe e atualização de status
-- [ ] Integração real frontend → Laravel → PostgreSQL e quatro estados assíncronos
-- [ ] Testes backend em PostgreSQL: regras, constraints, concorrência e filtros inválidos
-- [ ] Teste frontend relevante com cliente HTTP mockado
-- [ ] Correção: adicionar `eslint.config.js` compatível com ESLint 9 e validar `npm run lint`
-- [ ] Segurança e configuração: erros centrais, CORS, `.env.example`, APP_KEY e dados fictícios
-- [ ] Completar `docs/openapi.yaml` com os quatro endpoints + health check e códigos principais
-- [ ] README e `docs/architecture.md`, incluindo execução, limitações e uso de IA
-- [ ] Revisão eliminatória em ambiente limpo com Docker Compose
+- [x] Frontend: formulário de criação com validação e erros acessíveis
+- [x] Frontend: detalhe e atualização de status
+- [x] Integração real frontend → Laravel → PostgreSQL e quatro estados assíncronos
+- [ ] Testes backend em PostgreSQL: ampliar concorrência, constraints e filtros inválidos — bloqueado até Docker/PostgreSQL disponível
+- [x] Teste frontend relevante com cliente HTTP mockado
+- [x] Correção: adicionar `eslint.config.mjs` compatível com ESLint 9 e validar `npm run lint`
+- [x] Segurança e configuração: erros centrais, CORS, `.env.example`, APP_KEY e dados fictícios
+- [x] Completar `docs/openapi.yaml` com os endpoints implementados e códigos principais
+- [x] README, `docs/architecture.md`, mapa do código e manual de agentes
+- [ ] Revisão eliminatória em ambiente limpo com Docker Compose — bloqueada porque o daemon Docker não está disponível
+- [x] Fila operacional: estados ativos, prioridade descendente, mais antigas primeiro, com teste de feature e documentação
 
-## Bônus (implementar nesta ordem, somente após a base sólida)
+## Bônus
 
-- [ ] Bônus: seeders/factories fictícios e idempotentes (chama-os `php artisan db:seed` no entrypoint do backend se `APP_SEED=true`)
-- [ ] Bônus: health check da API (`GET /api/v1/health`) e verificação PostgreSQL via `DB::select('SELECT 1')`
-- [ ] Bônus: middleware `RequestId` que propaga/gera `X-Request-ID` e logs estruturados JSON com `request_id`, `method`, `path`, `status`, `duration_ms`
-- [ ] Bônus: CI com lint (Pint + ESLint), testes (Pest + Vitest) e build usando PostgreSQL — ver `.github/workflows/ci.yml`
-- [ ] Bônus: `docs/architecture.md` com diagrama Mermaid, decisões e visão de evolução para microsserviços
-- [ ] Bônus opcional final: autenticação/autorização simples, somente após contrato e testes próprios
+- [x] Seeders/factories fictícios e idempotentes
+- [x] Health check da API e verificação PostgreSQL
+- [x] Middleware `RequestId` e logs estruturados JSON
+- [ ] CI com lint, testes e build — fora do escopo autorizado nesta rodada
+- [x] `docs/architecture.md` com decisões e visão de evolução
+- [ ] Autenticação/autorização simples — opcional, adiada até o contrato base estar consolidado

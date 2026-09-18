@@ -16,6 +16,7 @@ dist/
 *.swp
 *.tmp
 *.tsbuildinfo
+graphify-out/
 
 .agents/
 .superpowers/

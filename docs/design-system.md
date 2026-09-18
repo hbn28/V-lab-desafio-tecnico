@@ -70,6 +70,8 @@ A interface consome somente os quatro endpoints documentados. As opções de tra
 
 O resumo atual é explicitamente “desta página”, pois é calculado a partir da resposta paginada. Não deve ser apresentado como total global sem um contrato de API próprio para agregação.
 
+A listagem principal comunica a ordem da fila: estados ativos, prioridade descendente e maior tempo de espera. Como essa ordenação é aplicada pela API, a interface não deve reordenar a página localmente.
+
 ## Checklist de manutenção
 
 - Preservar contraste WCAG AA e foco visível.

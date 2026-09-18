@@ -87,7 +87,9 @@ Query: `status`, `categoria`, `prioridade`, `page`, `per_page`.
 - enums desconhecidos retornam 422;
 - `page` deve ser inteiro >= 1;
 - `per_page` deve ser inteiro entre 1 e 100, padrão 15;
-- ordenação fixa: `created_at DESC`, com `id DESC` como desempate.
+- ordenação fixa da fila operacional: solicitações abertas primeiro; depois `URGENTE`, `ALTA`, `MEDIA`, `BAIXA`; dentro da mesma prioridade, `created_at ASC` (mais antiga primeiro), com `id ASC` como desempate.
+
+Solicitações `CONCLUIDA` e `CANCELADA` permanecem disponíveis na listagem, mas ficam depois dos estados ativos. A ordenação é aplicada no backend para permanecer consistente entre páginas e consumidores da API.
 
 Resposta 200:
 
