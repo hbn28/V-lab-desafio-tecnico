@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import App from '../App';
 import { NovaSolicitacaoPage } from '../features/solicitacoes/pages/NovaSolicitacaoPage';
@@ -12,6 +12,7 @@ vi.mock('../features/solicitacoes/api/client', () => ({
   solicitacoesApi: {
     criar: vi.fn(),
     listar: vi.fn(),
+    resumo: vi.fn(),
     buscar: vi.fn(),
     atualizarStatus: vi.fn(),
     atualizar: vi.fn(),
@@ -125,11 +126,19 @@ describe('NovaSolicitacaoPage', () => {
 });
 
 describe('SolicitacoesPage', () => {
+  const resumoMock = {
+    status: { RECEBIDA: 1, EM_ANALISE: 1, AGENDADA: 0, CONCLUIDA: 1, CANCELADA: 0 },
+    prioridade_aberta: { URGENTE: 1, ALTA: 1, MEDIA: 0, BAIXA: 0 },
+    total: 3,
+    filtros_aplicados: { categoria: null, prioridade: null },
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(solicitacoesApi.resumo).mockResolvedValue(resumoMock);
   });
 
-  it('destaca prioridades abertas separadamente do andamento da fila', async () => {
+  it('destaca prioridades abertas com contagem global, separadas do andamento da fila', async () => {
     vi.mocked(solicitacoesApi.listar).mockResolvedValue({
       data: [
         { ...solicitacaoBase, prioridade: 'URGENTE' },
@@ -146,12 +155,97 @@ describe('SolicitacoesPage', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByRole('heading', { name: 'Prioridades em aberto nesta página' })).toBeInTheDocument();
-    expect(screen.getByLabelText('1 solicitação urgente em aberto')).toBeInTheDocument();
-    expect(screen.getByLabelText('1 solicitação de prioridade alta em aberto')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Prioridades em aberto' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /1 solicitação urgente em aberto/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /1 solicitação de prioridade alta em aberto/ })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Andamento da fila' })).toBeInTheDocument();
     expect(screen.getByText('Recebidas', { selector: 'dt' })).toBeInTheDocument();
     expect(screen.getByText('Em análise', { selector: 'dt' })).toBeInTheDocument();
+  });
+
+  it('abre o drill-down com a lista filtrada ao clicar em um bloco de prioridade', async () => {
+    vi.mocked(solicitacoesApi.listar).mockResolvedValue({
+      data: [{ ...solicitacaoBase, prioridade: 'URGENTE' }],
+      total: 1,
+      last_page: 1,
+    });
+
+    render(
+      <MemoryRouter>
+        <SolicitacoesPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /1 solicitação urgente em aberto/ }));
+
+    expect(await screen.findByRole('heading', { name: 'Urgente em aberto' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(solicitacoesApi.listar).toHaveBeenCalledWith(
+        expect.objectContaining({ prioridade: 'URGENTE', status_grupo: 'aberto', per_page: 50 })
+      );
+    });
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('SOL-2026-0001')).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Fechar' }));
+    await waitFor(() => {
+      expect(screen.queryByRole('heading', { name: 'Urgente em aberto' })).not.toBeInTheDocument();
+    });
+  });
+
+  it('abre o drill-down por status ao clicar em um bloco do andamento da fila', async () => {
+    vi.mocked(solicitacoesApi.listar).mockResolvedValue({
+      data: [{ ...solicitacaoBase, status: 'RECEBIDA' }],
+      total: 1,
+      last_page: 1,
+    });
+
+    render(
+      <MemoryRouter>
+        <SolicitacoesPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: /1 solicitação recebida/ }));
+
+    expect(await screen.findByRole('heading', { name: 'Recebidas' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(solicitacoesApi.listar).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'RECEBIDA', per_page: 50 })
+      );
+    });
+  });
+
+  it('informa no painel qual filtro está sendo considerado e propaga para o resumo e o drill-down', async () => {
+    vi.mocked(solicitacoesApi.listar).mockResolvedValue({
+      data: [{ ...solicitacaoBase, prioridade: 'URGENTE', categoria: 'EXAME' }],
+      total: 1,
+      last_page: 1,
+    });
+
+    render(
+      <MemoryRouter>
+        <SolicitacoesPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText(/todas as solicitações/)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Categoria'), { target: { value: 'EXAME' } });
+
+    await waitFor(() => {
+      expect(solicitacoesApi.resumo).toHaveBeenCalledWith(
+        expect.objectContaining({ categoria: 'EXAME' })
+      );
+    });
+    expect(await screen.findByText(/categoria Exame/)).toBeInTheDocument();
+
+    fireEvent.click(await screen.findByRole('button', { name: /solicitação urgente em aberto/ }));
+    await waitFor(() => {
+      expect(solicitacoesApi.listar).toHaveBeenCalledWith(
+        expect.objectContaining({ prioridade: 'URGENTE', status_grupo: 'aberto', categoria: 'EXAME' })
+      );
+    });
   });
 });
 
@@ -216,6 +310,12 @@ describe('Rotas da aplicação', () => {
     vi.clearAllMocks();
     window.history.pushState({}, '', '/');
     vi.mocked(solicitacoesApi.listar).mockResolvedValue({ data: [], total: 0, last_page: 1 });
+    vi.mocked(solicitacoesApi.resumo).mockResolvedValue({
+      status: { RECEBIDA: 0, EM_ANALISE: 0, AGENDADA: 0, CONCLUIDA: 0, CANCELADA: 0 },
+      prioridade_aberta: { URGENTE: 0, ALTA: 0, MEDIA: 0, BAIXA: 0 },
+      total: 0,
+      filtros_aplicados: { categoria: null, prioridade: null },
+    });
   });
 
   it('mantém o dashboard na rota inicial definida pelo contrato', async () => {

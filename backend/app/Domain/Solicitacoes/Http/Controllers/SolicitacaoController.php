@@ -6,10 +6,12 @@ use App\Domain\Solicitacoes\Actions\ApagarSolicitacao;
 use App\Domain\Solicitacoes\Actions\AtualizarSolicitacao;
 use App\Domain\Solicitacoes\Actions\AtualizarStatusSolicitacao;
 use App\Domain\Solicitacoes\Actions\CriarSolicitacao;
+use App\Domain\Solicitacoes\Actions\ObterResumoSolicitacoes;
 use App\Domain\Solicitacoes\Http\Requests\AtualizarSolicitacaoRequest;
 use App\Domain\Solicitacoes\Http\Requests\AtualizarStatusRequest;
 use App\Domain\Solicitacoes\Http\Requests\CriarSolicitacaoRequest;
 use App\Domain\Solicitacoes\Http\Requests\ListarSolicitacoesRequest;
+use App\Domain\Solicitacoes\Http\Requests\ResumoSolicitacoesRequest;
 use App\Domain\Solicitacoes\Http\Resources\SolicitacaoResource;
 use App\Models\Solicitacao;
 use Illuminate\Http\JsonResponse;
@@ -23,6 +25,7 @@ class SolicitacaoController
         private readonly AtualizarSolicitacao $atualizarSolicitacao,
         private readonly AtualizarStatusSolicitacao $atualizarStatus,
         private readonly ApagarSolicitacao $apagarSolicitacao,
+        private readonly ObterResumoSolicitacoes $obterResumo,
     ) {}
 
     public function store(CriarSolicitacaoRequest $request): JsonResponse
@@ -46,6 +49,10 @@ class SolicitacaoController
 
         if ($status = $request->validated('status')) {
             $query->where('status', $status);
+        } elseif ($request->validated('status_grupo') === 'aberto') {
+            // Usado pelo drill-down do painel: "Urgente em aberto" etc.
+            // não corresponde a um único status, e sim a RECEBIDA/EM_ANALISE/AGENDADA.
+            $query->whereNotIn('status', ['CONCLUIDA', 'CANCELADA']);
         }
         if ($categoria = $request->validated('categoria')) {
             $query->where('categoria', $categoria);
@@ -58,6 +65,16 @@ class SolicitacaoController
         $paginated = $query->paginate($perPage);
 
         return SolicitacaoResource::collection($paginated);
+    }
+
+    public function resumo(ResumoSolicitacoesRequest $request): JsonResponse
+    {
+        $resumo = $this->obterResumo->execute(
+            $request->validated('categoria'),
+            $request->validated('prioridade'),
+        );
+
+        return response()->json(['data' => $resumo]);
     }
 
     public function show(int $id): JsonResponse
