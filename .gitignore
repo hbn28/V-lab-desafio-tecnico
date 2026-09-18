@@ -11,13 +11,17 @@ coverage/
 dist/
 .idea/
 .vscode/
-.agents/
-.claude/
 *.swp
 *.tmp
 *.tsbuildinfo
-graphify-out/
 
+# Controle de agentes de IA (não vai para o GitHub)
+AGENTS.md
+CLAUDE.md
+HANDOFF.md
+TASKS.md
+prompts/
 .agents/
 .superpowers/
 .claude/
+graphify-out/
