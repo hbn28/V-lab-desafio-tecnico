@@ -20,6 +20,22 @@ export function SolicitacaoDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    if (!data) return;
+    if (!window.confirm(`Apagar a solicitação ${data.protocolo} definitivamente? Esta ação não pode ser desfeita.`)) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await solicitacoesApi.apagar(data.id.toString());
+      navigate('/');
+    } catch (caught: unknown) {
+      setDeleteError(caught instanceof Error ? caught.message : 'Erro ao apagar solicitação');
+      setDeleting(false);
+    }
+  };
 
   const handleStatusChange = async (novoStatus: Status) => {
     if (!data) return;
@@ -84,8 +100,22 @@ export function SolicitacaoDetailPage() {
           <h1>{data.protocolo}</h1>
           <p className="page-heading__description">Consulte os dados cadastrados e avance o atendimento conforme o fluxo permitido.</p>
         </div>
-        <StatusBadge status={data.status} />
+        <div className="detail-header-actions">
+          <StatusBadge status={data.status} />
+          {transicoes.length > 0 && (
+            <Link to={`/solicitacoes/${id}/editar`} className="button button--outline button--small">Editar</Link>
+          )}
+          <button onClick={handleDelete} disabled={deleting} className="button button--outline button--small button--danger-outline" type="button">
+            {deleting ? 'Apagando...' : 'Apagar'}
+          </button>
+        </div>
       </header>
+
+      {deleteError && (
+        <div className="alert alert--error" role="alert">
+          <p>{deleteError}</p>
+        </div>
+      )}
 
       <div className="detail-layout">
         <article className="panel detail-card" aria-labelledby="detail-heading">

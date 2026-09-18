@@ -51,6 +51,8 @@ export interface AtualizarStatusPayload {
   status: Status;
 }
 
+export type AtualizarSolicitacaoPayload = CriarSolicitacaoPayload;
+
 export interface FiltrosSolicitacoes {
   status?: Status;
   categoria?: Categoria;

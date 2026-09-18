@@ -1,4 +1,5 @@
 import type {
+  AtualizarSolicitacaoPayload,
   CriarSolicitacaoPayload,
   FiltrosSolicitacoes,
   ListaSolicitacoes,
@@ -110,5 +111,22 @@ export const solicitacoesApi = {
       throw new Error('Não foi possível confirmar a atualização do status. Tente novamente.');
     }
     return res.data;
+  },
+
+  async atualizar(id: string, payload: AtualizarSolicitacaoPayload): Promise<Solicitacao> {
+    const res = await request<{ data: Solicitacao }>(`/api/v1/solicitacoes/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (!res?.data) {
+      throw new Error('Não foi possível confirmar a edição da solicitação. Tente novamente.');
+    }
+    return res.data;
+  },
+
+  async apagar(id: string): Promise<void> {
+    await request<unknown>(`/api/v1/solicitacoes/${id}`, {
+      method: 'DELETE',
+    });
   },
 };

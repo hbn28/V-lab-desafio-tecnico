@@ -2,8 +2,11 @@
 
 namespace App\Domain\Solicitacoes\Http\Controllers;
 
+use App\Domain\Solicitacoes\Actions\ApagarSolicitacao;
+use App\Domain\Solicitacoes\Actions\AtualizarSolicitacao;
 use App\Domain\Solicitacoes\Actions\AtualizarStatusSolicitacao;
 use App\Domain\Solicitacoes\Actions\CriarSolicitacao;
+use App\Domain\Solicitacoes\Http\Requests\AtualizarSolicitacaoRequest;
 use App\Domain\Solicitacoes\Http\Requests\AtualizarStatusRequest;
 use App\Domain\Solicitacoes\Http\Requests\CriarSolicitacaoRequest;
 use App\Domain\Solicitacoes\Http\Requests\ListarSolicitacoesRequest;
@@ -11,12 +14,15 @@ use App\Domain\Solicitacoes\Http\Resources\SolicitacaoResource;
 use App\Models\Solicitacao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\ResourceCollection;
+use Illuminate\Http\Response;
 
 class SolicitacaoController
 {
     public function __construct(
         private readonly CriarSolicitacao $criarSolicitacao,
+        private readonly AtualizarSolicitacao $atualizarSolicitacao,
         private readonly AtualizarStatusSolicitacao $atualizarStatus,
+        private readonly ApagarSolicitacao $apagarSolicitacao,
     ) {}
 
     public function store(CriarSolicitacaoRequest $request): JsonResponse
@@ -57,11 +63,27 @@ class SolicitacaoController
         return (new SolicitacaoResource($solicitacao))->response();
     }
 
+    public function update(AtualizarSolicitacaoRequest $request, int $id): JsonResponse
+    {
+        $solicitacao = Solicitacao::findOrFail($id);
+        $atualizada  = $this->atualizarSolicitacao->execute($solicitacao, $request->validated());
+
+        return (new SolicitacaoResource($atualizada))->response();
+    }
+
     public function updateStatus(AtualizarStatusRequest $request, int $id): JsonResponse
     {
         $solicitacao = Solicitacao::findOrFail($id);
         $atualizada  = $this->atualizarStatus->execute($solicitacao, $request->validated('status'));
 
         return (new SolicitacaoResource($atualizada))->response();
+    }
+
+    public function destroy(int $id): Response
+    {
+        $solicitacao = Solicitacao::findOrFail($id);
+        $this->apagarSolicitacao->execute($solicitacao);
+
+        return response()->noContent();
     }
 }
