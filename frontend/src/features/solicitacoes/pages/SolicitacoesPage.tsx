@@ -37,7 +37,7 @@ export function SolicitacoesPage() {
 
   const statusCounts = useMemo(() => {
     const counts = Object.fromEntries(STATUS_LIST.map(item => [item, 0])) as Record<Status, number>;
-    data?.data.forEach(item => { counts[item.status] += 1; });
+    data?.data?.forEach(item => { counts[item.status] += 1; });
     return counts;
   }, [data]);
 
@@ -73,7 +73,7 @@ export function SolicitacoesPage() {
               <p className="eyebrow">Visão operacional</p>
               <h2 id="summary-heading">Resumo desta página</h2>
             </div>
-            <p>{data.data.length} de {data.total} solicitações</p>
+            <p>{data?.data?.length ?? 0} de {data?.total ?? 0} solicitações</p>
           </div>
           <div className="summary-grid">
             {STATUS_LIST.map(item => {
@@ -150,7 +150,7 @@ export function SolicitacoesPage() {
           </div>
         )}
 
-        {!loading && !error && data?.data.length === 0 && (
+        {!loading && !error && (data?.data?.length ?? -1) === 0 && (
           <div className="state-view">
             <span className="state-view__icon" aria-hidden="true">○</span>
             <strong>{hasFilters ? 'Nenhum resultado para estes filtros' : 'Nenhuma solicitação cadastrada'}</strong>
@@ -163,7 +163,7 @@ export function SolicitacoesPage() {
           </div>
         )}
 
-        {!loading && !error && data && data.data.length > 0 && (
+        {!loading && !error && data && (data.data?.length ?? 0) > 0 && (
           <>
             <div className="table-wrap">
               <table className="requests-table">
@@ -179,7 +179,7 @@ export function SolicitacoesPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.data.map(request => (
+                  {data.data?.map(request => (
                     <tr key={request.id}>
                       <td data-label="Protocolo">
                         <Link to={`/solicitacoes/${request.id}`} className="protocol-link">{request.protocolo}</Link>
