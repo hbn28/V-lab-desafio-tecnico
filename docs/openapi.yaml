@@ -115,6 +115,55 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+    put:
+      tags: [solicitacoes]
+      summary: Editar dados cadastrais da solicitação
+      description: >-
+        Extensão fora do fluxo obrigatório do edital (que define apenas criar,
+        listar/consultar, filtrar e atualizar status). Permite corrigir dados
+        cadastrais de uma solicitação que ainda não está em estado final.
+      operationId: atualizarSolicitacao
+      parameters:
+        - $ref: '#/components/parameters/SolicitacaoId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CriarSolicitacaoBody'
+      responses:
+        '200':
+          description: Solicitação atualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SolicitacaoResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Solicitação em estado final (CONCLUIDA ou CANCELADA) não pode ser editada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      tags: [solicitacoes]
+      summary: Apagar solicitação definitivamente
+      description: >-
+        Extensão fora do fluxo obrigatório do edital. Remove o registro
+        (hard delete), permitido em qualquer estado.
+      operationId: apagarSolicitacao
+      parameters:
+        - $ref: '#/components/parameters/SolicitacaoId'
+      responses:
+        '204':
+          description: Solicitação apagada com sucesso (sem corpo)
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /solicitacoes/{id}/status:
     patch:
       tags: [solicitacoes]

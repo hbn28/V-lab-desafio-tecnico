@@ -49,8 +49,12 @@ docker compose down -v && docker compose up --build
 | POST | `/api/v1/solicitacoes` | Criar solicitação |
 | GET | `/api/v1/solicitacoes/{id}` | Buscar detalhes por ID |
 | PATCH | `/api/v1/solicitacoes/{id}/status` | Atualizar status |
+| PUT | `/api/v1/solicitacoes/{id}` | *(extensão)* Editar dados cadastrais — bloqueado se status for final |
+| DELETE | `/api/v1/solicitacoes/{id}` | *(extensão)* Apagar solicitação definitivamente |
 
 Filtros disponíveis em `GET /api/v1/solicitacoes`: `status`, `categoria`, `prioridade`, `page`, `per_page`.
+
+> As rotas `PUT` e `DELETE` são uma extensão fora do fluxo obrigatório do edital (criar, listar/consultar, filtrar, atualizar status). O edital não define nem proíbe editar/apagar, e permite explicitamente estender as rotas sugeridas desde que documentadas e consistentes (seção 2.3-C). Detalhes em [`docs/spec.md`](docs/spec.md#extensão-além-do-edital--editar-e-apagar).
 
 Documentação completa (OpenAPI): [`docs/openapi.yaml`](docs/openapi.yaml)
 
@@ -81,6 +85,8 @@ As variáveis já estão configuradas no `docker-compose.yml` para ambiente loca
 - Listar solicitações com paginação e filtros por status, categoria e prioridade
 - Visualizar detalhes de uma solicitação
 - Atualizar status respeitando a máquina de estados
+- Editar dados cadastrais de uma solicitação em aberto *(extensão fora do edital)*
+- Apagar uma solicitação definitivamente *(extensão fora do edital)*
 - Tela inicial com resumo por status e prioridade
 - Estados visuais de carregamento, erro, vazio e sucesso
 - Validação de entradas com mensagens em português
