@@ -13,12 +13,14 @@ class CriarSolicitacao
             $protocolo = $this->gerarProtocolo();
 
             return Solicitacao::create([
-                'protocolo'               => $protocolo,
-                'nome_solicitante'        => $data['nome_solicitante'],
-                'categoria'               => $data['categoria'],
-                'prioridade'              => $data['prioridade'],
-                'status'                  => 'RECEBIDA',
-                'descricao'               => $data['descricao'],
+                'protocolo'                => $protocolo,
+                'nome_solicitante'         => $data['nome_solicitante'],
+                'cpf_solicitante'          => $data['cpf_solicitante'],
+                'data_nascimento'          => $data['data_nascimento'],
+                'categoria'                => $data['categoria'],
+                'prioridade'               => $data['prioridade'],
+                'status'                   => 'RECEBIDA',
+                'descricao'                => $data['descricao'],
                 'justificativa_prioridade' => $data['justificativa_prioridade'] ?? null,
             ]);
         });
@@ -28,13 +30,11 @@ class CriarSolicitacao
     {
         $ano = (int) now()->utc()->format('Y');
 
-        // Garante que a linha do ano existe sem duplicar
         DB::statement(
             'INSERT INTO protocolo_counters (ano, ultimo_numero) VALUES (?, 0) ON CONFLICT (ano) DO NOTHING',
             [$ano]
         );
 
-        // Lê e incrementa com lock exclusivo
         $counter = DB::table('protocolo_counters')
             ->where('ano', $ano)
             ->lockForUpdate()

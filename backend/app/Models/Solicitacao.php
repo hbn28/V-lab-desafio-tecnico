@@ -14,6 +14,8 @@ class Solicitacao extends Model
     protected $fillable = [
         'protocolo',
         'nome_solicitante',
+        'cpf_solicitante',
+        'data_nascimento',
         'categoria',
         'prioridade',
         'status',
@@ -22,7 +24,8 @@ class Solicitacao extends Model
     ];
 
     protected $casts = [
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'data_nascimento' => 'date',
+        'created_at'      => 'datetime',
+        'updated_at'      => 'datetime',
     ];
 }

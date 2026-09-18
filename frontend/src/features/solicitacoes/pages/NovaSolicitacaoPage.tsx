@@ -4,6 +4,16 @@ import { solicitacoesApi } from '../api/client';
 import type { Categoria, Prioridade } from '../types';
 import { LABEL_CATEGORIA, LABEL_PRIORIDADE } from '../types';
 
+
+function formatarCPF(valor: string): string {
+  // Remove tudo que não for número
+  const numeros = valor.replace(/\D/g, '').slice(0, 11);
+  if (numeros.length <= 3) return numeros;
+  if (numeros.length <= 6) return `${numeros.slice(0, 3)}.${numeros.slice(3)}`;
+  if (numeros.length <= 9) return `${numeros.slice(0, 3)}.${numeros.slice(3, 6)}.${numeros.slice(6)}`;
+  return `${numeros.slice(0, 3)}.${numeros.slice(3, 6)}.${numeros.slice(6, 9)}-${numeros.slice(9)}`;
+}
+
 interface FormErrors { [key: string]: string[] }
 
 const inputStyle: React.CSSProperties = {
@@ -86,7 +96,7 @@ export function NovaSolicitacaoPage() {
           <div style={fieldStyle}>
             <label style={labelStyle}>CPF *</label>
             <input style={{ ...inputStyle, borderColor: err('cpf_solicitante') ? '#dc2626' : '#d1d5db' }}
-              value={form.cpf_solicitante} onChange={e => set('cpf_solicitante', e.target.value)} placeholder="000.000.000-00" />
+              value={form.cpf_solicitante} onChange={e => set('cpf_solicitante', formatarCPF(e.target.value))} placeholder="000.000.000-00" maxLength={14} />
             {err('cpf_solicitante') && <p style={errorStyle}>{err('cpf_solicitante')}</p>}
           </div>
           <div style={fieldStyle}>

@@ -11,22 +11,34 @@ export type ListarParams = FiltrosSolicitacoes;
 const BASE_URL = (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ?? '';
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...options.headers,
-    },
-  });
+  let response: Response;
+
+  try {
+    response = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...options.headers,
+      },
+    });
+  } catch {
+    throw Object.assign(new Error('Não foi possível conectar ao servidor. Verifique sua conexão e tente novamente.'), {
+      status: 0,
+      errors: {} as Record<string, string[]>,
+    });
+  }
 
   const body = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    const error = Object.assign(new Error(body?.message ?? 'Erro desconhecido'), {
-      status: response.status,
-      errors: body?.errors ?? {},
-    });
+    const error = Object.assign(
+      new Error(body?.message ?? 'Ocorreu um erro inesperado. Tente novamente.'),
+      {
+        status: response.status,
+        errors: (body?.errors ?? {}) as Record<string, string[]>,
+      }
+    );
     throw error;
   }
 

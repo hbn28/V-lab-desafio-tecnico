@@ -11,7 +11,9 @@ return new class extends Migration
         Schema::create('solicitacoes', function (Blueprint $table) {
             $table->id();
             $table->string('protocolo')->unique();
-            $table->string('nome_solicitante');
+            $table->string('nome_solicitante', 255);
+            $table->string('cpf_solicitante', 14);
+            $table->date('data_nascimento');
             $table->string('categoria');
             $table->string('prioridade');
             $table->string('status');
