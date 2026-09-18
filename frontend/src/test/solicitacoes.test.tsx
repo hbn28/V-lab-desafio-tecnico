@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import App from '../App';
 import { NovaSolicitacaoPage } from '../features/solicitacoes/pages/NovaSolicitacaoPage';
 import { SolicitacoesPage } from '../features/solicitacoes/pages/SolicitacoesPage';
+import { SolicitacaoDetailPage } from '../features/solicitacoes/pages/SolicitacaoDetailPage';
 import { solicitacoesApi } from '../features/solicitacoes/api/client';
 import type { Solicitacao } from '../features/solicitacoes/types';
 
@@ -13,6 +14,8 @@ vi.mock('../features/solicitacoes/api/client', () => ({
     listar: vi.fn(),
     buscar: vi.fn(),
     atualizarStatus: vi.fn(),
+    atualizar: vi.fn(),
+    apagar: vi.fn(),
   },
 }));
 
@@ -146,6 +149,62 @@ describe('SolicitacoesPage', () => {
     expect(await screen.findByRole('heading', { name: 'Resumo desta página' })).toBeInTheDocument();
     expect(screen.getByLabelText('2 solicitações recebidas')).toBeInTheDocument();
     expect(screen.getByLabelText('1 solicitação em análise')).toBeInTheDocument();
+  });
+});
+
+describe('SolicitacaoDetailPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  function renderDetalhe(solicitacao: Solicitacao) {
+    vi.mocked(solicitacoesApi.buscar).mockResolvedValue(solicitacao);
+    return render(
+      <MemoryRouter initialEntries={[`/solicitacoes/${solicitacao.id}`]}>
+        <Routes>
+          <Route path="/solicitacoes/:id" element={<SolicitacaoDetailPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+
+  it('mostra o botão Editar quando a solicitação ainda está em aberto', async () => {
+    renderDetalhe({ ...solicitacaoBase, status: 'RECEBIDA' });
+
+    expect(await screen.findByRole('link', { name: 'Editar' })).toBeInTheDocument();
+  });
+
+  it('esconde o botão Editar quando a solicitação está em estado final', async () => {
+    renderDetalhe({ ...solicitacaoBase, status: 'CONCLUIDA' });
+
+    await screen.findByRole('heading', { name: 'SOL-2026-0001' });
+    expect(screen.queryByRole('link', { name: 'Editar' })).not.toBeInTheDocument();
+  });
+
+  it('pede confirmação e apaga a solicitação ao clicar em Apagar', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.mocked(solicitacoesApi.apagar).mockResolvedValue(undefined);
+    renderDetalhe({ ...solicitacaoBase, status: 'RECEBIDA' });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Apagar' }));
+
+    await waitFor(() => {
+      expect(solicitacoesApi.apagar).toHaveBeenCalledWith('1');
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('/');
+    confirmSpy.mockRestore();
+  });
+
+  it('não apaga a solicitação se a confirmação for cancelada', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderDetalhe({ ...solicitacaoBase, status: 'RECEBIDA' });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Apagar' }));
+
+    await waitFor(() => {
+      expect(solicitacoesApi.apagar).not.toHaveBeenCalled();
+    });
+    confirmSpy.mockRestore();
   });
 });
 

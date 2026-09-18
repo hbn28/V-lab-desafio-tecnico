@@ -109,7 +109,7 @@ O único campo aceito é `status`, obrigatório e pertencente a `Status`. Respos
 
 ## Extensão além do edital — editar e apagar
 
-> **Atenção:** esta seção documenta uma extensão pedida explicitamente pelo candidato, fora do fluxo obrigatório descrito em "Escopo" (criar, listar/consultar, filtrar, atualizar status). O desenho original tratava `CANCELADA` como a forma canônica de desfazer uma solicitação errada, preservando a trilha de auditoria. Os dois endpoints abaixo foram adicionados por conveniência de uso e não fazem parte do contrato avaliado pelo edital.
+> **Atenção:** esta seção documenta uma extensão pedida explicitamente pelo candidato, fora do fluxo obrigatório descrito em "Escopo" (criar, listar/consultar, filtrar, atualizar status). O edital oficial (`Seleção V-LAB - Desafio Técnico Full Stack`, seção 2.2 a 2.5) não menciona editar nem apagar em nenhum requisito obrigatório, pontuável ou bônus — apenas define o fluxo mínimo e a máquina de estados de status. O edital também permite explicitamente estender as rotas sugeridas: "Alterações são permitidas desde que sejam consistentes, documentadas e preservem as funcionalidades solicitadas" (seção 2.3-C). Os dois endpoints abaixo seguem essa permissão e estão documentados aqui e no `docs/openapi.yaml`; não fazem parte do contrato mínimo avaliado.
 
 ### PUT `/api/v1/solicitacoes/{id}`
 
