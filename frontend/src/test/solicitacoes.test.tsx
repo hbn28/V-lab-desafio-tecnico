@@ -1,8 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import App from '../App';
 import { NovaSolicitacaoPage } from '../features/solicitacoes/pages/NovaSolicitacaoPage';
+import { SolicitacoesPage } from '../features/solicitacoes/pages/SolicitacoesPage';
 import { solicitacoesApi } from '../features/solicitacoes/api/client';
+import type { Solicitacao } from '../features/solicitacoes/types';
 
 vi.mock('../features/solicitacoes/api/client', () => ({
   solicitacoesApi: {
@@ -19,6 +22,21 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => mockNavigate };
 });
 
+const solicitacaoBase: Solicitacao = {
+  id: 1,
+  protocolo: 'SOL-2026-0001',
+  nome_solicitante: 'Maria da Silva',
+  cpf_solicitante: '123.456.789-00',
+  data_nascimento: '1985-06-15',
+  categoria: 'CONSULTA',
+  prioridade: 'MEDIA',
+  status: 'RECEBIDA',
+  descricao: 'Consulta de rotina para acompanhamento.',
+  justificativa_prioridade: null,
+  data_criacao: '2026-09-17T12:00:00Z',
+  data_atualizacao: '2026-09-17T12:00:00Z',
+};
+
 describe('NovaSolicitacaoPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -32,7 +50,7 @@ describe('NovaSolicitacaoPage', () => {
     );
     expect(screen.getByText('Nova Solicitação')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Nome completo')).toBeInTheDocument();
-    expect(screen.getByText('Criar Solicitação')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /criar solicitação/i })).toBeInTheDocument();
   });
 
   it('mostra campo de justificativa apenas para prioridade URGENTE', async () => {
@@ -41,10 +59,11 @@ describe('NovaSolicitacaoPage', () => {
         <NovaSolicitacaoPage />
       </MemoryRouter>
     );
-    expect(screen.queryByText('Justificativa da Prioridade Urgente *')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Justificativa da Prioridade Urgente/)).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByDisplayValue('Selecione...'), { target: { value: 'URGENTE' } });
-    // A second select exists for categoria - find prioridade select
+    fireEvent.change(screen.getByLabelText(/^Prioridade/), { target: { value: 'URGENTE' } });
+
+    expect(screen.getByLabelText(/Justificativa da Prioridade Urgente/)).toBeInTheDocument();
   });
 
   it('exibe erros de validação da API', async () => {
@@ -60,11 +79,15 @@ describe('NovaSolicitacaoPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByText('Criar Solicitação'));
+    fireEvent.click(screen.getByRole('button', { name: /criar solicitação/i }));
 
     await waitFor(() => {
       expect(screen.getByText('Dados inválidos')).toBeInTheDocument();
     });
+
+    const errorSummary = screen.getByRole('alert');
+    expect(errorSummary).toHaveFocus();
+    expect(screen.getByRole('link', { name: /Nome do solicitante: O nome é obrigatório/i })).toHaveAttribute('href', '#nome_solicitante');
   });
 
   it('redireciona para detalhe após criação bem-sucedida', async () => {
@@ -90,10 +113,53 @@ describe('NovaSolicitacaoPage', () => {
     );
 
     fireEvent.change(screen.getByPlaceholderText('Nome completo'), { target: { value: 'Fulano de Tal' } });
-    fireEvent.click(screen.getByText('Criar Solicitação'));
+    fireEvent.click(screen.getByRole('button', { name: /criar solicitação/i }));
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith('/solicitacoes/42');
     });
+  });
+});
+
+describe('SolicitacoesPage', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('resume por status as solicitações visíveis na página carregada', async () => {
+    vi.mocked(solicitacoesApi.listar).mockResolvedValue({
+      data: [
+        solicitacaoBase,
+        { ...solicitacaoBase, id: 2, protocolo: 'SOL-2026-0002' },
+        { ...solicitacaoBase, id: 3, protocolo: 'SOL-2026-0003', status: 'EM_ANALISE' },
+      ],
+      total: 3,
+      last_page: 1,
+    });
+
+    render(
+      <MemoryRouter>
+        <SolicitacoesPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Resumo desta página' })).toBeInTheDocument();
+    expect(screen.getByLabelText('2 solicitações recebidas')).toBeInTheDocument();
+    expect(screen.getByLabelText('1 solicitação em análise')).toBeInTheDocument();
+  });
+});
+
+describe('Rotas da aplicação', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.history.pushState({}, '', '/');
+    vi.mocked(solicitacoesApi.listar).mockResolvedValue({ data: [], total: 0, last_page: 1 });
+  });
+
+  it('mantém o dashboard na rota inicial definida pelo contrato', async () => {
+    render(<App />);
+
+    expect(await screen.findByRole('heading', { name: 'Solicitações de Atendimento' })).toBeInTheDocument();
+    expect(window.location.pathname).toBe('/');
   });
 });

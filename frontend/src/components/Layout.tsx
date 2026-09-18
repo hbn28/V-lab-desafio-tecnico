@@ -2,30 +2,35 @@ import { Link, NavLink, Outlet } from 'react-router-dom';
 
 export function Layout() {
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <header style={{
-        background: '#1a1a2e', color: '#fff', padding: '0 1.5rem',
-        display: 'flex', alignItems: 'center', gap: '2rem', height: '56px'
-      }}>
-        <Link to="/solicitacoes" style={{ fontWeight: 700, fontSize: '1.1rem', letterSpacing: '-0.5px' }}>
-          V-Lab Solicitações
-        </Link>
-        <nav style={{ display: 'flex', gap: '1.2rem', fontSize: '0.9rem' }}>
+    <div className="app-shell">
+      <a className="skip-link" href="#conteudo-principal">Ir para o conteúdo</a>
+      <header className="app-header">
+        <div className="app-header__inner">
+          <Link to="/" className="brand" aria-label="Solicitações de Atendimento — página inicial">
+            <span className="brand__mark" aria-hidden="true">VL</span>
+            <span className="brand__text">
+              <strong>Solicitações</strong>
+              <small>Atendimento público</small>
+            </span>
+          </Link>
+          <nav className="main-nav" aria-label="Navegação principal">
           <NavLink
-            to="/solicitacoes"
-            style={({ isActive }) => ({ color: isActive ? '#7dd3fc' : '#cbd5e1', fontWeight: isActive ? 600 : 400 })}
+            to="/"
+            end
+            className={({ isActive }) => `main-nav__link${isActive ? ' is-active' : ''}`}
           >
-            Listagem
+            Solicitações
           </NavLink>
           <NavLink
             to="/solicitacoes/nova"
-            style={({ isActive }) => ({ color: isActive ? '#7dd3fc' : '#cbd5e1', fontWeight: isActive ? 600 : 400 })}
+            className={({ isActive }) => `main-nav__link${isActive ? ' is-active' : ''}`}
           >
-            + Nova
+            Nova solicitação
           </NavLink>
-        </nav>
+          </nav>
+        </div>
       </header>
-      <main style={{ flex: 1, padding: '1.5rem', maxWidth: '1100px', margin: '0 auto', width: '100%' }}>
+      <main id="conteudo-principal" className="page-container" tabIndex={-1}>
         <Outlet />
       </main>
     </div>

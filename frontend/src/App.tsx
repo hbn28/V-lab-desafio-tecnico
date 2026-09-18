@@ -9,8 +9,8 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
-          <Route index element={<Navigate to="/solicitacoes" replace />} />
-          <Route path="solicitacoes" element={<SolicitacoesPage />} />
+          <Route index element={<SolicitacoesPage />} />
+          <Route path="solicitacoes" element={<Navigate to="/" replace />} />
           <Route path="solicitacoes/nova" element={<NovaSolicitacaoPage />} />
           <Route path="solicitacoes/:id" element={<SolicitacaoDetailPage />} />
         </Route>

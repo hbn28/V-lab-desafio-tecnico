@@ -6,12 +6,13 @@ Fila de tarefas em ordem de dependência e valor para o edital.
 - [ ] Backend: criar solicitação, protocolo concorrente e validações
 - [ ] Backend: listar com filtros/paginação e consultar detalhe
 - [ ] Backend: atualizar status com transação, lock e erros padronizados
-- [ ] Frontend: estrutura visual, resumo inicial, listagem, filtros e paginação
+- [x] Frontend: estrutura visual, resumo inicial, listagem, filtros e paginação
 - [ ] Frontend: formulário de criação com validação
 - [ ] Frontend: detalhe e atualização de status
 - [ ] Integração real frontend → Laravel → PostgreSQL e quatro estados assíncronos
 - [ ] Testes backend em PostgreSQL: regras, constraints, concorrência e filtros inválidos
 - [ ] Teste frontend relevante com cliente HTTP mockado
+- [ ] Correção: adicionar `eslint.config.js` compatível com ESLint 9 e validar `npm run lint`
 - [ ] Segurança e configuração: erros centrais, CORS, `.env.example`, APP_KEY e dados fictícios
 - [ ] Completar `docs/openapi.yaml` com os quatro endpoints + health check e códigos principais
 - [ ] README e `docs/architecture.md`, incluindo execução, limitações e uso de IA

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSolicitacoes } from '../hooks/useSolicitacoes';
 import { StatusBadge, PrioridadeBadge } from '../../../components/Badge';
@@ -8,6 +8,18 @@ import { LABEL_STATUS, LABEL_CATEGORIA, LABEL_PRIORIDADE } from '../types';
 const STATUS_LIST: Status[] = ['RECEBIDA', 'EM_ANALISE', 'AGENDADA', 'CONCLUIDA', 'CANCELADA'];
 const CATEGORIA_LIST: Categoria[] = ['CONSULTA', 'EXAME', 'VACINACAO', 'OUTRO'];
 const PRIORIDADE_LIST: Prioridade[] = ['BAIXA', 'MEDIA', 'ALTA', 'URGENTE'];
+
+const STATUS_ARIA: Record<Status, [string, string]> = {
+  RECEBIDA: ['solicitação recebida', 'solicitações recebidas'],
+  EM_ANALISE: ['solicitação em análise', 'solicitações em análise'],
+  AGENDADA: ['solicitação agendada', 'solicitações agendadas'],
+  CONCLUIDA: ['solicitação concluída', 'solicitações concluídas'],
+  CANCELADA: ['solicitação cancelada', 'solicitações canceladas'],
+};
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('pt-BR').format(new Date(value));
+}
 
 export function SolicitacoesPage() {
   const [status, setStatus] = useState<Status | ''>('');
@@ -23,117 +35,180 @@ export function SolicitacoesPage() {
     per_page: 10,
   });
 
-  const select = (style?: React.CSSProperties): React.CSSProperties => ({
-    padding: '6px 10px', borderRadius: '6px', border: '1px solid #d1d5db',
-    fontSize: '0.875rem', background: '#fff', ...style,
-  });
+  const statusCounts = useMemo(() => {
+    const counts = Object.fromEntries(STATUS_LIST.map(item => [item, 0])) as Record<Status, number>;
+    data?.data.forEach(item => { counts[item.status] += 1; });
+    return counts;
+  }, [data]);
+
+  const hasFilters = Boolean(status || categoria || prioridade);
+
+  const clearFilters = () => {
+    setStatus('');
+    setCategoria('');
+    setPrioridade('');
+    setPage(1);
+  };
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-        <h1 style={{ fontSize: '1.4rem', fontWeight: 700 }}>Solicitações de Atendimento</h1>
-        <Link to="/solicitacoes/nova" style={{
-          background: '#1a1a2e', color: '#fff', padding: '8px 16px',
-          borderRadius: '6px', fontSize: '0.875rem', fontWeight: 600,
-        }}>
-          + Nova Solicitação
+    <div className="page-stack">
+      <header className="page-heading">
+        <div>
+          <p className="eyebrow">Painel de atendimento</p>
+          <h1>Solicitações de Atendimento</h1>
+          <p className="page-heading__description">
+            Acompanhe a fila, priorize demandas e mantenha cada atendimento no fluxo correto.
+          </p>
+        </div>
+        <Link to="/solicitacoes/nova" className="button button--primary">
+          <span aria-hidden="true">＋</span>
+          Nova solicitação
         </Link>
-      </div>
+      </header>
 
-      {/* Filtros */}
-      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        <select style={select()} value={status} onChange={e => { setStatus(e.target.value as Status | ''); setPage(1); }}>
-          <option value="">Todos os status</option>
-          {STATUS_LIST.map(s => <option key={s} value={s}>{LABEL_STATUS[s]}</option>)}
-        </select>
-        <select style={select()} value={categoria} onChange={e => { setCategoria(e.target.value as Categoria | ''); setPage(1); }}>
-          <option value="">Todas as categorias</option>
-          {CATEGORIA_LIST.map(c => <option key={c} value={c}>{LABEL_CATEGORIA[c]}</option>)}
-        </select>
-        <select style={select()} value={prioridade} onChange={e => { setPrioridade(e.target.value as Prioridade | ''); setPage(1); }}>
-          <option value="">Todas as prioridades</option>
-          {PRIORIDADE_LIST.map(p => <option key={p} value={p}>{LABEL_PRIORIDADE[p]}</option>)}
-        </select>
-        {(status || categoria || prioridade) && (
-          <button onClick={() => { setStatus(''); setCategoria(''); setPrioridade(''); setPage(1); }}
-            style={{ ...select(), color: '#6b7280', background: 'transparent', border: '1px solid #d1d5db' }}>
-            Limpar filtros
-          </button>
-        )}
-      </div>
-
-      {/* Estado */}
-      {loading && (
-        <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>Carregando...</div>
-      )}
-      {error && (
-        <div style={{ padding: '1rem', background: '#fee2e2', borderRadius: '8px', color: '#991b1b', marginBottom: '1rem' }}>
-          {error} <button onClick={reload} style={{ marginLeft: '0.5rem', textDecoration: 'underline', background: 'none', border: 'none', color: '#991b1b', cursor: 'pointer' }}>Tentar novamente</button>
-        </div>
-      )}
-      {!loading && !error && data?.data.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '3rem', color: '#6b7280' }}>
-          <p style={{ fontSize: '1.1rem', marginBottom: '0.5rem' }}>Nenhuma solicitação encontrada.</p>
-          <Link to="/solicitacoes/nova" style={{ color: '#1a1a2e', textDecoration: 'underline' }}>Criar a primeira</Link>
-        </div>
-      )}
-
-      {/* Tabela */}
-      {!loading && !error && data && data.data.length > 0 && (
-        <div style={{ background: '#fff', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-            <thead>
-              <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e5e7eb' }}>
-                {['Protocolo', 'Solicitante', 'Categoria', 'Prioridade', 'Status', 'Data'].map(h => (
-                  <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: '#374151' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {data.data.map((s, i) => (
-                <tr key={s.id}
-                  style={{ borderBottom: i < data.data.length - 1 ? '1px solid #f3f4f6' : 'none' }}
-                >
-                  <td style={{ padding: '10px 14px' }}>
-                    <Link to={`/solicitacoes/${s.id}`} style={{ color: '#1d4ed8', fontWeight: 500, fontFamily: 'monospace' }}>
-                      {s.protocolo}
-                    </Link>
-                  </td>
-                  <td style={{ padding: '10px 14px', color: '#374151' }}>{s.nome_solicitante}</td>
-                  <td style={{ padding: '10px 14px' }}>{LABEL_CATEGORIA[s.categoria]}</td>
-                  <td style={{ padding: '10px 14px' }}><PrioridadeBadge prioridade={s.prioridade} /></td>
-                  <td style={{ padding: '10px 14px' }}><StatusBadge status={s.status} /></td>
-                  <td style={{ padding: '10px 14px', color: '#6b7280' }}>
-                    {new Date(s.data_criacao).toLocaleDateString('pt-BR')}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* Paginação */}
-          {data.last_page > 1 && (
-            <div style={{ padding: '12px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e5e7eb' }}>
-              <span style={{ fontSize: '0.8rem', color: '#6b7280' }}>
-                Total: {data.total} registros
-              </span>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button disabled={page === 1} onClick={() => setPage(p => p - 1)}
-                  style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid #d1d5db', background: page === 1 ? '#f9fafb' : '#fff', cursor: page === 1 ? 'not-allowed' : 'pointer' }}>
-                  ← Anterior
-                </button>
-                <span style={{ padding: '4px 10px', fontSize: '0.875rem' }}>
-                  {page} / {data.last_page}
-                </span>
-                <button disabled={page === data.last_page} onClick={() => setPage(p => p + 1)}
-                  style={{ padding: '4px 10px', borderRadius: '4px', border: '1px solid #d1d5db', background: page === data.last_page ? '#f9fafb' : '#fff', cursor: page === data.last_page ? 'not-allowed' : 'pointer' }}>
-                  Próximo →
-                </button>
-              </div>
+      {!loading && !error && data && (
+        <section className="summary-section" aria-labelledby="summary-heading">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Visão operacional</p>
+              <h2 id="summary-heading">Resumo desta página</h2>
             </div>
+            <p>{data.data.length} de {data.total} solicitações</p>
+          </div>
+          <div className="summary-grid">
+            {STATUS_LIST.map(item => {
+              const count = statusCounts[item];
+              const description = count === 1 ? STATUS_ARIA[item][0] : STATUS_ARIA[item][1];
+              return (
+                <article
+                  className={`summary-card summary-card--${item.toLowerCase()}`}
+                  key={item}
+                  aria-label={`${count} ${description}`}
+                >
+                  <span className="summary-card__label">{LABEL_STATUS[item]}</span>
+                  <strong>{count}</strong>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      <section className="panel" aria-labelledby="list-heading">
+        <div className="panel__header">
+          <div>
+            <p className="eyebrow">Fila de solicitações</p>
+            <h2 id="list-heading">Registros</h2>
+          </div>
+          {data && !loading && !error && <span className="record-count">{data.total} no total</span>}
+        </div>
+
+        <div className="filter-bar" aria-label="Filtros da listagem">
+          <div className="filter-field">
+            <label htmlFor="filtro-status">Status</label>
+            <select id="filtro-status" value={status} onChange={event => { setStatus(event.target.value as Status | ''); setPage(1); }}>
+              <option value="">Todos</option>
+              {STATUS_LIST.map(item => <option key={item} value={item}>{LABEL_STATUS[item]}</option>)}
+            </select>
+          </div>
+          <div className="filter-field">
+            <label htmlFor="filtro-categoria">Categoria</label>
+            <select id="filtro-categoria" value={categoria} onChange={event => { setCategoria(event.target.value as Categoria | ''); setPage(1); }}>
+              <option value="">Todas</option>
+              {CATEGORIA_LIST.map(item => <option key={item} value={item}>{LABEL_CATEGORIA[item]}</option>)}
+            </select>
+          </div>
+          <div className="filter-field">
+            <label htmlFor="filtro-prioridade">Prioridade</label>
+            <select id="filtro-prioridade" value={prioridade} onChange={event => { setPrioridade(event.target.value as Prioridade | ''); setPage(1); }}>
+              <option value="">Todas</option>
+              {PRIORIDADE_LIST.map(item => <option key={item} value={item}>{LABEL_PRIORIDADE[item]}</option>)}
+            </select>
+          </div>
+          {hasFilters && (
+            <button className="button button--ghost filter-bar__clear" type="button" onClick={clearFilters}>
+              Limpar filtros
+            </button>
           )}
         </div>
-      )}
+
+        {loading && (
+          <div className="state-view" role="status" aria-live="polite">
+            <span className="spinner" aria-hidden="true" />
+            <strong>Carregando solicitações</strong>
+            <p>Buscando os registros mais recentes.</p>
+          </div>
+        )}
+
+        {error && (
+          <div className="alert alert--error" role="alert">
+            <div>
+              <strong>Não foi possível carregar a listagem</strong>
+              <p>{error}</p>
+            </div>
+            <button onClick={reload} className="button button--outline" type="button">Tentar novamente</button>
+          </div>
+        )}
+
+        {!loading && !error && data?.data.length === 0 && (
+          <div className="state-view">
+            <span className="state-view__icon" aria-hidden="true">○</span>
+            <strong>{hasFilters ? 'Nenhum resultado para estes filtros' : 'Nenhuma solicitação cadastrada'}</strong>
+            <p>{hasFilters ? 'Revise ou limpe os filtros para ampliar a busca.' : 'Crie a primeira solicitação para iniciar o acompanhamento.'}</p>
+            {hasFilters ? (
+              <button className="button button--outline" type="button" onClick={clearFilters}>Limpar filtros</button>
+            ) : (
+              <Link to="/solicitacoes/nova" className="button button--outline">Criar solicitação</Link>
+            )}
+          </div>
+        )}
+
+        {!loading && !error && data && data.data.length > 0 && (
+          <>
+            <div className="table-wrap">
+              <table className="requests-table">
+                <caption className="sr-only">Solicitações de atendimento encontradas</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Protocolo</th>
+                    <th scope="col">Solicitante</th>
+                    <th scope="col">Categoria</th>
+                    <th scope="col">Prioridade</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Data</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.data.map(request => (
+                    <tr key={request.id}>
+                      <td data-label="Protocolo">
+                        <Link to={`/solicitacoes/${request.id}`} className="protocol-link">{request.protocolo}</Link>
+                      </td>
+                      <td data-label="Solicitante"><span className="requester-name">{request.nome_solicitante}</span></td>
+                      <td data-label="Categoria">{LABEL_CATEGORIA[request.categoria]}</td>
+                      <td data-label="Prioridade"><PrioridadeBadge prioridade={request.prioridade} /></td>
+                      <td data-label="Status"><StatusBadge status={request.status} /></td>
+                      <td data-label="Data"><time dateTime={request.data_criacao}>{formatDate(request.data_criacao)}</time></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <nav className="pagination" aria-label="Paginação da listagem">
+              <p>Página <strong>{page}</strong> de <strong>{data.last_page}</strong></p>
+              <div className="pagination__actions">
+                <button className="button button--outline" disabled={page === 1} onClick={() => setPage(current => current - 1)} type="button">
+                  Anterior
+                </button>
+                <button className="button button--outline" disabled={page === data.last_page} onClick={() => setPage(current => current + 1)} type="button">
+                  Próxima
+                </button>
+              </div>
+            </nav>
+          </>
+        )}
+      </section>
     </div>
   );
 }
