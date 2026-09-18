@@ -107,6 +107,20 @@ Resposta 200: `{ "data": Solicitacao }`. Identificador inexistente retorna 404 n
 
 O único campo aceito é `status`, obrigatório e pertencente a `Status`. Resposta 200: `{ "data": Solicitacao }`. Transição não permitida retorna 409.
 
+## Extensão além do edital — editar e apagar
+
+> **Atenção:** esta seção documenta uma extensão pedida explicitamente pelo candidato, fora do fluxo obrigatório descrito em "Escopo" (criar, listar/consultar, filtrar, atualizar status). O desenho original tratava `CANCELADA` como a forma canônica de desfazer uma solicitação errada, preservando a trilha de auditoria. Os dois endpoints abaixo foram adicionados por conveniência de uso e não fazem parte do contrato avaliado pelo edital.
+
+### PUT `/api/v1/solicitacoes/{id}`
+
+Substitui os dados cadastrais da solicitação (mesmas regras de validação do POST). `id`, `protocolo` e `status` continuam não graváveis. Resposta 200: `{ "data": Solicitacao }`.
+
+Bloqueado (409) quando a solicitação está em estado final (`CONCLUIDA` ou `CANCELADA`) — dados de um atendimento encerrado não são mais editáveis.
+
+### DELETE `/api/v1/solicitacoes/{id}`
+
+Remove definitivamente a solicitação (hard delete). Permitido em qualquer estado. Resposta 204 sem corpo. Identificador inexistente retorna 404 no envelope comum.
+
 ## Contrato de erros
 
 Toda resposta JSON de erro usa:

@@ -10,5 +10,7 @@ Route::prefix('api/v1')->group(function () {
     Route::post('/solicitacoes', [SolicitacaoController::class, 'store']);
     Route::get('/solicitacoes', [SolicitacaoController::class, 'index']);
     Route::get('/solicitacoes/{id}', [SolicitacaoController::class, 'show']);
+    Route::put('/solicitacoes/{id}', [SolicitacaoController::class, 'update']);
     Route::patch('/solicitacoes/{id}/status', [SolicitacaoController::class, 'updateStatus']);
+    Route::delete('/solicitacoes/{id}', [SolicitacaoController::class, 'destroy']);
 });
