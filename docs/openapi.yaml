@@ -59,6 +59,14 @@ paths:
           schema:
             $ref: '#/components/schemas/Prioridade'
           description: Filtrar por prioridade
+        - name: status_grupo
+          in: query
+          schema:
+            type: string
+            enum: [aberto]
+          description: >-
+            Agrupamento de status usado pelo drill-down do painel. 'aberto' filtra
+            RECEBIDA, EM_ANALISE e AGENDADA. Ignorado se 'status' também for informado.
         - name: page
           in: query
           schema:
@@ -101,6 +109,61 @@ paths:
                 $ref: '#/components/schemas/SolicitacaoResponse'
         '422':
           $ref: '#/components/responses/ValidationError'
+
+  /solicitacoes/resumo:
+    get:
+      tags: [solicitacoes]
+      summary: Resumo global do painel
+      description: >-
+        Contagens globais (não paginadas) por status e por prioridade entre as
+        solicitações em aberto. Alimenta os cartões do painel e o drill-down;
+        ao contrário de GET /solicitacoes, não é afetado por paginação.
+      operationId: resumoSolicitacoes
+      parameters:
+        - name: categoria
+          in: query
+          schema:
+            $ref: '#/components/schemas/Categoria'
+          description: >-
+            Restringe as duas quebras (por status e por prioridade em aberto)
+            à categoria informada.
+        - name: prioridade
+          in: query
+          schema:
+            $ref: '#/components/schemas/Prioridade'
+          description: >-
+            Restringe apenas a quebra por status. Não afeta a quebra por
+            prioridade, que é a própria dimensão detalhada nesse bloco.
+      responses:
+        '200':
+          description: Contagens agregadas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      status:
+                        type: object
+                        additionalProperties:
+                          type: integer
+                      prioridade_aberta:
+                        type: object
+                        additionalProperties:
+                          type: integer
+                      total:
+                        type: integer
+                      filtros_aplicados:
+                        type: object
+                        properties:
+                          categoria:
+                            type: string
+                            nullable: true
+                          prioridade:
+                            type: string
+                            nullable: true
 
   /solicitacoes/{id}:
     get:

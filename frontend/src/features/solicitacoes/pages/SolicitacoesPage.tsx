@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useSolicitacoes } from '../hooks/useSolicitacoes';
+import { useSolicitacoes, useResumoSolicitacoes } from '../hooks/useSolicitacoes';
 import { StatusBadge, PrioridadeBadge } from '../../../components/Badge';
+import { DrilldownModal } from '../components/DrilldownModal';
 import type { Status, Categoria, Prioridade } from '../types';
+import type { FiltrosSolicitacoes } from '../types';
 import { LABEL_STATUS, LABEL_CATEGORIA, LABEL_PRIORIDADE } from '../types';
 
 const STATUS_LIST: Status[] = ['RECEBIDA', 'EM_ANALISE', 'AGENDADA', 'CONCLUIDA', 'CANCELADA'];
@@ -31,8 +33,22 @@ const LABEL_STATUS_ABERTO: Record<(typeof STATUS_ABERTO_LIST)[number], string> =
   AGENDADA: 'Agendadas',
 };
 
+const PRIORIDADE_ACCENT: Record<Prioridade, 'urgente' | 'alta' | 'media' | 'baixa'> = {
+  URGENTE: 'urgente',
+  ALTA: 'alta',
+  MEDIA: 'media',
+  BAIXA: 'baixa',
+};
+
 function formatDate(value: string) {
   return new Intl.DateTimeFormat('pt-BR').format(new Date(value));
+}
+
+interface Drilldown {
+  title: string;
+  description: string;
+  accent: 'urgente' | 'alta' | 'media' | 'baixa' | 'neutro';
+  filtros: FiltrosSolicitacoes;
 }
 
 export function SolicitacoesPage() {
@@ -40,6 +56,7 @@ export function SolicitacoesPage() {
   const [categoria, setCategoria] = useState<Categoria | ''>('');
   const [prioridade, setPrioridade] = useState<Prioridade | ''>('');
   const [page, setPage] = useState(1);
+  const [drilldown, setDrilldown] = useState<Drilldown | null>(null);
 
   const { data, loading, error, reload } = useSolicitacoes({
     status: status || undefined,
@@ -49,21 +66,8 @@ export function SolicitacoesPage() {
     per_page: 10,
   });
 
-  const statusCounts = useMemo(() => {
-    const counts = Object.fromEntries(STATUS_LIST.map(item => [item, 0])) as Record<Status, number>;
-    data?.data?.forEach(item => { counts[item.status] += 1; });
-    return counts;
-  }, [data]);
-
-  const prioridadeAbertaCounts = useMemo(() => {
-    const counts = Object.fromEntries(PRIORIDADE_LIST.map(item => [item, 0])) as Record<Prioridade, number>;
-    data?.data?.forEach(item => {
-      if (item.status !== 'CONCLUIDA' && item.status !== 'CANCELADA') counts[item.prioridade] += 1;
-    });
-    return counts;
-  }, [data]);
-
-  const encerradasNaPagina = (statusCounts.CONCLUIDA ?? 0) + (statusCounts.CANCELADA ?? 0);
+  const resumoFiltros = { categoria: categoria || undefined, prioridade: prioridade || undefined };
+  const { data: resumo, loading: resumoLoading, error: resumoError } = useResumoSolicitacoes(resumoFiltros);
 
   const hasFilters = Boolean(status || categoria || prioridade);
 
@@ -73,6 +77,30 @@ export function SolicitacoesPage() {
     setPrioridade('');
     setPage(1);
   };
+
+  const abrirPorPrioridade = (item: Prioridade) => {
+    const count = resumo?.prioridade_aberta[item] ?? 0;
+    setDrilldown({
+      title: `${LABEL_PRIORIDADE[item]} em aberto`,
+      description: `${count} ${count === 1 ? PRIORIDADE_ARIA[item][0] : PRIORIDADE_ARIA[item][1]}`,
+      accent: PRIORIDADE_ACCENT[item],
+      // A contagem do cartão não é afetada pelo filtro de prioridade da listagem
+      // (é a própria dimensão detalhada), então o drill-down também não aplica.
+      filtros: { prioridade: item, status_grupo: 'aberto', categoria: categoria || undefined },
+    });
+  };
+
+  const abrirPorStatus = (item: (typeof STATUS_ABERTO_LIST)[number]) => {
+    const count = resumo?.status[item] ?? 0;
+    setDrilldown({
+      title: LABEL_STATUS_ABERTO[item],
+      description: `${count} ${count === 1 ? STATUS_ARIA[item][0] : STATUS_ARIA[item][1]}`,
+      accent: 'neutro',
+      filtros: { status: item, categoria: categoria || undefined, prioridade: prioridade || undefined },
+    });
+  };
+
+  const encerradasTotal = (resumo?.status.CONCLUIDA ?? 0) + (resumo?.status.CANCELADA ?? 0);
 
   return (
     <div className="page-stack">
@@ -90,49 +118,76 @@ export function SolicitacoesPage() {
         </Link>
       </header>
 
-      {!loading && !error && data && (
+      {!resumoLoading && !resumoError && resumo && (
+        <p className="dashboard-context" role="status">
+          {resumoFiltros.categoria || resumoFiltros.prioridade ? (
+            <>
+              Painel considerando <strong>
+                {[
+                  resumoFiltros.categoria && `categoria ${LABEL_CATEGORIA[resumoFiltros.categoria]}`,
+                  resumoFiltros.prioridade && `prioridade ${LABEL_PRIORIDADE[resumoFiltros.prioridade]}`,
+                ].filter(Boolean).join(' e ')}
+              </strong>, como na listagem abaixo.
+            </>
+          ) : (
+            <>Painel considerando <strong>todas as solicitações</strong> — não apenas as desta página.</>
+          )}
+          {status && ' O filtro de status da listagem não muda estes números: cada bloco já é a sua própria quebra por status ou prioridade.'}
+        </p>
+      )}
+
+      {!resumoLoading && !resumoError && resumo && (
         <section className="dashboard-section" aria-labelledby="priority-heading">
           <div className="section-heading">
             <div>
               <p className="eyebrow">Atenção imediata</p>
-              <h2 id="priority-heading">Prioridades em aberto nesta página</h2>
+              <h2 id="priority-heading">Prioridades em aberto</h2>
             </div>
-            <p>{data?.data?.length ?? 0} de {data?.total ?? 0} solicitações exibidas</p>
+            <p>Toque em um bloco para ver as solicitações</p>
           </div>
           <div className="priority-grid">
             {PRIORIDADE_LIST.map(item => {
-              const count = prioridadeAbertaCounts[item];
+              const count = resumo.prioridade_aberta[item];
               const description = count === 1 ? PRIORIDADE_ARIA[item][0] : PRIORIDADE_ARIA[item][1];
               return (
-                <article
+                <button
+                  type="button"
                   className={`priority-card priority-card--${item.toLowerCase()}`}
                   key={item}
-                  aria-label={`${count} ${description}`}
+                  aria-label={`${count} ${description}. Ver lista.`}
+                  onClick={() => abrirPorPrioridade(item)}
                 >
                   <span className="priority-card__label">{LABEL_PRIORIDADE[item]}</span>
                   <strong>{count}</strong>
-                  <span className="priority-card__action">Em aberto</span>
-                </article>
+                  <span className="priority-card__action">Em aberto ›</span>
+                </button>
               );
             })}
           </div>
         </section>
       )}
 
-      {!loading && !error && data && (
+      {!resumoLoading && !resumoError && resumo && (
         <section className="workflow-section" aria-labelledby="workflow-heading">
           <div className="section-heading">
             <div>
               <p className="eyebrow">Fluxo de trabalho</p>
               <h2 id="workflow-heading">Andamento da fila</h2>
             </div>
-            <p>{encerradasNaPagina} encerrada{encerradasNaPagina === 1 ? '' : 's'} nesta página</p>
+            <p>{encerradasTotal} encerrada{encerradasTotal === 1 ? '' : 's'} no total</p>
           </div>
           <dl className="workflow-list">
             {STATUS_ABERTO_LIST.map(item => (
               <div key={item}>
-                <dt>{LABEL_STATUS_ABERTO[item]}</dt>
-                <dd aria-label={`${statusCounts[item]} ${statusCounts[item] === 1 ? STATUS_ARIA[item][0] : STATUS_ARIA[item][1]}`}>{statusCounts[item]}</dd>
+                <button
+                  type="button"
+                  className="workflow-list__trigger"
+                  onClick={() => abrirPorStatus(item)}
+                  aria-label={`${resumo.status[item]} ${resumo.status[item] === 1 ? STATUS_ARIA[item][0] : STATUS_ARIA[item][1]}. Ver lista.`}
+                >
+                  <dt>{LABEL_STATUS_ABERTO[item]}</dt>
+                  <dd>{resumo.status[item]}</dd>
+                </button>
               </div>
             ))}
           </dl>
@@ -260,6 +315,16 @@ export function SolicitacoesPage() {
           </>
         )}
       </section>
+
+      {drilldown && (
+        <DrilldownModal
+          title={drilldown.title}
+          description={drilldown.description}
+          accent={drilldown.accent}
+          filtros={drilldown.filtros}
+          onClose={() => setDrilldown(null)}
+        />
+      )}
     </div>
   );
 }

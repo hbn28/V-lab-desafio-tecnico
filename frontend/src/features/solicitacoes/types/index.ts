@@ -55,10 +55,19 @@ export type AtualizarSolicitacaoPayload = CriarSolicitacaoPayload;
 
 export interface FiltrosSolicitacoes {
   status?: Status;
+  /** Agrupamento usado pelo drill-down do painel: 'aberto' = RECEBIDA + EM_ANALISE + AGENDADA. */
+  status_grupo?: 'aberto';
   categoria?: Categoria;
   prioridade?: Prioridade;
   page?: number;
   per_page?: number;
+}
+
+export interface ResumoSolicitacoes {
+  status: Record<Status, number>;
+  prioridade_aberta: Record<Prioridade, number>;
+  total: number;
+  filtros_aplicados: { categoria: Categoria | null; prioridade: Prioridade | null };
 }
 
 export interface ApiErro {

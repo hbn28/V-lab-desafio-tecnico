@@ -3,6 +3,7 @@ import type {
   CriarSolicitacaoPayload,
   FiltrosSolicitacoes,
   ListaSolicitacoes,
+  ResumoSolicitacoes,
   Solicitacao,
   Status,
 } from '../types';
@@ -71,6 +72,7 @@ export const solicitacoesApi = {
   async listar(filtros: ListarParams = {}): Promise<{ data: Solicitacao[]; total: number; last_page: number }> {
     const params = new URLSearchParams();
     if (filtros.status)     params.set('status', filtros.status);
+    if (filtros.status_grupo) params.set('status_grupo', filtros.status_grupo);
     if (filtros.categoria)  params.set('categoria', filtros.categoria);
     if (filtros.prioridade) params.set('prioridade', filtros.prioridade);
     if (filtros.page)       params.set('page', String(filtros.page));
@@ -81,6 +83,18 @@ export const solicitacoesApi = {
       throw new Error('O servidor retornou uma resposta inesperada ao listar as solicitações.');
     }
     return { data: res.data, total: res.meta.total, last_page: res.meta.last_page };
+  },
+
+  async resumo(filtros: Pick<FiltrosSolicitacoes, 'categoria' | 'prioridade'> = {}): Promise<ResumoSolicitacoes> {
+    const params = new URLSearchParams();
+    if (filtros.categoria)  params.set('categoria', filtros.categoria);
+    if (filtros.prioridade) params.set('prioridade', filtros.prioridade);
+    const qs = params.toString() ? `?${params}` : '';
+    const res = await request<{ data: ResumoSolicitacoes }>(`/api/v1/solicitacoes/resumo${qs}`);
+    if (!res?.data) {
+      throw new Error('O servidor retornou uma resposta inesperada ao buscar o resumo.');
+    }
+    return res.data;
   },
 
   async buscar(id: string): Promise<Solicitacao> {
