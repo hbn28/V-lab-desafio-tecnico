@@ -100,3 +100,10 @@ PHP 8.3, Laravel 11, Node 20, React 18 + TypeScript, Vite, PostgreSQL 16, Docker
 - Incluir diagrama Mermaid com três camadas (frontend, backend, db) e fluxo de uma requisição.
 - Registrar as principais decisões: protocolo com upsert+lock, máquina de estados centralizada, organização por domínio, ausência de Repository/CQRS.
 - Adicionar parágrafo de evolução: como o módulo poderia separar-se em serviço independente (ex: fila para notificações, API Gateway, domínio de Agenda).
+
+## Operação dos agentes
+
+- Consulte `docs/agent-playbook.md` e `docs/codebase-map.md` depois dos quatro arquivos obrigatórios.
+- Use Graphify se a CLI estiver instalada; se não estiver, use o mapa humano e o relatório existente sem bloquear a tarefa.
+- A fila da listagem é ordenada server-side: estados ativos, prioridade descendente, mais antigas primeiro.
+- Mudanças de comportamento seguem teste primeiro; não altere CI nesta fila.

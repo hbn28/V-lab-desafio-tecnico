@@ -38,6 +38,10 @@ paths:
     get:
       tags: [solicitacoes]
       summary: Listar solicitações (paginado)
+      description: >-
+        Retorna a fila operacional ordenada por estados ativos, prioridade
+        (URGENTE, ALTA, MEDIA, BAIXA), data de criação ascendente e id ascendente.
+        Estados CONCLUIDA e CANCELADA aparecem depois dos estados ativos.
       operationId: listarSolicitacoes
       parameters:
         - name: status

@@ -216,6 +216,7 @@ p, h1, h2, h3 { margin: 0; }
 .summary-section { display: grid; gap: var(--space-3); }
 .section-heading, .panel__header { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-4); }
 .section-heading h2, .panel__header h2 { font-size: 1.125rem; line-height: 1.3; color: var(--navy-950); }
+.list-order-hint { margin-top: var(--space-1); color: var(--color-text-secondary); font-size: 0.8rem; }
 .section-heading > p, .panel__header > p, .record-count { color: var(--color-text-secondary); font-size: 0.82rem; }
 .summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-3); }
 .summary-card {

@@ -37,8 +37,12 @@ class SolicitacaoController
     public function index(ListarSolicitacoesRequest $request): ResourceCollection
     {
         $query = Solicitacao::query()
-            ->orderByDesc('created_at')
-            ->orderByDesc('id');
+            // A fila operacional é estável e explicável: demandas abertas,
+            // maior prioridade e, em empate, maior tempo de espera.
+            ->orderByRaw("CASE WHEN status IN ('CONCLUIDA', 'CANCELADA') THEN 1 ELSE 0 END ASC")
+            ->orderByRaw("CASE prioridade WHEN 'URGENTE' THEN 1 WHEN 'ALTA' THEN 2 WHEN 'MEDIA' THEN 3 WHEN 'BAIXA' THEN 4 END ASC")
+            ->orderBy('created_at')
+            ->orderBy('id');
 
         if ($status = $request->validated('status')) {
             $query->where('status', $status);

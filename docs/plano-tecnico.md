@@ -22,6 +22,8 @@ Implementar os quatro endpoints do edital e exatamente os envelopes da spec. O P
 
 Implementar resumo inicial por status ou prioridade, listagem paginada, filtros, formulário, detalhe e mudança de status. Os quatro estados assíncronos são obrigatórios. Um conjunto pequeno de tokens semânticos basta.
 
+A listagem apresenta a fila operacional na ordem definida pela API: estados ativos, prioridade descendente e data de criação ascendente. O frontend não deve ordenar a resposta localmente.
+
 ## 6. PostgreSQL
 
 Todo schema nasce por migrations. Testes de CHECK, locking e concorrência usam PostgreSQL, não SQLite.

@@ -1,25 +1,24 @@
 # HANDOFF.md
 
-Reescrito a cada rodada pelo agente que acabou de trabalhar. O próximo agente (Claude Code ou Codex) lê este arquivo antes de tocar em qualquer código.
-
 ## Última tarefa concluída
 
-Remoção, na tela de nova solicitação, dos textos “Use somente informações fictícias neste desafio.” e “Cadastre dados fictícios e descreva a necessidade de atendimento com clareza.”. A descrição do componente compartilhado passou a ser opcional para preservar o texto explicativo da tela de edição.
+Reconciliamos a documentação para agentes, corrigimos a configuração do ESLint 9, removemos a chave obsoleta do Compose e implementamos a fila operacional server-side: estados ativos primeiro, prioridade `URGENTE → ALTA → MEDIA → BAIXA`, mais antigas primeiro e `id` como desempate. A regra está documentada na spec, OpenAPI, arquitetura, README e ADR 001.
 
 ## Próxima tarefa
 
-**Frontend: formulário de criação com validação** — revisar cobertura de cenários do formulário e marcar a tarefa somente quando os comportamentos obrigatórios estiverem protegidos.
+Executar a suíte backend em PostgreSQL e a revisão eliminatória com Docker Compose quando o daemon Docker estiver disponível. O CI permanece fora do escopo autorizado.
+
+## Verificações desta rodada
+
+- `npm run lint` — passou.
+- `npm run build` — passou.
+- `npm test -- --run src/test/solicitacoes.test.tsx` — 10 testes passaram.
+- `docker compose config -q` — configuração válida; o Docker avisou que `version` era obsoleto, e o campo foi removido.
+- Backend/Pest e revisão limpa — bloqueados: daemon Docker indisponível (`docker_engine` não encontrado).
+- Graphify — relatório existente lido; CLI não está disponível no PATH. `docs/codebase-map.md` é o fallback humano.
 
 ## Bloqueios conhecidos
 
-- Nenhum bloqueio funcional identificado.
-- `npm install` reporta advisories em dependências de desenvolvimento; não executar correção forçada sem avaliar breaking changes.
-- Vitest precisa ser executado fora da restrição local de leitura neste ambiente, pois o carregamento do `vite.config.ts` tenta acessar diretórios ancestrais.
-- `npm run lint` não inicia porque o projeto usa ESLint 9 sem `eslint.config.js`; criar a configuração deve ser uma tarefa corretiva explícita.
-
-## Estado de verificação desta rodada
-
-- `npm test -- --run src/test/solicitacoes.test.tsx`: 10 testes passaram.
-- `npm run build`: passou.
-- `npm run lint`: bloqueado antes da análise por ausência de `eslint.config.js`.
-- Inspeção visual desktop: dashboard e formulário conferidos no navegador local.
+- Testes PostgreSQL e revisão integrada aguardam Docker Desktop/daemon ativo.
+- O relatório Graphify derivado precisa ser atualizado após alterações quando a CLI estiver disponível.
+- Advisories de desenvolvimento permanecem documentados; não executar correção forçada de dependências.

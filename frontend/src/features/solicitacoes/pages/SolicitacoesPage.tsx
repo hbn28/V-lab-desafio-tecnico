@@ -99,6 +99,7 @@ export function SolicitacoesPage() {
           <div>
             <p className="eyebrow">Fila de solicitações</p>
             <h2 id="list-heading">Registros</h2>
+            <p className="list-order-hint">Prioridade mais alta primeiro; em caso de empate, a solicitação mais antiga.</p>
           </div>
           {data && !loading && !error && <span className="record-count">{data.total} no total</span>}
         </div>

@@ -1,5 +1,8 @@
 <?php
 
+use App\Models\Solicitacao;
+use Illuminate\Support\Carbon;
+
 test('lista solicitações vazia retorna estrutura correta', function () {
     $response = $this->getJson('/api/v1/solicitacoes');
 
@@ -42,4 +45,44 @@ test('per_page inválido retorna 422', function () {
     $response = $this->getJson('/api/v1/solicitacoes?per_page=200');
 
     $response->assertStatus(422);
+});
+
+test('ordena a fila por situação, prioridade e tempo de espera', function () {
+    $base = [
+        'cpf_solicitante' => '123.456.789-00',
+        'data_nascimento' => '1985-06-15',
+        'categoria' => 'CONSULTA',
+        'descricao' => 'Solicitação fictícia para testar a ordem operacional.',
+        'justificativa_prioridade' => null,
+    ];
+
+    $criar = function (string $nome, string $protocolo, string $prioridade, string $status, string $criadaEm) use ($base): void {
+        $solicitacao = Solicitacao::create($base + [
+            'nome_solicitante' => $nome,
+            'protocolo' => $protocolo,
+            'prioridade' => $prioridade,
+            'status' => $status,
+        ]);
+        $solicitacao->timestamps = false;
+        $solicitacao->update([
+            'created_at' => Carbon::parse($criadaEm),
+            'updated_at' => Carbon::parse($criadaEm),
+        ]);
+    };
+
+    $criar('Baixa antiga', 'SOL-2026-0001', 'BAIXA', 'RECEBIDA', '2026-09-01 08:00:00');
+    $criar('Urgente recente', 'SOL-2026-0002', 'URGENTE', 'RECEBIDA', '2026-09-17 08:00:00');
+    $criar('Alta antiga', 'SOL-2026-0003', 'ALTA', 'EM_ANALISE', '2026-09-02 08:00:00');
+    $criar('Urgente antiga', 'SOL-2026-0004', 'URGENTE', 'RECEBIDA', '2026-09-01 07:00:00');
+    $criar('Urgente encerrada', 'SOL-2026-0005', 'URGENTE', 'CONCLUIDA', '2026-08-01 08:00:00');
+
+    $response = $this->getJson('/api/v1/solicitacoes')->assertStatus(200);
+
+    expect($response->json('data.*.protocolo'))->toBe([
+        'SOL-2026-0004',
+        'SOL-2026-0002',
+        'SOL-2026-0003',
+        'SOL-2026-0001',
+        'SOL-2026-0005',
+    ]);
 });

@@ -95,6 +95,7 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 - Estados visuais de carregamento, erro, vazio e sucesso
 - Validação de entradas com mensagens em português
 - Health check da API com verificação do banco
+- Fila operacional ordenada por estado aberto, prioridade e tempo de espera
 
 ## Limitações conhecidas
 
@@ -112,6 +113,8 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 **RequestId:** middleware global propaga ou gera UUID `X-Request-ID` em cada requisição, gravando log JSON estruturado — facilita rastreamento em produção.
 
 **Seeders idempotentes:** usam `firstOrCreate(['protocolo' => ...])` — `db:seed` pode rodar N vezes sem duplicar dados.
+
+**Fila operacional:** a API ordena estados ativos antes dos encerrados, depois por prioridade (`URGENTE` → `BAIXA`) e, em caso de empate, pela solicitação mais antiga. A regra é server-side para permanecer estável com paginação.
 
 **Modelo enriquecido:** além dos campos mínimos do edital, o modelo inclui `cpf_solicitante` e `data_nascimento` para refletir melhor um sistema real de saúde pública com dados fictícios.
 
