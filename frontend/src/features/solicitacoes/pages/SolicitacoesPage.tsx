@@ -176,6 +176,7 @@ export function SolicitacoesPage() {
                     <th scope="col">Prioridade</th>
                     <th scope="col">Status</th>
                     <th scope="col">Data</th>
+                    <th scope="col"><span className="sr-only">Ações</span></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -189,6 +190,11 @@ export function SolicitacoesPage() {
                       <td data-label="Prioridade"><PrioridadeBadge prioridade={request.prioridade} /></td>
                       <td data-label="Status"><StatusBadge status={request.status} /></td>
                       <td data-label="Data"><time dateTime={request.data_criacao}>{formatDate(request.data_criacao)}</time></td>
+                      <td data-label="Ações">
+                        <Link to={`/solicitacoes/${request.id}`} className="button button--outline button--small" aria-label={`Gerenciar status da solicitação ${request.protocolo}`}>
+                          Gerenciar status
+                        </Link>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -209,6 +209,7 @@ p, h1, h2, h3 { margin: 0; }
 .button--outline:hover:not(:disabled) { border-color: var(--teal-700); background: var(--teal-50); color: var(--teal-800); }
 .button--ghost { color: var(--slate-600); }
 .button--ghost:hover { background: var(--slate-100); color: var(--slate-950); }
+.button--small { min-height: 2.15rem; padding: 0.4rem 0.75rem; font-size: 0.8rem; }
 .button:disabled { opacity: 0.48; }
 
 .summary-section { display: grid; gap: var(--space-3); }
