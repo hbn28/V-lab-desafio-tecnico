@@ -4,17 +4,7 @@ Reescrito a cada rodada pelo agente que acabou de trabalhar. O próximo agente (
 
 ## Última tarefa concluída
 
-Aplicação da direção visual **A — Institucional contemporâneo** no frontend React:
-
-- design system documentado em `docs/design-system.md` e implementado com tokens primitivos/semânticos em `frontend/src/index.css`;
-- rota `/` transformada na tela inicial real; `/solicitacoes` preservada como redirecionamento compatível;
-- dashboard com resumo por status explicitamente limitado à página carregada;
-- listagem, filtros, paginação, estados assíncronos e adaptação da tabela para celular;
-- formulário acessível com labels associados, erros inline e resumo focalizável;
-- detalhe responsivo com feedback de sucesso/erro para atualização de status;
-- contrato interno alinhado aos campos já implementados `cpf_solicitante` e `data_nascimento`, sem migration nova e sem alteração nos endpoints.
-
-Testes TDD adicionados para rota inicial, resumo por status, associação dos campos e foco do resumo de erro.
+Remoção, na tela de nova solicitação, dos textos “Use somente informações fictícias neste desafio.” e “Cadastre dados fictícios e descreva a necessidade de atendimento com clareza.”. A descrição do componente compartilhado passou a ser opcional para preservar o texto explicativo da tela de edição.
 
 ## Próxima tarefa
 
@@ -29,7 +19,7 @@ Testes TDD adicionados para rota inicial, resumo por status, associação dos ca
 
 ## Estado de verificação desta rodada
 
-- `npm test -- --run`: 6 testes passaram.
+- `npm test -- --run src/test/solicitacoes.test.tsx`: 10 testes passaram.
 - `npm run build`: passou.
 - `npm run lint`: bloqueado antes da análise por ausência de `eslint.config.js`.
 - Inspeção visual desktop: dashboard e formulário conferidos no navegador local.

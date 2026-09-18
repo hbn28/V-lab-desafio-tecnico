@@ -17,7 +17,6 @@ export function NovaSolicitacaoPage() {
       <SolicitacaoForm
         eyebrow="Novo registro"
         heading="Nova Solicitação"
-        description="Cadastre dados fictícios e descreva a necessidade de atendimento com clareza."
         submitLabel="Criar solicitação"
         submittingLabel="Salvando..."
         onCancel={() => navigate('/')}
