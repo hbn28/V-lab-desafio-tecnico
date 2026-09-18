@@ -8,7 +8,7 @@ import type {
 
 export type ListarParams = FiltrosSolicitacoes;
 
-const BASE_URL = (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ?? '';
+const BASE_URL = '';
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let response: Response;
