@@ -158,9 +158,8 @@ describe('SolicitacoesPage', () => {
     expect(await screen.findByRole('heading', { name: 'Prioridades em aberto' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /1 solicitação urgente em aberto/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /1 solicitação de prioridade alta em aberto/ })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Andamento da fila' })).toBeInTheDocument();
-    expect(screen.getByText('Recebidas', { selector: 'dt' })).toBeInTheDocument();
-    expect(screen.getByText('Em análise', { selector: 'dt' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /1 solicitação recebida/ })).toHaveTextContent('Recebidas');
+    expect(screen.getByRole('button', { name: /1 solicitação em análise/ })).toHaveTextContent('Em análise');
   });
 
   it('abre o drill-down com a lista filtrada ao clicar em um bloco de prioridade', async () => {
