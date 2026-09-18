@@ -6,8 +6,9 @@ import type { Status, Categoria, Prioridade } from '../types';
 import { LABEL_STATUS, LABEL_CATEGORIA, LABEL_PRIORIDADE } from '../types';
 
 const STATUS_LIST: Status[] = ['RECEBIDA', 'EM_ANALISE', 'AGENDADA', 'CONCLUIDA', 'CANCELADA'];
+const STATUS_ABERTO_LIST = ['RECEBIDA', 'EM_ANALISE', 'AGENDADA'] as const satisfies readonly Status[];
 const CATEGORIA_LIST: Categoria[] = ['CONSULTA', 'EXAME', 'VACINACAO', 'OUTRO'];
-const PRIORIDADE_LIST: Prioridade[] = ['BAIXA', 'MEDIA', 'ALTA', 'URGENTE'];
+const PRIORIDADE_LIST: Prioridade[] = ['URGENTE', 'ALTA', 'MEDIA', 'BAIXA'];
 
 const STATUS_ARIA: Record<Status, [string, string]> = {
   RECEBIDA: ['solicitação recebida', 'solicitações recebidas'],
@@ -15,6 +16,19 @@ const STATUS_ARIA: Record<Status, [string, string]> = {
   AGENDADA: ['solicitação agendada', 'solicitações agendadas'],
   CONCLUIDA: ['solicitação concluída', 'solicitações concluídas'],
   CANCELADA: ['solicitação cancelada', 'solicitações canceladas'],
+};
+
+const PRIORIDADE_ARIA: Record<Prioridade, [string, string]> = {
+  URGENTE: ['solicitação urgente em aberto', 'solicitações urgentes em aberto'],
+  ALTA: ['solicitação de prioridade alta em aberto', 'solicitações de prioridade alta em aberto'],
+  MEDIA: ['solicitação de prioridade média em aberto', 'solicitações de prioridade média em aberto'],
+  BAIXA: ['solicitação de prioridade baixa em aberto', 'solicitações de prioridade baixa em aberto'],
+};
+
+const LABEL_STATUS_ABERTO: Record<(typeof STATUS_ABERTO_LIST)[number], string> = {
+  RECEBIDA: 'Recebidas',
+  EM_ANALISE: 'Em análise',
+  AGENDADA: 'Agendadas',
 };
 
 function formatDate(value: string) {
@@ -40,6 +54,16 @@ export function SolicitacoesPage() {
     data?.data?.forEach(item => { counts[item.status] += 1; });
     return counts;
   }, [data]);
+
+  const prioridadeAbertaCounts = useMemo(() => {
+    const counts = Object.fromEntries(PRIORIDADE_LIST.map(item => [item, 0])) as Record<Prioridade, number>;
+    data?.data?.forEach(item => {
+      if (item.status !== 'CONCLUIDA' && item.status !== 'CANCELADA') counts[item.prioridade] += 1;
+    });
+    return counts;
+  }, [data]);
+
+  const encerradasNaPagina = (statusCounts.CONCLUIDA ?? 0) + (statusCounts.CANCELADA ?? 0);
 
   const hasFilters = Boolean(status || categoria || prioridade);
 
@@ -67,30 +91,51 @@ export function SolicitacoesPage() {
       </header>
 
       {!loading && !error && data && (
-        <section className="summary-section" aria-labelledby="summary-heading">
+        <section className="dashboard-section" aria-labelledby="priority-heading">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Visão operacional</p>
-              <h2 id="summary-heading">Resumo desta página</h2>
+              <p className="eyebrow">Atenção imediata</p>
+              <h2 id="priority-heading">Prioridades em aberto nesta página</h2>
             </div>
-            <p>{data?.data?.length ?? 0} de {data?.total ?? 0} solicitações</p>
+            <p>{data?.data?.length ?? 0} de {data?.total ?? 0} solicitações exibidas</p>
           </div>
-          <div className="summary-grid">
-            {STATUS_LIST.map(item => {
-              const count = statusCounts[item];
-              const description = count === 1 ? STATUS_ARIA[item][0] : STATUS_ARIA[item][1];
+          <div className="priority-grid">
+            {PRIORIDADE_LIST.map(item => {
+              const count = prioridadeAbertaCounts[item];
+              const description = count === 1 ? PRIORIDADE_ARIA[item][0] : PRIORIDADE_ARIA[item][1];
               return (
                 <article
-                  className={`summary-card summary-card--${item.toLowerCase()}`}
+                  className={`priority-card priority-card--${item.toLowerCase()}`}
                   key={item}
                   aria-label={`${count} ${description}`}
                 >
-                  <span className="summary-card__label">{LABEL_STATUS[item]}</span>
+                  <span className="priority-card__label">{LABEL_PRIORIDADE[item]}</span>
                   <strong>{count}</strong>
+                  <span className="priority-card__action">Em aberto</span>
                 </article>
               );
             })}
           </div>
+        </section>
+      )}
+
+      {!loading && !error && data && (
+        <section className="workflow-section" aria-labelledby="workflow-heading">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Fluxo de trabalho</p>
+              <h2 id="workflow-heading">Andamento da fila</h2>
+            </div>
+            <p>{encerradasNaPagina} encerrada{encerradasNaPagina === 1 ? '' : 's'} nesta página</p>
+          </div>
+          <dl className="workflow-list">
+            {STATUS_ABERTO_LIST.map(item => (
+              <div key={item}>
+                <dt>{LABEL_STATUS_ABERTO[item]}</dt>
+                <dd aria-label={`${statusCounts[item]} ${statusCounts[item] === 1 ? STATUS_ARIA[item][0] : STATUS_ARIA[item][1]}`}>{statusCounts[item]}</dd>
+              </div>
+            ))}
+          </dl>
         </section>
       )}
 
@@ -171,29 +216,28 @@ export function SolicitacoesPage() {
                 <caption className="sr-only">Solicitações de atendimento encontradas</caption>
                 <thead>
                   <tr>
-                    <th scope="col">Protocolo</th>
-                    <th scope="col">Solicitante</th>
-                    <th scope="col">Categoria</th>
                     <th scope="col">Prioridade</th>
-                    <th scope="col">Status</th>
-                    <th scope="col">Data</th>
+                    <th scope="col">Solicitação</th>
+                    <th scope="col">Categoria</th>
+                    <th scope="col">Etapa</th>
+                    <th scope="col">Registrada em</th>
                     <th scope="col"><span className="sr-only">Ações</span></th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.data?.map(request => (
                     <tr key={request.id}>
-                      <td data-label="Protocolo">
-                        <Link to={`/solicitacoes/${request.id}`} className="protocol-link">{request.protocolo}</Link>
-                      </td>
-                      <td data-label="Solicitante"><span className="requester-name">{request.nome_solicitante}</span></td>
-                      <td data-label="Categoria">{LABEL_CATEGORIA[request.categoria]}</td>
                       <td data-label="Prioridade"><PrioridadeBadge prioridade={request.prioridade} /></td>
-                      <td data-label="Status"><StatusBadge status={request.status} /></td>
-                      <td data-label="Data"><time dateTime={request.data_criacao}>{formatDate(request.data_criacao)}</time></td>
+                      <td data-label="Solicitação">
+                        <Link to={`/solicitacoes/${request.id}`} className="protocol-link">{request.protocolo}</Link>
+                        <span className="requester-name">{request.nome_solicitante}</span>
+                      </td>
+                      <td data-label="Categoria">{LABEL_CATEGORIA[request.categoria]}</td>
+                      <td data-label="Etapa"><StatusBadge status={request.status} /></td>
+                      <td data-label="Registrada em"><time dateTime={request.data_criacao}>{formatDate(request.data_criacao)}</time></td>
                       <td data-label="Ações">
-                        <Link to={`/solicitacoes/${request.id}`} className="button button--outline button--small" aria-label={`Gerenciar status da solicitação ${request.protocolo}`}>
-                          Gerenciar status
+                        <Link to={`/solicitacoes/${request.id}`} className="button button--outline button--small" aria-label={`Ver detalhes da solicitação ${request.protocolo}`}>
+                          Ver detalhes
                         </Link>
                       </td>
                     </tr>

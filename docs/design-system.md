@@ -44,7 +44,8 @@ Tokens específicos de componente só devem ser criados quando houver reutiliza�
 
 - Botões: principal, contorno, fantasma, transição de status e perigo em contorno.
 - Campos: rótulo visível, ajuda persistente quando necessária, erro inline e foco perceptível.
-- Badges: status com ponto + texto; prioridade com texto. Ambos possuem contraste e borda.
+- Painel: prioridades abertas são o primeiro bloco e usam cartões de leitura imediata; urgentes e altas têm maior contraste. O andamento vem abaixo, em faixa neutra, para não competir com prioridade.
+- Badges: status com ponto + texto, em cores de etapa neutras/operacionais; prioridade com texto, em escala própria de atenção. Ambos possuem contraste e borda, mas nunca devem reutilizar a mesma convenção visual lado a lado.
 - Alertas: erro e sucesso com mensagem de recuperação; erros do formulário também aparecem em resumo focalizável e ligado aos campos.
 - Painéis e cartões: uma superfície por agrupamento funcional, sem aninhamento decorativo excessivo.
 - Tabela: cabeçalhos semânticos no desktop e reorganização em cartões rotulados no celular.
@@ -54,8 +55,8 @@ Tokens específicos de componente só devem ser criados quando houver reutiliza�
 
 - Até 480 px: uma coluna, marca compacta e ações em largura total.
 - Até 768 px: filtros empilhados, tabela reorganizada em cartões e formulário em uma coluna.
-- Até 992 px: resumo em três colunas e detalhe em uma coluna.
-- Acima disso: largura máxima de 78 rem, resumo em cinco colunas e detalhe em duas colunas.
+- Até 992 px: prioridades em duas colunas, andamento em uma coluna e detalhe em uma coluna.
+- Acima disso: largura máxima de 78 rem, prioridades em quatro colunas, andamento em três etapas e detalhe em duas colunas.
 
 Não deve haver rolagem horizontal na página em 320 px. Controles interativos têm altura mínima de 44 px.
 
@@ -68,7 +69,7 @@ Não deve haver rolagem horizontal na página em 320 px. Controles interativos t
 
 A interface consome somente os quatro endpoints documentados. As opções de transição exibidas melhoram a usabilidade, mas a Action do backend continua como única autoridade da máquina de estados.
 
-O resumo atual é explicitamente “desta página”, pois é calculado a partir da resposta paginada. Não deve ser apresentado como total global sem um contrato de API próprio para agregação.
+Os indicadores do painel são explicitamente “desta página”, pois são calculados a partir da resposta paginada. Não devem ser apresentados como totais globais sem um contrato de API próprio para agregação.
 
 A listagem principal comunica a ordem da fila: estados ativos, prioridade descendente e maior tempo de espera. Como essa ordenação é aplicada pela API, a interface não deve reordenar a página localmente.
 
