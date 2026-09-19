@@ -16,11 +16,13 @@ frontend/src/features/solicitacoes/pages
 
 - Regras de criação e protocolo: `backend/app/Domain/Solicitacoes/Actions/CriarSolicitacao.php`.
 - Máquina de estados: `AtualizarStatusSolicitacao.php`.
-- Ordenação da fila: `SolicitacaoController::index()`.
+- Ordenação da fila e grupos de status: `SolicitacaoController::index()` — decide a ordenação (fila operacional ativa vs. histórico encerrado por `updated_at` descendente) a partir de `status_grupo`.
+- Validação de `status_grupo` (`aberto`/`encerrado`): `ListarSolicitacoesRequest.php`.
 - Contrato de saída: `SolicitacaoResource.php` e `frontend/src/features/solicitacoes/types/index.ts`.
 - Cliente e envelope de erro: `frontend/src/features/solicitacoes/api/client.ts`.
 - Tokens e responsividade: `frontend/src/index.css` e `docs/design-system.md`.
 - Testes de comportamento: `backend/tests/Feature/` e `frontend/src/test/solicitacoes.test.tsx`.
+- Tela de fila atual, histórico e exploração por categoria: `frontend/src/features/solicitacoes/pages/SolicitacoesPage.tsx` (alterna `EscopoFila` entre `aberto`/`encerrado` e `ModoFila` entre `prioridade`/`categoria`).
 
 ## Alertas de manutenção
 
