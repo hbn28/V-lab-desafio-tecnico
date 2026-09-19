@@ -15,7 +15,7 @@ class ListarSolicitacoesRequest extends FormRequest
     {
         return [
             'status'    => ['nullable', 'string', 'in:RECEBIDA,EM_ANALISE,AGENDADA,CONCLUIDA,CANCELADA'],
-            'status_grupo' => ['nullable', 'string', 'in:aberto'],
+            'status_grupo' => ['nullable', 'string', 'in:aberto,encerrado'],
             'categoria' => ['nullable', 'string', 'in:CONSULTA,EXAME,VACINACAO,OUTRO'],
             'prioridade' => ['nullable', 'string', 'in:BAIXA,MEDIA,ALTA,URGENTE'],
             'page'      => ['nullable', 'integer', 'min:1'],

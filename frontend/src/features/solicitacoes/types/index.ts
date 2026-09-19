@@ -55,8 +55,8 @@ export type AtualizarSolicitacaoPayload = CriarSolicitacaoPayload;
 
 export interface FiltrosSolicitacoes {
   status?: Status;
-  /** Agrupamento usado pelo drill-down do painel: 'aberto' = RECEBIDA + EM_ANALISE + AGENDADA. */
-  status_grupo?: 'aberto';
+  /** Agrupamento operacional: aberto ou histórico encerrado. */
+  status_grupo?: 'aberto' | 'encerrado';
   categoria?: Categoria;
   prioridade?: Prioridade;
   page?: number;

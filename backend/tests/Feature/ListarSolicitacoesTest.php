@@ -41,6 +41,31 @@ test('status inválido no filtro retorna 422', function () {
     $response->assertStatus(422);
 });
 
+test('filtra o histórico encerrado sem misturar solicitações abertas', function () {
+    Solicitacao::factory()->create([
+        'status' => 'RECEBIDA',
+        'protocolo' => 'SOL-2026-0101',
+    ]);
+    Solicitacao::factory()->create([
+        'status' => 'CONCLUIDA',
+        'protocolo' => 'SOL-2026-0102',
+        'updated_at' => Carbon::parse('2026-09-17 08:00:00'),
+    ]);
+    Solicitacao::factory()->create([
+        'status' => 'CANCELADA',
+        'protocolo' => 'SOL-2026-0103',
+        'updated_at' => Carbon::parse('2026-09-18 08:00:00'),
+    ]);
+
+    $response = $this->getJson('/api/v1/solicitacoes?status_grupo=encerrado');
+
+    $response->assertOk();
+    expect($response->json('data.*.protocolo'))->toBe([
+        'SOL-2026-0103',
+        'SOL-2026-0102',
+    ]);
+});
+
 test('per_page inválido retorna 422', function () {
     $response = $this->getJson('/api/v1/solicitacoes?per_page=200');
 

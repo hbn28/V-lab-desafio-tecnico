@@ -39,17 +39,26 @@ class SolicitacaoController
 
     public function index(ListarSolicitacoesRequest $request): ResourceCollection
     {
-        $query = Solicitacao::query()
+        $statusGrupo = $request->validated('status_grupo');
+        $query = Solicitacao::query();
+
+        if ($statusGrupo === 'encerrado') {
+            // Histórico não é fila operacional: o evento mais recente vem primeiro.
+            $query->whereIn('status', ['CONCLUIDA', 'CANCELADA'])
+                ->orderByDesc('updated_at')
+                ->orderByDesc('id');
+        } else {
             // A fila operacional é estável e explicável: demandas abertas,
             // maior prioridade e, em empate, maior tempo de espera.
-            ->orderByRaw("CASE WHEN status IN ('CONCLUIDA', 'CANCELADA') THEN 1 ELSE 0 END ASC")
-            ->orderByRaw("CASE prioridade WHEN 'URGENTE' THEN 1 WHEN 'ALTA' THEN 2 WHEN 'MEDIA' THEN 3 WHEN 'BAIXA' THEN 4 END ASC")
-            ->orderBy('created_at')
-            ->orderBy('id');
+            $query->orderByRaw("CASE WHEN status IN ('CONCLUIDA', 'CANCELADA') THEN 1 ELSE 0 END ASC")
+                ->orderByRaw("CASE prioridade WHEN 'URGENTE' THEN 1 WHEN 'ALTA' THEN 2 WHEN 'MEDIA' THEN 3 WHEN 'BAIXA' THEN 4 END ASC")
+                ->orderBy('created_at')
+                ->orderBy('id');
+        }
 
         if ($status = $request->validated('status')) {
             $query->where('status', $status);
-        } elseif ($request->validated('status_grupo') === 'aberto') {
+        } elseif ($statusGrupo === 'aberto') {
             // Usado pelo drill-down do painel: "Urgente em aberto" etc.
             // não corresponde a um único status, e sim a RECEBIDA/EM_ANALISE/AGENDADA.
             $query->whereNotIn('status', ['CONCLUIDA', 'CANCELADA']);
