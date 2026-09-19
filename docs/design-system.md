@@ -44,7 +44,7 @@ Tokens específicos de componente só devem ser criados quando houver reutiliza�
 
 - Botões: principal, contorno, fantasma, transição de status e perigo em contorno.
 - Campos: rótulo visível, ajuda persistente quando necessária, erro inline e foco perceptível.
-- Painel: prioridades abertas são o primeiro bloco e usam cartões de leitura imediata; urgentes e altas têm maior contraste. O andamento vem abaixo, em faixa neutra, para não competir com prioridade.
+- Painel: o cartão “Próximo atendimento” abre a página. Em seguida vem a fila paginada, com filtros e registros na ordem operacional; o resumo global de prioridades e etapas fica abaixo como apoio à decisão. Urgentes e altas têm maior contraste.
 - Badges: status com ponto + texto, em cores de etapa neutras/operacionais; prioridade com texto, em escala própria de atenção. Ambos possuem contraste e borda, mas nunca devem reutilizar a mesma convenção visual lado a lado.
 - Alertas: erro e sucesso com mensagem de recuperação; erros do formulário também aparecem em resumo focalizável e ligado aos campos.
 - Painéis e cartões: uma superfície por agrupamento funcional, sem aninhamento decorativo excessivo.
@@ -67,9 +67,9 @@ Não deve haver rolagem horizontal na página em 320 px. Controles interativos t
 - `/solicitacoes/nova`: criação.
 - `/solicitacoes/:id`: detalhe e atualização de status.
 
-A interface consome somente os quatro endpoints documentados. As opções de transição exibidas melhoram a usabilidade, mas a Action do backend continua como única autoridade da máquina de estados.
+A interface consome somente endpoints documentados. As opções de transição exibidas melhoram a usabilidade, mas a Action do backend continua como única autoridade da máquina de estados.
 
-Os indicadores do painel são explicitamente “desta página”, pois são calculados a partir da resposta paginada. Não devem ser apresentados como totais globais sem um contrato de API próprio para agregação.
+Os indicadores do painel são globais quando a API de resumo documentada os fornece; a fila continua paginada para preservar desempenho e navegação. A interface não deve inferir totais globais a partir da página carregada.
 
 A listagem principal comunica a ordem da fila: estados ativos, prioridade descendente e maior tempo de espera. Como essa ordenação é aplicada pela API, a interface não deve reordenar a página localmente.
 

@@ -161,89 +161,12 @@ export function SolicitacoesPage() {
         </section>
       )}
 
-      {!resumoLoading && !resumoError && resumo && (
-        <p className="dashboard-context" role="status">
-          {resumoFiltros.categoria || resumoFiltros.prioridade ? (
-            <>
-              Painel considerando <strong>
-                {[
-                  resumoFiltros.categoria && `categoria ${LABEL_CATEGORIA[resumoFiltros.categoria]}`,
-                  resumoFiltros.prioridade && `prioridade ${LABEL_PRIORIDADE[resumoFiltros.prioridade]}`,
-                ].filter(Boolean).join(' e ')}
-              </strong>, como na listagem abaixo.
-            </>
-          ) : (
-            <>Painel considerando <strong>todas as solicitações</strong> — não apenas as desta página.</>
-          )}
-          {status && ` O bloco "${LABEL_STATUS_PLURAL[status]}" abaixo está destacado — é o que corresponde ao filtro de status escolhido.`}
-        </p>
-      )}
-
-      {!resumoLoading && !resumoError && resumo && (
-        <section className="dashboard-section" aria-labelledby="priority-heading">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Atenção imediata</p>
-              <h2 id="priority-heading">Prioridades em aberto</h2>
-            </div>
-            <p>Toque em um bloco para ver as solicitações</p>
-          </div>
-          <div className="priority-grid">
-            {PRIORIDADE_LIST.map(item => {
-              const count = resumo.prioridade_aberta[item];
-              const description = count === 1 ? PRIORIDADE_ARIA[item][0] : PRIORIDADE_ARIA[item][1];
-              return (
-                <button
-                  type="button"
-                  className={`priority-card priority-card--${item.toLowerCase()}`}
-                  key={item}
-                  aria-label={`${count} ${description}. Ver lista.`}
-                  onClick={() => abrirPorPrioridade(item)}
-                >
-                  <span className="priority-card__label">{LABEL_PRIORIDADE[item]}</span>
-                  <strong>{count}</strong>
-                  {resumo.mais_antiga_aberta[item] && (
-                    <span className="priority-card__aging">mais antiga: {formatAging(resumo.mais_antiga_aberta[item]!)}</span>
-                  )}
-                  <span className="priority-card__action">Em aberto ›</span>
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="workflow-strip" aria-label="Andamento por etapa, nas mesmas solicitações">
-            <span className="workflow-strip__label">Por etapa:</span>
-            {STATUS_LIST.map((item, index) => {
-              const encerrada = (STATUS_ENCERRADO as readonly Status[]).includes(item);
-              const primeiraEncerrada = encerrada && index > 0 && !(STATUS_ENCERRADO as readonly Status[]).includes(STATUS_LIST[index - 1]);
-              return (
-                <button
-                  type="button"
-                  key={item}
-                  className={[
-                    'workflow-strip__pill',
-                    encerrada ? 'workflow-strip__pill--encerrada' : '',
-                    primeiraEncerrada ? 'workflow-strip__pill--divider' : '',
-                    status === item ? 'workflow-strip__pill--active' : '',
-                  ].filter(Boolean).join(' ')}
-                  onClick={() => abrirPorStatus(item)}
-                  aria-pressed={status === item}
-                  aria-label={`${resumo.status[item]} ${resumo.status[item] === 1 ? STATUS_ARIA[item][0] : STATUS_ARIA[item][1]}. Ver lista.`}
-                >
-                  {LABEL_STATUS_PLURAL[item]} <strong>{resumo.status[item]}</strong>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      <section className="panel" aria-labelledby="list-heading">
+      <section className="panel queue-panel" aria-labelledby="list-heading">
         <div className="panel__header">
           <div>
-            <p className="eyebrow">Fila de solicitações</p>
-            <h2 id="list-heading">Registros</h2>
-            <p className="list-order-hint">Prioridade mais alta primeiro; em caso de empate, a solicitação mais antiga.</p>
+            <p className="eyebrow">Ordem operacional</p>
+            <h2 id="list-heading">Fila de atendimento</h2>
+            <p className="list-order-hint">Registros ordenados pela prioridade e pelo tempo de espera.</p>
           </div>
           {data && !loading && !error && <span className="record-count">{data.total} no total</span>}
         </div>
@@ -345,7 +268,7 @@ export function SolicitacoesPage() {
               </table>
             </div>
 
-            <nav className="pagination" aria-label="Paginação da listagem">
+            <nav className="pagination" aria-label="Paginação da fila">
               <p>Página <strong>{page}</strong> de <strong>{data.last_page}</strong></p>
               <div className="pagination__actions">
                 <button className="button button--outline" disabled={page === 1} onClick={() => setPage(current => current - 1)} type="button">
@@ -359,6 +282,83 @@ export function SolicitacoesPage() {
           </>
         )}
       </section>
+
+      {!resumoLoading && !resumoError && resumo && (
+        <p className="dashboard-context" role="status">
+          {resumoFiltros.categoria || resumoFiltros.prioridade ? (
+            <>
+              Painel considerando <strong>
+                {[
+                  resumoFiltros.categoria && `categoria ${LABEL_CATEGORIA[resumoFiltros.categoria]}`,
+                  resumoFiltros.prioridade && `prioridade ${LABEL_PRIORIDADE[resumoFiltros.prioridade]}`,
+                ].filter(Boolean).join(' e ')}
+              </strong>, como na listagem abaixo.
+            </>
+          ) : (
+            <>Painel considerando <strong>todas as solicitações</strong> — não apenas as desta página.</>
+          )}
+          {status && ` O bloco "${LABEL_STATUS_PLURAL[status]}" abaixo está destacado — é o que corresponde ao filtro de status escolhido.`}
+        </p>
+      )}
+
+      {!resumoLoading && !resumoError && resumo && (
+        <section className="dashboard-section" aria-labelledby="priority-heading">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Atenção imediata</p>
+              <h2 id="priority-heading">Prioridades em aberto</h2>
+            </div>
+            <p>Toque em um bloco para ver as solicitações</p>
+          </div>
+          <div className="priority-grid">
+            {PRIORIDADE_LIST.map(item => {
+              const count = resumo.prioridade_aberta[item];
+              const description = count === 1 ? PRIORIDADE_ARIA[item][0] : PRIORIDADE_ARIA[item][1];
+              return (
+                <button
+                  type="button"
+                  className={`priority-card priority-card--${item.toLowerCase()}`}
+                  key={item}
+                  aria-label={`${count} ${description}. Ver lista.`}
+                  onClick={() => abrirPorPrioridade(item)}
+                >
+                  <span className="priority-card__label">{LABEL_PRIORIDADE[item]}</span>
+                  <strong>{count}</strong>
+                  {resumo.mais_antiga_aberta[item] && (
+                    <span className="priority-card__aging">mais antiga: {formatAging(resumo.mais_antiga_aberta[item]!)}</span>
+                  )}
+                  <span className="priority-card__action">Em aberto ›</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="workflow-strip" aria-label="Andamento por etapa, nas mesmas solicitações">
+            <span className="workflow-strip__label">Por etapa:</span>
+            {STATUS_LIST.map((item, index) => {
+              const encerrada = (STATUS_ENCERRADO as readonly Status[]).includes(item);
+              const primeiraEncerrada = encerrada && index > 0 && !(STATUS_ENCERRADO as readonly Status[]).includes(STATUS_LIST[index - 1]);
+              return (
+                <button
+                  type="button"
+                  key={item}
+                  className={[
+                    'workflow-strip__pill',
+                    encerrada ? 'workflow-strip__pill--encerrada' : '',
+                    primeiraEncerrada ? 'workflow-strip__pill--divider' : '',
+                    status === item ? 'workflow-strip__pill--active' : '',
+                  ].filter(Boolean).join(' ')}
+                  onClick={() => abrirPorStatus(item)}
+                  aria-pressed={status === item}
+                  aria-label={`${resumo.status[item]} ${resumo.status[item] === 1 ? STATUS_ARIA[item][0] : STATUS_ARIA[item][1]}. Ver lista.`}
+                >
+                  {LABEL_STATUS_PLURAL[item]} <strong>{resumo.status[item]}</strong>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {drilldown && (
         <DrilldownModal

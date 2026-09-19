@@ -4,7 +4,7 @@
 
 ```text
 frontend/src/features/solicitacoes/pages
-  -> hooks/useSolicitacoes.ts
+  -> hooks/useSolicitacoes.ts (listagem, resumo e próximo atendimento)
   -> api/client.ts
   -> backend/routes/api.php
   -> SolicitacaoController
@@ -25,6 +25,6 @@ frontend/src/features/solicitacoes/pages
 ## Alertas de manutenção
 
 - O frontend pode esconder transições impossíveis, mas nunca decide uma transição.
-- O resumo da tela inicial é da página carregada, não um agregado global.
+- A fila é paginada; o resumo do painel vem de `GET /solicitacoes/resumo` e pode representar o conjunto global ou os filtros documentados.
 - A fila é ordenada no backend para não quebrar paginação.
 - `graphify-out` é artefato derivado; o mapa acima é o fallback humano quando a CLI não estiver instalada.

@@ -166,6 +166,26 @@ describe('SolicitacoesPage', () => {
     expect(screen.getByRole('button', { name: /1 solicitação em análise/ })).toHaveTextContent('Em análise');
   });
 
+  it('mostra a fila paginada antes do resumo de prioridades', async () => {
+    vi.mocked(solicitacoesApi.listar).mockResolvedValue({
+      data: [{ ...solicitacaoBase, prioridade: 'URGENTE' }],
+      total: 1,
+      last_page: 1,
+    });
+
+    render(
+      <MemoryRouter>
+        <SolicitacoesPage />
+      </MemoryRouter>
+    );
+
+    const fila = await screen.findByRole('heading', { name: 'Fila de atendimento' });
+    const prioridades = screen.getByRole('heading', { name: 'Prioridades em aberto' });
+
+    expect(fila.compareDocumentPosition(prioridades) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText('Registros ordenados pela prioridade e pelo tempo de espera.')).toBeInTheDocument();
+  });
+
   it('abre o drill-down com a lista filtrada ao clicar em um bloco de prioridade', async () => {
     vi.mocked(solicitacoesApi.listar).mockResolvedValue({
       data: [{ ...solicitacaoBase, prioridade: 'URGENTE' }],
