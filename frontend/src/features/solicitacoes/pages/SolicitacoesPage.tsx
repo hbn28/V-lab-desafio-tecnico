@@ -35,6 +35,8 @@ const LABEL_STATUS_PLURAL: Record<Status, string> = {
 };
 
 const STATUS_ENCERRADO = ['CONCLUIDA', 'CANCELADA'] as const satisfies readonly Status[];
+type EscopoFila = 'aberto' | 'encerrado';
+type ModoFila = 'prioridade' | 'categoria';
 
 const PRIORIDADE_ACCENT: Record<Prioridade, 'urgente' | 'alta' | 'media' | 'baixa'> = {
   URGENTE: 'urgente',
@@ -68,6 +70,8 @@ export function SolicitacoesPage() {
   const [status, setStatus] = useState<Status | ''>('');
   const [categoria, setCategoria] = useState<Categoria | ''>('');
   const [prioridade, setPrioridade] = useState<Prioridade | ''>('');
+  const [escopo, setEscopo] = useState<EscopoFila>('aberto');
+  const [modo, setModo] = useState<ModoFila>('prioridade');
   const [page, setPage] = useState(1);
   const [drilldown, setDrilldown] = useState<Drilldown | null>(null);
 
@@ -75,6 +79,7 @@ export function SolicitacoesPage() {
     status: status || undefined,
     categoria: categoria || undefined,
     prioridade: prioridade || undefined,
+    status_grupo: escopo,
     page,
     per_page: 10,
   });
@@ -87,11 +92,20 @@ export function SolicitacoesPage() {
   const { data: proximo, loading: proximoLoading, error: proximoError } = useProximoAtendimento({ paused: isDrilldownAberto });
 
   const hasFilters = Boolean(status || categoria || prioridade);
+  const statusDisponiveis = escopo === 'aberto'
+    ? STATUS_LIST.filter(item => !(STATUS_ENCERRADO as readonly Status[]).includes(item))
+    : STATUS_ENCERRADO;
 
   const clearFilters = () => {
     setStatus('');
     setCategoria('');
     setPrioridade('');
+    setPage(1);
+  };
+
+  const mudarEscopo = (novoEscopo: EscopoFila) => {
+    setEscopo(novoEscopo);
+    setStatus('');
     setPage(1);
   };
 
@@ -165,18 +179,45 @@ export function SolicitacoesPage() {
         <div className="panel__header">
           <div>
             <p className="eyebrow">Ordem operacional</p>
-            <h2 id="list-heading">Fila de atendimento</h2>
-            <p className="list-order-hint">Registros ordenados pela prioridade e pelo tempo de espera.</p>
+            <h2 id="list-heading">{escopo === 'aberto' ? 'Fila de atendimento' : 'Histórico encerrado'}</h2>
+            <p className="list-order-hint">
+              {escopo === 'aberto'
+                ? 'Registros ordenados pela prioridade e pelo tempo de espera.'
+                : 'Solicitações concluídas e canceladas, do encerramento mais recente ao mais antigo.'}
+            </p>
           </div>
           {data && !loading && !error && <span className="record-count">{data.total} no total</span>}
         </div>
+
+        <div className="view-switcher" aria-label="Visão da fila">
+          <div className="view-switcher__group" role="group" aria-label="Escopo da listagem">
+            <button type="button" className={`button button--outline ${escopo === 'aberto' ? 'is-active' : ''}`} aria-pressed={escopo === 'aberto'} onClick={() => mudarEscopo('aberto')}>Fila atual</button>
+            <button type="button" className={`button button--outline ${escopo === 'encerrado' ? 'is-active' : ''}`} aria-pressed={escopo === 'encerrado'} onClick={() => mudarEscopo('encerrado')}>Histórico encerrado</button>
+          </div>
+          {escopo === 'aberto' && (
+            <div className="view-switcher__group" role="group" aria-label="Organização da fila">
+              <button type="button" className={`button button--ghost ${modo === 'prioridade' ? 'is-active' : ''}`} aria-pressed={modo === 'prioridade'} onClick={() => setModo('prioridade')}>Por prioridade</button>
+              <button type="button" className={`button button--ghost ${modo === 'categoria' ? 'is-active' : ''}`} aria-pressed={modo === 'categoria'} onClick={() => setModo('categoria')}>Explorar por categoria</button>
+            </div>
+          )}
+        </div>
+
+        {escopo === 'aberto' && modo === 'categoria' && (
+          <div className="category-explorer" aria-label="Categorias de atendimento">
+            <p><strong>{resumo?.prioridade_aberta.URGENTE ?? 0}</strong> urgentes na fila total. Escolher uma categoria não altera a ordem de prioridade.</p>
+            <div className="category-explorer__actions">
+              <button type="button" className={`button button--outline ${!categoria ? 'is-active' : ''}`} onClick={() => { setCategoria(''); setPage(1); }}>Todas</button>
+              {CATEGORIA_LIST.map(item => <button type="button" key={item} className={`button button--outline ${categoria === item ? 'is-active' : ''}`} onClick={() => { setCategoria(item); setPage(1); }}>{LABEL_CATEGORIA[item]}</button>)}
+            </div>
+          </div>
+        )}
 
         <div className="filter-bar" aria-label="Filtros da listagem">
           <div className="filter-field">
             <label htmlFor="filtro-status">Status</label>
             <select id="filtro-status" value={status} onChange={event => { setStatus(event.target.value as Status | ''); setPage(1); }}>
               <option value="">Todos</option>
-              {STATUS_LIST.map(item => <option key={item} value={item}>{LABEL_STATUS[item]}</option>)}
+              {statusDisponiveis.map(item => <option key={item} value={item}>{LABEL_STATUS[item]}</option>)}
             </select>
           </div>
           <div className="filter-field">

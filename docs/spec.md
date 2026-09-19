@@ -81,13 +81,15 @@ Resposta 201: `{ "data": Solicitacao }`.
 
 ### GET `/api/v1/solicitacoes`
 
-Query: `status`, `categoria`, `prioridade`, `page`, `per_page`.
+Query: `status`, `status_grupo`, `categoria`, `prioridade`, `page`, `per_page`.
 
 - filtros vazios são tratados como ausentes;
 - enums desconhecidos retornam 422;
 - `page` deve ser inteiro >= 1;
 - `per_page` deve ser inteiro entre 1 e 100, padrão 15;
-- ordenação fixa da fila operacional: solicitações abertas primeiro; depois `URGENTE`, `ALTA`, `MEDIA`, `BAIXA`; dentro da mesma prioridade, `created_at ASC` (mais antiga primeiro), com `id ASC` como desempate.
+- `status_grupo=aberto` retorna apenas `RECEBIDA`, `EM_ANALISE` e `AGENDADA`; a ordenação é `URGENTE`, `ALTA`, `MEDIA`, `BAIXA`, depois `created_at ASC` (mais antiga primeiro), com `id ASC` como desempate.
+- `status_grupo=encerrado` retorna apenas `CONCLUIDA` e `CANCELADA`, por `updated_at DESC` (encerramento mais recente primeiro), com `id DESC` como desempate.
+- sem `status_grupo`, a listagem preserva a ordenação legada: abertas primeiro, depois encerradas.
 
 Solicitações `CONCLUIDA` e `CANCELADA` permanecem disponíveis na listagem, mas ficam depois dos estados ativos. A ordenação é aplicada no backend para permanecer consistente entre páginas e consumidores da API.
 

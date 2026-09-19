@@ -186,6 +186,20 @@ describe('SolicitacoesPage', () => {
     expect(screen.getByText('Registros ordenados pela prioridade e pelo tempo de espera.')).toBeInTheDocument();
   });
 
+  it('carrega a tabela inicial apenas com solicitações em aberto', async () => {
+    render(
+      <MemoryRouter>
+        <SolicitacoesPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByRole('heading', { name: 'Fila de atendimento' });
+    expect(solicitacoesApi.listar).toHaveBeenCalledWith(expect.objectContaining({
+      per_page: 10,
+      status_grupo: 'aberto',
+    }));
+  });
+
   it('abre o drill-down com a lista filtrada ao clicar em um bloco de prioridade', async () => {
     vi.mocked(solicitacoesApi.listar).mockResolvedValue({
       data: [{ ...solicitacaoBase, prioridade: 'URGENTE' }],
@@ -255,6 +269,7 @@ describe('SolicitacoesPage', () => {
       </MemoryRouter>
     );
 
+    fireEvent.click(await screen.findByRole('button', { name: 'Histórico encerrado' }));
     fireEvent.change(await screen.findByLabelText('Status'), { target: { value: 'CONCLUIDA' } });
 
     const concluidas = await screen.findByRole('button', { name: /0 solicitações concluídas/ });

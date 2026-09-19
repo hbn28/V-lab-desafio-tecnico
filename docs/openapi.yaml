@@ -41,7 +41,7 @@ paths:
       description: >-
         Retorna a fila operacional ordenada por estados ativos, prioridade
         (URGENTE, ALTA, MEDIA, BAIXA), data de criação ascendente e id ascendente.
-        Estados CONCLUIDA e CANCELADA aparecem depois dos estados ativos.
+        Sem status_grupo, estados CONCLUIDA e CANCELADA aparecem depois dos estados ativos.
       operationId: listarSolicitacoes
       parameters:
         - name: status
@@ -63,10 +63,11 @@ paths:
           in: query
           schema:
             type: string
-            enum: [aberto]
+            enum: [aberto, encerrado]
           description: >-
-            Agrupamento de status usado pelo drill-down do painel. 'aberto' filtra
-            RECEBIDA, EM_ANALISE e AGENDADA. Ignorado se 'status' também for informado.
+            Agrupamento de status usado pela fila e pelo histórico. 'aberto' filtra
+            RECEBIDA, EM_ANALISE e AGENDADA; 'encerrado' filtra CONCLUIDA e CANCELADA.
+            Ignorado se 'status' também for informado.
         - name: page
           in: query
           schema:
