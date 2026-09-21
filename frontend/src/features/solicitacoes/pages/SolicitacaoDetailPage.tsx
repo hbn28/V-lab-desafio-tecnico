@@ -38,13 +38,14 @@ export function SolicitacaoDetailPage() {
   };
 
   const handleStatusChange = async (novoStatus: Status) => {
-    if (!data) return;
+    // AGENDADA exige data e hora: passa pelo formulário de agendamento, nunca por esta ação genérica.
+    if (!data || novoStatus === 'AGENDADA') return;
     if (!window.confirm(`Confirmar mudança para "${LABEL_STATUS[novoStatus]}"?`)) return;
     setUpdating(true);
     setUpdateError(null);
     setUpdateSuccess(null);
     try {
-      await solicitacoesApi.atualizarStatus(data.id.toString(), novoStatus);
+      await solicitacoesApi.atualizarStatus(data.id.toString(), { status: novoStatus });
       await reload();
       setUpdateSuccess(`Status atualizado para ${LABEL_STATUS[novoStatus]}.`);
     } catch (caught: unknown) {
