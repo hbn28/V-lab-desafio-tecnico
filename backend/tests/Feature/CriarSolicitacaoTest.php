@@ -30,8 +30,10 @@ test('cria solicitação com dados válidos', function () {
     $response->assertStatus(201)
         ->assertJsonPath('data.status', 'RECEBIDA')
         ->assertJsonPath('data.categoria', 'CONSULTA')
-        ->assertJsonPath('data.nome_solicitante', 'Maria Silva');
+        ->assertJsonPath('data.nome_solicitante', 'Maria Silva')
+        ->assertJsonPath('data.agendado_para', null);
 
+    $this->assertDatabaseHas('solicitacoes', ['id' => $response->json('data.id'), 'agendado_para' => null]);
     expect($response->json('data.protocolo'))->toMatch('/^SOL-\d{4}-\d{4}$/');
 });
 
