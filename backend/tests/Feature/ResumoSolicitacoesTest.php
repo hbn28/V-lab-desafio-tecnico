@@ -14,6 +14,10 @@ function criarSolicitacaoResumo(string $protocolo, string $prioridade, string $s
         'prioridade'       => $prioridade,
         'status'           => $status,
         'descricao'        => 'Solicitação fictícia para o resumo do painel.',
+        // chk_justificativa_urgente exige justificativa não vazia quando URGENTE.
+        'justificativa_prioridade' => $prioridade === 'URGENTE'
+            ? 'Justificativa fictícia para teste do resumo.'
+            : null,
     ]);
 }
 
