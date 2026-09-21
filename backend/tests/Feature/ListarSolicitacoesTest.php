@@ -116,3 +116,40 @@ test('ordena a fila por situação, prioridade e tempo de espera', function () {
         'SOL-2026-0005',
     ]);
 });
+
+test('filtra o dia operacional e ordena horário prioridade protocolo', function () {
+    $criar = fn (string $protocolo, string $prioridade, string $utc) => Solicitacao::factory()->create([
+        'protocolo' => $protocolo,
+        'prioridade' => $prioridade,
+        'justificativa_prioridade' => $prioridade === 'URGENTE' ? 'Teste fictício.' : null,
+        'status' => 'AGENDADA',
+        'agendado_para' => $utc,
+    ]);
+    $criar('SOL-2026-0203', 'BAIXA', '2026-09-25T12:00:00Z');
+    $criar('SOL-2026-0202', 'URGENTE', '2026-09-25T12:00:00Z');
+    $criar('SOL-2026-0201', 'ALTA', '2026-09-25T11:00:00Z');
+    $criar('SOL-2026-0204', 'URGENTE', '2026-09-26T03:00:00Z');
+
+    $response = $this->getJson('/api/v1/solicitacoes?data_agendada=2026-09-25');
+    $response->assertOk();
+    expect($response->json('data.*.protocolo'))->toBe([
+        'SOL-2026-0201', 'SOL-2026-0202', 'SOL-2026-0203',
+    ]);
+});
+
+test('rejeita combinações incompatíveis da agenda', function (string $query, string $campo) {
+    $this->getJson("/api/v1/solicitacoes?$query")
+        ->assertStatus(422)->assertJsonStructure(['errors' => [$campo]]);
+})->with([
+    ['data_agendada=2026-09-25&status=EM_ANALISE', 'status'],
+    ['data_agendada=2026-09-25&status_grupo=encerrado', 'status_grupo'],
+    ['data_agendada=25-09-2026', 'data_agendada'],
+]);
+
+test('agenda aceita grupo aberto e pagina resultados', function () {
+    Solicitacao::factory()->count(3)->create([
+        'status' => 'AGENDADA', 'agendado_para' => '2026-09-25T12:00:00Z',
+    ]);
+    $response = $this->getJson('/api/v1/solicitacoes?data_agendada=2026-09-25&status_grupo=aberto&per_page=2&page=2');
+    $response->assertOk()->assertJsonPath('meta.total', 3)->assertJsonCount(1, 'data');
+});

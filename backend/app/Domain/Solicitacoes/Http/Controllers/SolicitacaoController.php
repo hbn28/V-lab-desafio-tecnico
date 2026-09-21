@@ -15,6 +15,7 @@ use App\Domain\Solicitacoes\Http\Requests\ListarSolicitacoesRequest;
 use App\Domain\Solicitacoes\Http\Requests\ReagendarSolicitacaoRequest;
 use App\Domain\Solicitacoes\Http\Requests\ResumoSolicitacoesRequest;
 use App\Domain\Solicitacoes\Http\Resources\SolicitacaoResource;
+use App\Domain\Solicitacoes\Support\HorarioAgendamento;
 use App\Models\Solicitacao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\ResourceCollection;
@@ -45,7 +46,20 @@ class SolicitacaoController
         $statusGrupo = $request->validated('status_grupo');
         $query = Solicitacao::query();
 
-        if ($statusGrupo === 'encerrado') {
+        if ($dataAgendada = $request->validated('data_agendada')) {
+            // Agenda diária: intervalo UTC semiaberto do dia operacional, por horário e, em empate, prioridade.
+            [$inicio, $fim] = HorarioAgendamento::limitesUtcDoDia(
+                $dataAgendada,
+                config('agendamento.timezone'),
+            );
+            $query->where('status', 'AGENDADA')
+                ->where('agendado_para', '>=', $inicio)
+                ->where('agendado_para', '<', $fim)
+                ->orderBy('agendado_para')
+                ->orderByRaw("CASE prioridade WHEN 'URGENTE' THEN 1 WHEN 'ALTA' THEN 2 WHEN 'MEDIA' THEN 3 WHEN 'BAIXA' THEN 4 END ASC")
+                ->orderBy('protocolo')
+                ->orderBy('id');
+        } elseif ($statusGrupo === 'encerrado') {
             // Histórico não é fila operacional: o evento mais recente vem primeiro.
             $query->whereIn('status', ['CONCLUIDA', 'CANCELADA'])
                 ->orderByDesc('updated_at')
@@ -59,9 +73,11 @@ class SolicitacaoController
                 ->orderBy('id');
         }
 
-        if ($status = $request->validated('status')) {
+        // Com data_agendada o status já está restrito a AGENDADA (a Request rejeita combinações incompatíveis).
+        $status = $dataAgendada ? null : $request->validated('status');
+        if ($status) {
             $query->where('status', $status);
-        } elseif ($statusGrupo === 'aberto') {
+        } elseif (! $dataAgendada && $statusGrupo === 'aberto') {
             // Usado pelo drill-down do painel: "Urgente em aberto" etc.
             // não corresponde a um único status, e sim a RECEBIDA/EM_ANALISE/AGENDADA.
             $query->whereNotIn('status', ['CONCLUIDA', 'CANCELADA']);
