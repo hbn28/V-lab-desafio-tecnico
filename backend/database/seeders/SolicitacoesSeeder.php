@@ -22,7 +22,15 @@ class SolicitacoesSeeder extends Seeder
             ['protocolo' => 'SOL-2025-0010', 'nome_solicitante' => 'Marcos Pereira', 'cpf_solicitante' => '000.111.222-33', 'data_nascimento' => '1982-08-07', 'categoria' => 'CONSULTA',  'prioridade' => 'MEDIA',   'status' => 'CONCLUIDA',  'descricao' => 'Consulta de acompanhamento pós-exames.',        'justificativa_prioridade' => null],
         ];
 
+        $fuso   = config('agendamento.timezone');
+        $amanha = now($fuso)->addDay()->setTime(9, 0)->utc();
+        $depois = now($fuso)->addDays(2)->setTime(14, 30)->utc();
+        $agenda = ['SOL-2025-0003' => $amanha, 'SOL-2025-0008' => $depois];
+
         foreach ($fixtures as $dados) {
+            // chk_agendada_com_horario: AGENDADA exige horário; os demais estados iniciais não podem tê-lo.
+            $dados['agendado_para'] = $agenda[$dados['protocolo']] ?? null;
+
             Solicitacao::firstOrCreate(
                 ['protocolo' => $dados['protocolo']],
                 $dados

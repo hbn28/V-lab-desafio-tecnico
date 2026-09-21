@@ -21,10 +21,12 @@ class Solicitacao extends Model
         'status',
         'descricao',
         'justificativa_prioridade',
+        'agendado_para',
     ];
 
     protected $casts = [
         'data_nascimento' => 'date',
+        'agendado_para'   => 'immutable_datetime',
         'created_at'      => 'datetime',
         'updated_at'      => 'datetime',
     ];

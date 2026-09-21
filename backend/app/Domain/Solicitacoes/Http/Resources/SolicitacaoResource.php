@@ -18,6 +18,7 @@ class SolicitacaoResource extends JsonResource
             'categoria'                => $this->categoria,
             'prioridade'               => $this->prioridade,
             'status'                   => $this->status,
+            'agendado_para'            => $this->agendado_para?->utc()->toIso8601String(),
             'descricao'                => $this->descricao,
             'justificativa_prioridade' => $this->justificativa_prioridade,
             'data_criacao'             => $this->created_at?->toIso8601String(),

@@ -31,6 +31,7 @@ class SolicitacaoFactory extends Factory
             'categoria'               => $faker->randomElement(['CONSULTA', 'EXAME', 'VACINACAO', 'OUTRO']),
             'prioridade'              => $prioridade,
             'status'                  => 'RECEBIDA',
+            'agendado_para'           => null,
             'descricao'               => $faker->sentence(12),
             'justificativa_prioridade' => $prioridade === 'URGENTE'
                 ? $faker->sentence(8)

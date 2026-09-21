@@ -13,6 +13,8 @@ function criarSolicitacaoResumo(string $protocolo, string $prioridade, string $s
         'categoria'        => $categoria,
         'prioridade'       => $prioridade,
         'status'           => $status,
+        // chk_agendada_com_horario exige horário quando AGENDADA.
+        'agendado_para'    => $status === 'AGENDADA' ? '2026-09-25T17:30:00Z' : null,
         'descricao'        => 'Solicitação fictícia para o resumo do painel.',
         // chk_justificativa_urgente exige justificativa não vazia quando URGENTE.
         'justificativa_prioridade' => $prioridade === 'URGENTE'

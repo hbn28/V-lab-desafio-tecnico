@@ -33,6 +33,7 @@ services:
       DB_USERNAME: vlab
       DB_PASSWORD: secret
       FRONTEND_URL: http://localhost:5173
+      AGENDAMENTO_TIMEZONE: America/Recife
       APP_SEED: 'true'
       LOG_CHANNEL: stderr
       LOG_LEVEL: info
