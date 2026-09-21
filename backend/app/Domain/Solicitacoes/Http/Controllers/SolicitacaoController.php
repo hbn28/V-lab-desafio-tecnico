@@ -7,10 +7,12 @@ use App\Domain\Solicitacoes\Actions\AtualizarSolicitacao;
 use App\Domain\Solicitacoes\Actions\AtualizarStatusSolicitacao;
 use App\Domain\Solicitacoes\Actions\CriarSolicitacao;
 use App\Domain\Solicitacoes\Actions\ObterResumoSolicitacoes;
+use App\Domain\Solicitacoes\Actions\ReagendarSolicitacao;
 use App\Domain\Solicitacoes\Http\Requests\AtualizarSolicitacaoRequest;
 use App\Domain\Solicitacoes\Http\Requests\AtualizarStatusRequest;
 use App\Domain\Solicitacoes\Http\Requests\CriarSolicitacaoRequest;
 use App\Domain\Solicitacoes\Http\Requests\ListarSolicitacoesRequest;
+use App\Domain\Solicitacoes\Http\Requests\ReagendarSolicitacaoRequest;
 use App\Domain\Solicitacoes\Http\Requests\ResumoSolicitacoesRequest;
 use App\Domain\Solicitacoes\Http\Resources\SolicitacaoResource;
 use App\Models\Solicitacao;
@@ -25,6 +27,7 @@ class SolicitacaoController
         private readonly AtualizarSolicitacao $atualizarSolicitacao,
         private readonly AtualizarStatusSolicitacao $atualizarStatus,
         private readonly ApagarSolicitacao $apagarSolicitacao,
+        private readonly ReagendarSolicitacao $reagendarSolicitacao,
         private readonly ObterResumoSolicitacoes $obterResumo,
     ) {}
 
@@ -109,6 +112,14 @@ class SolicitacaoController
             $request->validated('status'),
             $request->agendadoPara(),
         );
+
+        return (new SolicitacaoResource($atualizada))->response();
+    }
+
+    public function updateAgendamento(ReagendarSolicitacaoRequest $request, int $id): JsonResponse
+    {
+        $solicitacao = Solicitacao::findOrFail($id);
+        $atualizada  = $this->reagendarSolicitacao->execute($solicitacao, $request->agendadoPara());
 
         return (new SolicitacaoResource($atualizada))->response();
     }
