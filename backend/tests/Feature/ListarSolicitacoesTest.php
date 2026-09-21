@@ -93,10 +93,11 @@ test('ordena a fila por situação, prioridade e tempo de espera', function () {
                 : null,
         ]);
         $solicitacao->timestamps = false;
-        $solicitacao->update([
+        // created_at/updated_at não são fillable: update() os ignoraria silenciosamente.
+        $solicitacao->forceFill([
             'created_at' => Carbon::parse($criadaEm),
             'updated_at' => Carbon::parse($criadaEm),
-        ]);
+        ])->save();
     };
 
     $criar('Baixa antiga', 'SOL-2026-0001', 'BAIXA', 'RECEBIDA', '2026-09-01 08:00:00');
