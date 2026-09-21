@@ -3,6 +3,7 @@
 namespace App\Domain\Solicitacoes\Actions;
 
 use App\Models\Solicitacao;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 
@@ -17,9 +18,12 @@ class AtualizarStatusSolicitacao
         'CANCELADA'  => [],
     ];
 
-    public function execute(Solicitacao $solicitacao, string $novoStatus): Solicitacao
-    {
-        return DB::transaction(function () use ($solicitacao, $novoStatus) {
+    public function execute(
+        Solicitacao $solicitacao,
+        string $novoStatus,
+        ?CarbonImmutable $agendadoPara = null,
+    ): Solicitacao {
+        return DB::transaction(function () use ($solicitacao, $novoStatus, $agendadoPara) {
             // Relê com lock para evitar race condition
             $solicitacao = Solicitacao::lockForUpdate()->findOrFail($solicitacao->id);
 
@@ -31,7 +35,17 @@ class AtualizarStatusSolicitacao
                 );
             }
 
-            $solicitacao->update(['status' => $novoStatus]);
+            if ($novoStatus === 'AGENDADA' && $agendadoPara === null) {
+                $this->conflito('A data e o horário são obrigatórios para agendar a solicitação.');
+            }
+
+            // Concluir/cancelar preservam agendado_para como histórico; só AGENDADA o escreve.
+            $dados = ['status' => $novoStatus];
+            if ($novoStatus === 'AGENDADA') {
+                $dados['agendado_para'] = $agendadoPara;
+            }
+
+            $solicitacao->update($dados);
 
             return $solicitacao->fresh();
         });
