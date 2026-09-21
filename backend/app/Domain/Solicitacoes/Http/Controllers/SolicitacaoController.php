@@ -104,7 +104,11 @@ class SolicitacaoController
     public function updateStatus(AtualizarStatusRequest $request, int $id): JsonResponse
     {
         $solicitacao = Solicitacao::findOrFail($id);
-        $atualizada  = $this->atualizarStatus->execute($solicitacao, $request->validated('status'));
+        $atualizada  = $this->atualizarStatus->execute(
+            $solicitacao,
+            $request->validated('status'),
+            $request->agendadoPara(),
+        );
 
         return (new SolicitacaoResource($atualizada))->response();
     }
