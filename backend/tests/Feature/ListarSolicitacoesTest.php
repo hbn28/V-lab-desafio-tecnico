@@ -78,15 +78,19 @@ test('ordena a fila por situação, prioridade e tempo de espera', function () {
         'data_nascimento' => '1985-06-15',
         'categoria' => 'CONSULTA',
         'descricao' => 'Solicitação fictícia para testar a ordem operacional.',
-        'justificativa_prioridade' => null,
     ];
 
+    // chk_justificativa_urgente exige justificativa não vazia quando URGENTE; o array
+    // literal abaixo vence o `+` com $base porque não repetimos essa chave em $base.
     $criar = function (string $nome, string $protocolo, string $prioridade, string $status, string $criadaEm) use ($base): void {
         $solicitacao = Solicitacao::create($base + [
             'nome_solicitante' => $nome,
             'protocolo' => $protocolo,
             'prioridade' => $prioridade,
             'status' => $status,
+            'justificativa_prioridade' => $prioridade === 'URGENTE'
+                ? 'Justificativa fictícia para teste da ordem operacional.'
+                : null,
         ]);
         $solicitacao->timestamps = false;
         $solicitacao->update([
