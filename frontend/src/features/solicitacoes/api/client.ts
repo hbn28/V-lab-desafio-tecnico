@@ -1,11 +1,12 @@
 import type {
+  AgendamentoPayload,
   AtualizarSolicitacaoPayload,
+  AtualizarStatusPayload,
   CriarSolicitacaoPayload,
   FiltrosSolicitacoes,
   ListaSolicitacoes,
   ResumoSolicitacoes,
   Solicitacao,
-  Status,
 } from '../types';
 
 export type ListarParams = FiltrosSolicitacoes;
@@ -75,6 +76,7 @@ export const solicitacoesApi = {
     if (filtros.status_grupo) params.set('status_grupo', filtros.status_grupo);
     if (filtros.categoria)  params.set('categoria', filtros.categoria);
     if (filtros.prioridade) params.set('prioridade', filtros.prioridade);
+    if (filtros.data_agendada) params.set('data_agendada', filtros.data_agendada);
     if (filtros.page)       params.set('page', String(filtros.page));
     if (filtros.per_page)   params.set('per_page', String(filtros.per_page));
     const qs = params.toString() ? `?${params}` : '';
@@ -116,13 +118,24 @@ export const solicitacoesApi = {
     return res.data;
   },
 
-  async atualizarStatus(id: string, status: Status): Promise<Solicitacao> {
+  async atualizarStatus(id: string, payload: AtualizarStatusPayload): Promise<Solicitacao> {
     const res = await request<{ data: Solicitacao }>(`/api/v1/solicitacoes/${id}/status`, {
       method: 'PATCH',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(payload),
     });
     if (!res?.data) {
       throw new Error('Não foi possível confirmar a atualização do status. Tente novamente.');
+    }
+    return res.data;
+  },
+
+  async reagendar(id: string, payload: AgendamentoPayload): Promise<Solicitacao> {
+    const res = await request<{ data: Solicitacao }>(`/api/v1/solicitacoes/${id}/agendamento`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    });
+    if (!res?.data) {
+      throw new Error('Não foi possível confirmar o reagendamento. Tente novamente.');
     }
     return res.data;
   },

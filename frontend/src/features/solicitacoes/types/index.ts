@@ -11,6 +11,8 @@ export interface Solicitacao {
   categoria: Categoria;
   prioridade: Prioridade;
   status: Status;
+  /** Instante UTC (ISO 8601). Obrigatório em AGENDADA; pode ser histórico em CONCLUIDA/CANCELADA. */
+  agendado_para: string | null;
   descricao: string;
   justificativa_prioridade: string | null;
   data_criacao: string;
@@ -47,9 +49,21 @@ export interface CriarSolicitacaoPayload {
   justificativa_prioridade?: string | null;
 }
 
-export interface AtualizarStatusPayload {
-  status: Status;
+/** Data e hora locais (fuso operacional) de um agendamento. */
+export interface AgendamentoPayload {
+  data_agendada: string;
+  hora_agendada: string;
 }
+
+export type StatusSemAgendamento = Exclude<Status, 'AGENDADA'>;
+
+export type AtualizarStatusPayload =
+  | ({ status: 'AGENDADA' } & AgendamentoPayload)
+  | {
+      status: StatusSemAgendamento;
+      data_agendada?: never;
+      hora_agendada?: never;
+    };
 
 export type AtualizarSolicitacaoPayload = CriarSolicitacaoPayload;
 
@@ -59,6 +73,8 @@ export interface FiltrosSolicitacoes {
   status_grupo?: 'aberto' | 'encerrado';
   categoria?: Categoria;
   prioridade?: Prioridade;
+  /** Dia operacional (YYYY-MM-DD) da agenda; implica status AGENDADA. */
+  data_agendada?: string;
   page?: number;
   per_page?: number;
 }
