@@ -13,5 +13,6 @@ Route::prefix('api/v1')->group(function () {
     Route::get('/solicitacoes/{id}', [SolicitacaoController::class, 'show']);
     Route::put('/solicitacoes/{id}', [SolicitacaoController::class, 'update']);
     Route::patch('/solicitacoes/{id}/status', [SolicitacaoController::class, 'updateStatus']);
+    Route::patch('/solicitacoes/{id}/agendamento', [SolicitacaoController::class, 'updateAgendamento']);
     Route::delete('/solicitacoes/{id}', [SolicitacaoController::class, 'destroy']);
 });
