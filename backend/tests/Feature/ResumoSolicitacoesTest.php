@@ -25,7 +25,8 @@ function criarSolicitacaoComData(string $protocolo, string $prioridade, string $
 {
     $solicitacao = criarSolicitacaoResumo($protocolo, $prioridade, $status);
     $solicitacao->timestamps = false;
-    $solicitacao->update(['created_at' => Carbon::parse($criadaEm), 'updated_at' => Carbon::parse($criadaEm)]);
+    // created_at/updated_at não são fillable: update() os ignoraria silenciosamente.
+    $solicitacao->forceFill(['created_at' => Carbon::parse($criadaEm), 'updated_at' => Carbon::parse($criadaEm)])->save();
 
     return $solicitacao;
 }
