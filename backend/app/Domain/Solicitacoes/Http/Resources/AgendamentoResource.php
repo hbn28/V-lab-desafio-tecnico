@@ -19,6 +19,8 @@ class AgendamentoResource extends JsonResource
             'resultado_em' => $this->resultado_em?->utc()->toIso8601String(),
             'falta_registrada_em' => $this->falta_registrada_em?->utc()->toIso8601String(),
             'falta_corrigida_em' => $this->falta_corrigida_em?->utc()->toIso8601String(),
+            'solicitacao' => new SolicitacaoResource($this->whenLoaded('solicitacao')),
+            'ultima_tentativa_contato' => new TentativaContatoResource($this->whenLoaded('ultimaTentativaContato')),
         ];
     }
 }

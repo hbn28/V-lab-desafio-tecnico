@@ -8,16 +8,23 @@ use App\Domain\Solicitacoes\Actions\AtualizarStatusSolicitacao;
 use App\Domain\Solicitacoes\Actions\CriarSolicitacao;
 use App\Domain\Solicitacoes\Actions\ObterResumoSolicitacoes;
 use App\Domain\Solicitacoes\Actions\ReagendarSolicitacao;
+use App\Domain\Solicitacoes\Actions\RegistrarFaltaAgendamento;
+use App\Domain\Solicitacoes\Actions\RegistrarTentativaContato;
 use App\Domain\Solicitacoes\Http\Requests\AtualizarSolicitacaoRequest;
 use App\Domain\Solicitacoes\Http\Requests\AtualizarStatusRequest;
 use App\Domain\Solicitacoes\Http\Requests\CriarSolicitacaoRequest;
+use App\Domain\Solicitacoes\Http\Requests\ListarFaltasRequest;
 use App\Domain\Solicitacoes\Http\Requests\ListarFilaRequest;
 use App\Domain\Solicitacoes\Http\Requests\ListarSolicitacoesRequest;
 use App\Domain\Solicitacoes\Http\Requests\ReagendarSolicitacaoRequest;
+use App\Domain\Solicitacoes\Http\Requests\RegistrarTentativaContatoRequest;
 use App\Domain\Solicitacoes\Http\Requests\ResumoSolicitacoesRequest;
+use App\Domain\Solicitacoes\Http\Resources\AgendamentoResource;
 use App\Domain\Solicitacoes\Http\Resources\EntradaFilaResource;
 use App\Domain\Solicitacoes\Http\Resources\SolicitacaoResource;
+use App\Domain\Solicitacoes\Http\Resources\TentativaContatoResource;
 use App\Domain\Solicitacoes\Support\HorarioAgendamento;
+use App\Models\Agendamento;
 use App\Models\EntradaFila;
 use App\Models\Solicitacao;
 use Illuminate\Http\JsonResponse;
@@ -33,6 +40,8 @@ class SolicitacaoController
         private readonly ApagarSolicitacao $apagarSolicitacao,
         private readonly ReagendarSolicitacao $reagendarSolicitacao,
         private readonly ObterResumoSolicitacoes $obterResumo,
+        private readonly RegistrarFaltaAgendamento $registrarFaltaAgendamento,
+        private readonly RegistrarTentativaContato $registrarTentativaContato,
     ) {}
 
     public function store(CriarSolicitacaoRequest $request): JsonResponse
@@ -176,5 +185,41 @@ class SolicitacaoController
         $this->apagarSolicitacao->execute($solicitacao);
 
         return response()->noContent();
+    }
+
+    public function faltas(ListarFaltasRequest $request): ResourceCollection
+    {
+        $query = Agendamento::query()
+            ->where('status', 'FALTA')
+            ->with(['solicitacao.paciente', 'ultimaTentativaContato'])
+            ->when($request->validated('data'), fn ($q, $data) => $q->whereDate('data_agendada', $data))
+            ->when(
+                $request->validated('resultado_contato'),
+                fn ($q, $resultado) => $q->whereHas(
+                    'ultimaTentativaContato',
+                    fn ($sub) => $sub->where('resultado', $resultado)
+                )
+            )
+            ->orderByDesc('falta_registrada_em');
+
+        $perPage = (int) ($request->validated('per_page') ?? 15);
+
+        return AgendamentoResource::collection($query->paginate($perPage));
+    }
+
+    public function registrarFalta(int $id): JsonResponse
+    {
+        $agendamento = Agendamento::findOrFail($id);
+        $atualizado = $this->registrarFaltaAgendamento->execute($agendamento);
+
+        return (new AgendamentoResource($atualizado))->response();
+    }
+
+    public function registrarTentativaContato(RegistrarTentativaContatoRequest $request, int $id): JsonResponse
+    {
+        $agendamento = Agendamento::findOrFail($id);
+        $tentativa = $this->registrarTentativaContato->execute($agendamento, $request->validated('resultado'));
+
+        return (new TentativaContatoResource($tentativa))->response()->setStatusCode(201);
     }
 }
