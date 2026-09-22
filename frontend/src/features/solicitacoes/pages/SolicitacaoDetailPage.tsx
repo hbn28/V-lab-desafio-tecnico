@@ -152,6 +152,9 @@ export function SolicitacaoDetailPage() {
     ['Prioridade', <PrioridadeBadge key="priority" prioridade={data.prioridade} />],
     ['Status', <StatusBadge key="status" status={data.status} />],
   ];
+  if (data.paciente?.celular_mascarado) {
+    details.push(['Celular', data.paciente.celular_mascarado]);
+  }
   // Também em estados terminais: preserva o horário histórico.
   if (data.agendado_para) {
     details.push(['Agendado para', <time key="agendado" dateTime={data.agendado_para}>{formatarAgendamento(data.agendado_para)}</time>]);
