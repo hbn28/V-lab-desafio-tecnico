@@ -57,12 +57,12 @@ class ObterResumoSolicitacoes
         )->all();
 
         return [
-            'status'             => array_merge($statusVazio, $porStatus),
-            'prioridade_aberta'  => array_merge($prioridadeVazia, $contagemPrioridade),
+            'status' => array_merge($statusVazio, $porStatus),
+            'prioridade_aberta' => array_merge($prioridadeVazia, $contagemPrioridade),
             'mais_antiga_aberta' => array_merge($prioridadeSemData, $maisAntigaPrioridade),
-            'total'              => array_sum(array_merge($statusVazio, $porStatus)),
-            'filtros_aplicados'  => [
-                'categoria'  => $categoria,
+            'total' => array_sum(array_merge($statusVazio, $porStatus)),
+            'filtros_aplicados' => [
+                'categoria' => $categoria,
                 'prioridade' => $prioridade,
             ],
         ];

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\RequestId;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -11,13 +12,13 @@ use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
-        api: __DIR__ . '/../routes/api.php',
+        api: __DIR__.'/../routes/api.php',
         apiPrefix: '',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->appendToGroup('api', [
-            \App\Http\Middleware\RequestId::class,
+            RequestId::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
@@ -45,15 +46,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(function (ValidationException $e, Request $request) {
             return response()->json([
                 'message' => $e->getMessage(),
-                'errors'  => $e->errors(),
+                'errors' => $e->errors(),
             ], 422);
         });
 
-        $exceptions->render(function (\Throwable $e, Request $request) {
+        $exceptions->render(function (Throwable $e, Request $request) {
             if ($request->is('api/*')) {
                 return response()->json([
                     'message' => 'Erro interno do servidor.',
-                    'errors'  => [],
+                    'errors' => [],
                 ], 500);
             }
         });

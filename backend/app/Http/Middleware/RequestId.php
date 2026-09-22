@@ -17,7 +17,7 @@ class RequestId
         $this->startTime = microtime(true);
 
         $incomingId = $request->header('X-Request-ID', '');
-        $requestId  = $this->isValidUuid($incomingId)
+        $requestId = $this->isValidUuid($incomingId)
             ? $incomingId
             : (string) Str::uuid();
 
@@ -32,14 +32,16 @@ class RequestId
 
     public function terminate(Request $request, Response $response): void
     {
-        if ($this->startTime === null) return;
+        if ($this->startTime === null) {
+            return;
+        }
 
         $durationMs = (int) round((microtime(true) - $this->startTime) * 1000);
 
         Log::info('api_request', [
-            'method'      => $request->method(),
-            'path'        => $request->path(),
-            'status'      => $response->getStatusCode(),
+            'method' => $request->method(),
+            'path' => $request->path(),
+            'status' => $response->getStatusCode(),
             'duration_ms' => $durationMs,
         ]);
     }

@@ -28,12 +28,12 @@ class AtualizarSolicitacao
             }
 
             $solicitacao->update([
-                'nome_solicitante'         => $data['nome_solicitante'],
-                'cpf_solicitante'          => $data['cpf_solicitante'],
-                'data_nascimento'          => $data['data_nascimento'],
-                'categoria'                => $data['categoria'],
-                'prioridade'               => $data['prioridade'],
-                'descricao'                => $data['descricao'],
+                'nome_solicitante' => $data['nome_solicitante'],
+                'cpf_solicitante' => $data['cpf_solicitante'],
+                'data_nascimento' => $data['data_nascimento'],
+                'categoria' => $data['categoria'],
+                'prioridade' => $data['prioridade'],
+                'descricao' => $data['descricao'],
                 'justificativa_prioridade' => $data['justificativa_prioridade'] ?? null,
             ]);
 

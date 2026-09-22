@@ -10,7 +10,7 @@ test('health check retorna ok quando banco está disponível', function () {
 });
 
 test('health check retorna 503 quando banco falha', function () {
-    DB::shouldReceive('select')->andThrow(new \Exception('Connection refused'));
+    DB::shouldReceive('select')->andThrow(new Exception('Connection refused'));
 
     $response = $this->getJson('/api/v1/health');
 

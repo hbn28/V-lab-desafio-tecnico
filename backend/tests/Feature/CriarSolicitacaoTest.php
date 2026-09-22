@@ -1,10 +1,10 @@
 <?php
 
-use App\Models\Solicitacao;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
     // Garantir que a tabela de counters existe
-    \Illuminate\Support\Facades\DB::statement('
+    DB::statement('
         CREATE TABLE IF NOT EXISTS protocolo_counters (
             ano INT PRIMARY KEY,
             ultimo_numero INT NOT NULL DEFAULT 0 CHECK (ultimo_numero >= 0)
@@ -16,11 +16,11 @@ function payloadValido(): array
 {
     return [
         'nome_solicitante' => 'Maria Silva',
-        'cpf_solicitante'  => '123.456.789-00',
-        'data_nascimento'  => '1985-06-15',
-        'categoria'        => 'CONSULTA',
-        'prioridade'       => 'MEDIA',
-        'descricao'        => 'Consulta de rotina para verificação de pressão arterial.',
+        'cpf_solicitante' => '123.456.789-00',
+        'data_nascimento' => '1985-06-15',
+        'categoria' => 'CONSULTA',
+        'prioridade' => 'MEDIA',
+        'descricao' => 'Consulta de rotina para verificação de pressão arterial.',
     ];
 }
 
@@ -44,7 +44,7 @@ test('rejeita URGENTE sem justificativa', function () {
     $response = $this->postJson('/api/v1/solicitacoes', $payload);
 
     $response->assertStatus(422)
-        ->assertJsonPath('errors.justificativa_prioridade.0', fn($v) => str_contains($v, 'justificativa'));
+        ->assertJsonPath('errors.justificativa_prioridade.0', fn ($v) => str_contains($v, 'justificativa'));
 });
 
 test('aceita URGENTE com justificativa preenchida', function () {
@@ -61,7 +61,7 @@ test('aceita URGENTE com justificativa preenchida', function () {
 test('rejeita campos proibidos como protocolo e status', function () {
     $payload = payloadValido();
     $payload['protocolo'] = 'SOL-2025-9999';
-    $payload['status']    = 'CONCLUIDA';
+    $payload['status'] = 'CONCLUIDA';
 
     $response = $this->postJson('/api/v1/solicitacoes', $payload);
 

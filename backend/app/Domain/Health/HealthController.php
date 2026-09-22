@@ -11,16 +11,16 @@ class HealthController
     {
         try {
             DB::select('SELECT 1');
-            $db   = 'ok';
+            $db = 'ok';
             $code = 200;
         } catch (\Throwable) {
-            $db   = 'error';
+            $db = 'error';
             $code = 503;
         }
 
         return response()->json([
             'status' => $code === 200 ? 'ok' : 'degraded',
-            'db'     => $db,
+            'db' => $db,
         ], $code);
     }
 }
