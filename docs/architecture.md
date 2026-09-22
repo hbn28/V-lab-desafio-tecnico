@@ -55,24 +55,31 @@ stateDiagram-v2
 
 ## Fluxo de agendamento
 
-O agendamento é um dado complementar de `AGENDADA`, não um estado novo. O agendamento inicial continua sendo a transição `EM_ANALISE → AGENDADA` em `AtualizarStatusSolicitacao`; o reagendamento é uma Action separada que só altera `agendado_para`.
+O agendamento é um dado complementar de `AGENDADA`, não um estado novo. O agendamento inicial continua sendo a transição `EM_ANALISE → AGENDADA` em `AtualizarStatusSolicitacao`; o reagendamento é uma Action separada (`ReagendarSolicitacao`) que só atualiza o `Agendamento` ativo (e `agendado_para`, quando a modalidade é HORARIO) — nunca muda `solicitacoes.status`.
 
 ```mermaid
 sequenceDiagram
     participant F as AgendamentoForm (React)
     participant R as FormRequest
-    participant H as HorarioAgendamento
+    participant H as HorarioAgendamento / TurnoAgendamento
     participant A as Action
     participant DB as PostgreSQL
 
-    F->>R: PATCH /solicitacoes/{id}/status {AGENDADA, data_agendada, hora_agendada}
-    F->>R: PATCH /solicitacoes/{id}/agendamento {data_agendada, hora_agendada}
-    R->>H: interpretarLocal(data, hora, AGENDAMENTO_TIMEZONE)
-    H-->>R: instante UTC (ou 422 se inexistente/ambíguo/passado)
+    F->>R: PATCH /solicitacoes/{id}/status {AGENDADA, data_agendada, hora_agendada|turno}
+    F->>R: PATCH /solicitacoes/{id}/agendamento {data_agendada, hora_agendada|turno}
+    alt modalidade HORARIO
+        R->>H: HorarioAgendamento::interpretarLocal(data, hora, AGENDAMENTO_TIMEZONE)
+        H-->>R: instante UTC (ou 422 se inexistente/ambíguo/passado)
+    else modalidade TURNO
+        R->>H: TurnoAgendamento::fimDoTurnoUtc(data, turno, AGENDAMENTO_TIMEZONE)
+        H-->>R: 422 se o turno já terminou
+    end
     R->>A: AtualizarStatusSolicitacao / ReagendarSolicitacao
     A->>DB: BEGIN + SELECT ... FOR UPDATE
-    A->>DB: UPDATE agendado_para (CHECK garante AGENDADA ⇒ horário)
-    A-->>F: 200 SolicitacaoResource (agendado_para em UTC)
+    A->>DB: INSERT/UPDATE agendamentos (status=AGENDADO, modalidade, turno, hora_agendada)
+    Note over R,H: turno é sempre gravado, nas duas modalidades — em HORARIO,<br/>vem de TurnoAgendamento::derivarDaHora(hora_agendada), calculado<br/>na FormRequest antes da Action rodar
+    A->>DB: UPDATE solicitacoes.agendado_para (só na modalidade HORARIO; TURNO fica NULL de propósito)
+    A-->>F: 200 SolicitacaoResource (agendamentoAtivo + agendado_para em UTC quando houver)
 ```
 
 A consulta diária (`GET /solicitacoes?data_agendada=`) usa `HorarioAgendamento::limitesUtcDoDia` para o intervalo semiaberto `[início do dia local, início do seguinte)` e ordena por horário, prioridade, protocolo e id. Horários iguais são permitidos: não há capacidade, conflito de vaga nem check-in.
@@ -87,11 +94,14 @@ backend/
 │   │   │   └── HealthController.php
 │   │   └── Solicitacoes/
 │   │       ├── Actions/
-│   │       │   ├── CriarSolicitacao.php       # lógica de negócio + protocolo
+│   │       │   ├── CriarSolicitacao.php       # lógica de negócio + protocolo + reuso de paciente
 │   │       │   ├── AtualizarSolicitacao.php   # edição de dados abertos
-│   │       │   ├── AtualizarStatusSolicitacao.php  # máquina de estados + agendamento inicial
-│   │       │   ├── ReagendarSolicitacao.php   # só altera agendado_para de AGENDADA
-│   │       │   └── ApagarSolicitacao.php      # extensão documentada
+│   │       │   ├── AtualizarStatusSolicitacao.php  # máquina de estados + agendamento inicial + fila
+│   │       │   ├── ReagendarSolicitacao.php   # só altera o Agendamento ativo de uma AGENDADA
+│   │       │   ├── ApagarSolicitacao.php      # extensão documentada
+│   │       │   ├── RegistrarFaltaAgendamento.php   # marca Agendamento ativo como FALTA
+│   │       │   ├── RegistrarTentativaContato.php   # registra contato pós-falta (enum fechado)
+│   │       │   └── ReagendarAposFalta.php     # cria novo Agendamento, preserva a FALTA antiga
 │   │       ├── Support/
 │   │       │   ├── HorarioAgendamento.php     # data/hora local <-> UTC, sem normalização silenciosa
 │   │       │   ├── TurnoAgendamento.php       # deriva/limita turno (MANHA/TARDE/NOITE)
@@ -119,9 +129,18 @@ backend/
 │   │   └── Middleware/
 │   │       └── RequestId.php
 │   └── Models/
-│       └── Solicitacao.php
+│       ├── Solicitacao.php
+│       ├── Paciente.php
+│       ├── Agendamento.php
+│       ├── EntradaFila.php
+│       └── TentativaContato.php
 ├── database/
-│   ├── factories/SolicitacaoFactory.php
+│   ├── factories/
+│   │   ├── SolicitacaoFactory.php
+│   │   ├── PacienteFactory.php
+│   │   ├── AgendamentoFactory.php
+│   │   ├── EntradaFilaFactory.php
+│   │   └── TentativaContatoFactory.php
 │   ├── migrations/
 │   └── seeders/
 │       ├── DatabaseSeeder.php
@@ -131,8 +150,17 @@ backend/
     └── Feature/
         ├── HealthTest.php
         ├── CriarSolicitacaoTest.php
+        ├── AtualizarSolicitacaoTest.php
         ├── AtualizarStatusTest.php
-        └── ListarSolicitacoesTest.php
+        ├── ListarSolicitacoesTest.php
+        ├── ResumoSolicitacoesTest.php
+        ├── AgendamentoConstraintsTest.php
+        ├── AgendamentoTurnoTest.php
+        ├── PacienteSolicitacaoTest.php
+        ├── FilaOperacionalTest.php
+        ├── FaltasTest.php
+        ├── ReagendarSolicitacaoTest.php
+        └── ReagendarAposFaltaTest.php
 ```
 
 ## Decisões de Design
@@ -147,7 +175,9 @@ backend/
 | Error envelope único | `{message, errors}` em todos os erros | Frontend trata erros de forma uniforme |
 | Fila operacional | Abertas, prioridade descendente, mais antigas primeiro | Mantém a ordem de atenção estável com paginação |
 | Agendamento híbrido | Agendar via `PATCH /status`; reagendar via `PATCH /agendamento` | Uma única autoridade para transições; reagendar não é mudança de estado |
-| Invariantes de agenda | CHECK no PostgreSQL + lock na Action | `AGENDADA` nunca fica sem horário, mesmo fora da API |
+| Invariantes de agenda | Agendamento ativo único (`agendamentos.status='AGENDADO'`) validado na Action + lock, não mais por CHECK entre tabelas | Agenda por turno fica sem `agendado_para` de propósito; o CHECK `chk_agendada_com_horario` foi removido na migration `2026_09_22_000006_migrate_agenda_and_replace_legacy_checks` quando a agenda por turno foi introduzida |
+| `turno` sempre preenchido | `agendamentos.turno` é `NOT NULL` nas duas modalidades; ao agendar por `HORARIO`, o turno é derivado (`TurnoAgendamento::derivarDaHora`) e persistido no mesmo `INSERT`, dentro da FormRequest/Action — nunca calculado sob demanda na leitura | Permite agrupar/filtrar por turno (agenda, faltas) sem depender de `hora_agendada`, que é exclusiva de `HORARIO`; só `hora_agendada` fica de fora do CHECK em `TURNO`, `turno` nunca fica `NULL` |
+| Agenda do dia (`GET /solicitacoes?data_agendada=`) cobre as duas modalidades | Filtro por OR: `agendado_para` no intervalo do dia (HORARIO) OU `Agendamento` ativo com `modalidade=TURNO` e `data_agendada` igual ao dia pedido | `agendado_para` é sempre `NULL` em `TURNO`; um filtro só por esse campo (como havia antes) deixava agendamentos por turno invisíveis na tela de Agenda — bug corrigido em `SolicitacaoController::index()`, coberto por teste em `AgendamentoTurnoTest` |
 | Fuso da agenda | UTC no banco/API, `America/Recife` configurável na interpretação | Instante absoluto; horário local ambíguo é rejeitado |
 | Horários repetidos | Permitidos (sem UNIQUE) | O edital não define capacidade; conflito exigiria recurso e duração |
 | Falta é status do agendamento, não da solicitação | `agendamentos.status` ganha `FALTA`; `solicitacoes.status` continua só a máquina de estados original | Uma ausência não é uma nova etapa do atendimento — a solicitação segue `AGENDADA` enquanto o agendamento específico registra a falta. Isso permite reagendar (novo `Agendamento`) sem perder o histórico da falta original, e concluir corrige o registro (`falta_corrigida_em`) sem apagar `falta_registrada_em` |

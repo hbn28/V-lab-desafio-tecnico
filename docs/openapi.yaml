@@ -84,11 +84,16 @@ paths:
             example: '2026-09-25'
           description: >-
             Agenda diária. Dia operacional (fuso AGENDAMENTO_TIMEZONE, padrão America/Recife)
-            no formato AAAA-MM-DD. Restringe a AGENDADA com agendado_para no intervalo UTC
-            semiaberto [início do dia local, início do dia local seguinte) e ordena por
-            horário, prioridade (URGENTE, ALTA, MEDIA, BAIXA), protocolo e id. Combinar com
-            status diferente de AGENDADA ou com status_grupo=encerrado retorna 422. Solicitações
-            diferentes no mesmo horário são permitidas; igualdade de horário não é conflito.
+            no formato AAAA-MM-DD. Restringe a AGENDADA cujo agendamento ativo caia nesse dia,
+            por dois critérios unidos por OR: (1) modalidade HORARIO com agendado_para no
+            intervalo UTC semiaberto [início do dia local, início do dia local seguinte); ou
+            (2) modalidade TURNO com data_agendada igual ao dia pedido (TURNO nunca preenche
+            agendado_para, por isso o segundo critério é necessário para essas solicitações
+            aparecerem na agenda). Ordena por agendado_para (HORARIO primeiro), depois turno
+            (MANHA, TARDE, NOITE) para os itens sem horário exato, depois prioridade (URGENTE,
+            ALTA, MEDIA, BAIXA), protocolo e id. Combinar com status diferente de AGENDADA ou
+            com status_grupo=encerrado retorna 422. Solicitações diferentes no mesmo horário
+            são permitidas; igualdade de horário não é conflito.
         - name: page
           in: query
           schema:
@@ -695,6 +700,10 @@ components:
         turno:
           $ref: '#/components/schemas/Turno'
           nullable: true
+          description: >-
+            Sempre preenchido pelo backend nas duas modalidades (derivado automaticamente
+            de hora_agendada quando modalidade=HORARIO); nullable aqui é só defensivo de
+            contrato de API, não reflete um caso real em que o valor fica nulo no banco.
         status:
           $ref: '#/components/schemas/StatusAgendamento'
         falta_registrada_em:
