@@ -11,11 +11,14 @@ use App\Domain\Solicitacoes\Actions\ReagendarSolicitacao;
 use App\Domain\Solicitacoes\Http\Requests\AtualizarSolicitacaoRequest;
 use App\Domain\Solicitacoes\Http\Requests\AtualizarStatusRequest;
 use App\Domain\Solicitacoes\Http\Requests\CriarSolicitacaoRequest;
+use App\Domain\Solicitacoes\Http\Requests\ListarFilaRequest;
 use App\Domain\Solicitacoes\Http\Requests\ListarSolicitacoesRequest;
 use App\Domain\Solicitacoes\Http\Requests\ReagendarSolicitacaoRequest;
 use App\Domain\Solicitacoes\Http\Requests\ResumoSolicitacoesRequest;
+use App\Domain\Solicitacoes\Http\Resources\EntradaFilaResource;
 use App\Domain\Solicitacoes\Http\Resources\SolicitacaoResource;
 use App\Domain\Solicitacoes\Support\HorarioAgendamento;
+use App\Models\EntradaFila;
 use App\Models\Solicitacao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\ResourceCollection;
@@ -110,6 +113,24 @@ class SolicitacaoController
         );
 
         return response()->json(['data' => $resumo]);
+    }
+
+    public function fila(ListarFilaRequest $request): ResourceCollection
+    {
+        $query = EntradaFila::query()
+            ->whereNull('encerrada_em')
+            ->with(['solicitacao.paciente'])
+            ->join('solicitacoes', 'solicitacoes.id', '=', 'entradas_fila.solicitacao_id')
+            ->when($request->validated('prioridade'), fn ($q, $p) => $q->where('solicitacoes.prioridade', $p))
+            ->when($request->validated('categoria'), fn ($q, $c) => $q->where('solicitacoes.categoria', $c))
+            ->orderByRaw("CASE solicitacoes.prioridade WHEN 'URGENTE' THEN 4 WHEN 'ALTA' THEN 3 WHEN 'MEDIA' THEN 2 ELSE 1 END DESC")
+            ->orderBy('entradas_fila.entrou_em')
+            ->orderBy('entradas_fila.id')
+            ->select('entradas_fila.*');
+
+        $perPage = (int) ($request->validated('per_page') ?? 15);
+
+        return EntradaFilaResource::collection($query->paginate($perPage));
     }
 
     public function show(int $id): JsonResponse
