@@ -16,4 +16,8 @@ Route::prefix('api/v1')->group(function () {
     Route::patch('/solicitacoes/{id}/status', [SolicitacaoController::class, 'updateStatus']);
     Route::patch('/solicitacoes/{id}/agendamento', [SolicitacaoController::class, 'updateAgendamento']);
     Route::delete('/solicitacoes/{id}', [SolicitacaoController::class, 'destroy']);
+
+    Route::get('/faltas', [SolicitacaoController::class, 'faltas']);
+    Route::post('/agendamentos/{id}/falta', [SolicitacaoController::class, 'registrarFalta']);
+    Route::post('/agendamentos/{id}/tentativas-contato', [SolicitacaoController::class, 'registrarTentativaContato']);
 });
