@@ -2,6 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Domain\Solicitacoes\Support\TurnoAgendamento;
+use App\Models\Agendamento;
+use App\Models\EntradaFila;
 use App\Models\Paciente;
 use App\Models\Solicitacao;
 use Illuminate\Database\Seeder;
@@ -43,10 +46,32 @@ class SolicitacoesSeeder extends Seeder
             );
             $dados['paciente_id'] = $paciente->id;
 
-            Solicitacao::firstOrCreate(
+            $solicitacao = Solicitacao::firstOrCreate(
                 ['protocolo' => $dados['protocolo']],
                 $dados
             );
+
+            if ($solicitacao->status === 'AGENDADA' && $solicitacao->agendado_para !== null) {
+                $momentoLocal = $solicitacao->agendado_para->setTimezone($fuso);
+                $hora = $momentoLocal->format('H:i');
+
+                Agendamento::firstOrCreate(
+                    ['solicitacao_id' => $solicitacao->id, 'status' => 'AGENDADO'],
+                    [
+                        'data_agendada' => $momentoLocal->format('Y-m-d'),
+                        'modalidade' => 'HORARIO',
+                        'hora_agendada' => $hora,
+                        'turno' => TurnoAgendamento::derivarDaHora($hora),
+                    ]
+                );
+            }
+
+            if ($solicitacao->status === 'EM_ANALISE') {
+                EntradaFila::firstOrCreate(
+                    ['solicitacao_id' => $solicitacao->id, 'encerrada_em' => null],
+                    ['entrou_em' => $solicitacao->created_at]
+                );
+            }
         }
     }
 }

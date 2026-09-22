@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/logs
+
 echo "Aguardando banco de dados..."
 until php -r "
 try {
@@ -36,5 +38,8 @@ if [ "${APP_SEED:-false}" = "true" ]; then
     php artisan db:seed --force
 fi
 
+php artisan config:clear
+
 echo "Application ready — http://0.0.0.0:8000"
-exec php artisan serve --host=0.0.0.0 --port=8000
+cd public
+exec php -S 0.0.0.0:8000 ../vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php
