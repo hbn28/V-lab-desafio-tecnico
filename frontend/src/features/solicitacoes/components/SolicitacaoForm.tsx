@@ -10,6 +10,14 @@ function formatarCPF(valor: string): string {
   return `${numeros.slice(0, 3)}.${numeros.slice(3, 6)}.${numeros.slice(6, 9)}-${numeros.slice(9)}`;
 }
 
+/** Formato brasileiro (81) 9XXXX-XXXX, espelhando a regex de CriarSolicitacaoRequest no backend. */
+function formatarCelular(valor: string): string {
+  const numeros = valor.replace(/\D/g, '').slice(0, 11);
+  if (numeros.length <= 2) return numeros.length ? `(${numeros}` : '';
+  if (numeros.length <= 7) return `(${numeros.slice(0, 2)}) ${numeros.slice(2)}`;
+  return `(${numeros.slice(0, 2)}) ${numeros.slice(2, numeros.length - 4)}-${numeros.slice(-4)}`;
+}
+
 export interface SolicitacaoFormValues {
   nome_solicitante: string;
   cpf_solicitante: string;
@@ -18,6 +26,8 @@ export interface SolicitacaoFormValues {
   prioridade: Prioridade | '';
   descricao: string;
   justificativa_prioridade: string;
+  /** Opcional; só é enviado ao criar (a edição de solicitações não altera o telefone do paciente). */
+  celular: string;
 }
 
 interface FormErrors { [key: string]: string[] }
@@ -30,6 +40,7 @@ const FIELD_LABELS: Record<string, string> = {
   prioridade: 'Prioridade',
   descricao: 'Descrição',
   justificativa_prioridade: 'Justificativa da prioridade',
+  celular: 'Celular',
 };
 
 const VALORES_VAZIOS: SolicitacaoFormValues = {
@@ -40,6 +51,7 @@ const VALORES_VAZIOS: SolicitacaoFormValues = {
   prioridade: '',
   descricao: '',
   justificativa_prioridade: '',
+  celular: '',
 };
 
 interface SolicitacaoFormProps {
@@ -49,6 +61,8 @@ interface SolicitacaoFormProps {
   initialValues?: Partial<SolicitacaoFormValues>;
   submitLabel: string;
   submittingLabel?: string;
+  /** Mostra o campo opcional de celular do paciente. Só faz sentido na criação. */
+  mostrarCelular?: boolean;
   onSubmit: (values: SolicitacaoFormValues) => Promise<void>;
   onCancel: () => void;
 }
@@ -60,6 +74,7 @@ export function SolicitacaoForm({
   initialValues,
   submitLabel,
   submittingLabel = 'Salvando...',
+  mostrarCelular = false,
   onSubmit,
   onCancel,
 }: SolicitacaoFormProps) {
@@ -161,6 +176,15 @@ export function SolicitacaoForm({
               <input id="data_nascimento" type="date" value={form.data_nascimento} onChange={event => set('data_nascimento', event.target.value)} required aria-invalid={Boolean(err('data_nascimento'))} aria-describedby={describedBy('data_nascimento')} />
               {err('data_nascimento') && <p id="data_nascimento-error" className="field-error">{err('data_nascimento')}</p>}
             </div>
+
+            {mostrarCelular && (
+              <div className="field">
+                <label htmlFor="celular">Celular (opcional)</label>
+                <input id="celular" inputMode="tel" autoComplete="off" value={form.celular} onChange={event => set('celular', formatarCelular(event.target.value))} placeholder="(81) 99999-0000" maxLength={16} aria-invalid={Boolean(err('celular'))} aria-describedby={describedBy('celular', 'celular-helper')} />
+                <p id="celular-helper" className="field-helper">Usado só para contato em caso de falta; sempre exibido mascarado no sistema.</p>
+                {err('celular') && <p id="celular-error" className="field-error">{err('celular')}</p>}
+              </div>
+            )}
           </div>
         </section>
 

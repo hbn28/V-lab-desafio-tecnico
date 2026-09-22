@@ -19,6 +19,7 @@ export function NovaSolicitacaoPage() {
         heading="Nova Solicitação"
         submitLabel="Criar solicitação"
         submittingLabel="Salvando..."
+        mostrarCelular
         onCancel={() => navigate('/')}
         onSubmit={async values => {
           const created = await solicitacoesApi.criar({
@@ -29,6 +30,7 @@ export function NovaSolicitacaoPage() {
             prioridade: values.prioridade as Prioridade,
             descricao: values.descricao,
             justificativa_prioridade: values.prioridade === 'URGENTE' ? values.justificativa_prioridade : undefined,
+            celular: values.celular.trim() ? values.celular : undefined,
           });
           navigate(`/solicitacoes/${created.id}`);
         }}
