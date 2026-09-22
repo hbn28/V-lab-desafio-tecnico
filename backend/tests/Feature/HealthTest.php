@@ -16,4 +16,6 @@ test('health check retorna 503 quando banco falha', function () {
 
     $response->assertStatus(503)
         ->assertJson(['status' => 'degraded', 'db' => 'error']);
+
+    expect($response->getContent())->not->toContain('Connection refused');
 });

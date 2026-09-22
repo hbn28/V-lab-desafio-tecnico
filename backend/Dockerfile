@@ -18,6 +18,7 @@ RUN composer config --global --no-interaction allow-plugins.pestphp/pest-plugin 
     && composer install --no-dev --no-scripts --no-interaction --prefer-dist
 
 COPY . .
+RUN mkdir -p bootstrap/cache
 RUN composer dump-autoload --optimize
 
 EXPOSE 8000

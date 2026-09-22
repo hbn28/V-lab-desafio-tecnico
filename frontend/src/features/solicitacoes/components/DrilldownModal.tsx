@@ -28,6 +28,7 @@ interface DrilldownModalProps {
  * clique no fundo fecham, e o foco volta para quem abriu a janela.
  */
 export function DrilldownModal({ title, description, accent, filtros, onClose }: DrilldownModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previouslyFocused = useRef<Element | null>(null);
   const { data, loading, error } = useSolicitacoes({ ...filtros, per_page: 50 });
@@ -40,6 +41,26 @@ export function DrilldownModal({ title, description, accent, filtros, onClose }:
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ));
+      if (focusable.length === 0) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     document.addEventListener('keydown', handleKeyDown);
 
@@ -58,6 +79,7 @@ export function DrilldownModal({ title, description, accent, filtros, onClose }:
       role="presentation"
     >
       <div
+        ref={dialogRef}
         className={`drilldown-modal drilldown-modal--${accent}`}
         role="dialog"
         aria-modal="true"

@@ -19,5 +19,14 @@ return [
             'formatter' => JsonFormatter::class,
             'level' => env('LOG_LEVEL', 'debug'),
         ],
+        'stderr' => [
+            'driver' => 'monolog',
+            'handler' => StreamHandler::class,
+            'with' => [
+                'stream' => 'php://stderr',
+            ],
+            'formatter' => JsonFormatter::class,
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
     ],
 ];

@@ -10,11 +10,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RequestId
 {
-    private ?float $startTime = null;
-
     public function handle(Request $request, Closure $next): Response
     {
-        $this->startTime = microtime(true);
+        $request->attributes->set('request_started_at', microtime(true));
 
         $incomingId = $request->header('X-Request-ID', '');
         $requestId = $this->isValidUuid($incomingId)
@@ -32,11 +30,12 @@ class RequestId
 
     public function terminate(Request $request, Response $response): void
     {
-        if ($this->startTime === null) {
+        $startTime = $request->attributes->get('request_started_at');
+        if (! is_float($startTime)) {
             return;
         }
 
-        $durationMs = (int) round((microtime(true) - $this->startTime) * 1000);
+        $durationMs = (int) round((microtime(true) - $startTime) * 1000);
 
         Log::info('api_request', [
             'method' => $request->method(),
