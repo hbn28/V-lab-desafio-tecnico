@@ -74,7 +74,11 @@ class SolicitacaoController
                 config('agendamento.timezone'),
             );
             $query->where(function ($sub) use ($inicio, $fim, $dataAgendada) {
-                $sub->whereBetween('agendado_para', [$inicio, $fim])
+                // whereBetween é inclusivo nos dois limites; aqui precisa ser semiaberto
+                // [$inicio, $fim) pra um agendado_para exatamente à meia-noite UTC do dia
+                // seguinte não vazar pro filtro do dia anterior.
+                $sub->where('agendado_para', '>=', $inicio)
+                    ->where('agendado_para', '<', $fim)
                     ->orWhereHas('agendamentoAtivo', function ($ativo) use ($dataAgendada) {
                         $ativo->where('modalidade', 'TURNO')->where('data_agendada', $dataAgendada);
                     });
