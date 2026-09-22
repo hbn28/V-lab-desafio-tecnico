@@ -76,3 +76,46 @@ test('payload ambiguo de agenda retorna 422', function (array $payload, string $
     [['status' => 'AGENDADA', 'data_agendada' => '2026-09-25'], 'hora_agendada'],
     [['status' => 'AGENDADA', 'data_agendada' => '2026-09-25', 'hora_agendada' => '07:00', 'turno' => 'MANHA'], 'turno'],
 ]);
+
+test('AGENDADA por horario deriva e persiste o turno automaticamente', function () {
+    $solicitacao = Solicitacao::factory()->create(['status' => 'EM_ANALISE']);
+
+    $this->patchJson("/api/v1/solicitacoes/{$solicitacao->id}/status", [
+        'status' => 'AGENDADA',
+        'data_agendada' => '2026-09-25',
+        'hora_agendada' => '07:00',
+    ])->assertOk()
+        ->assertJsonPath('data.agendamento_ativo.modalidade', 'HORARIO')
+        ->assertJsonPath('data.agendamento_ativo.hora_agendada', '07:00')
+        ->assertJsonPath('data.agendamento_ativo.turno', 'MANHA');
+
+    expect(Agendamento::where('solicitacao_id', $solicitacao->id)->first()->turno)->toBe('MANHA');
+});
+
+test('agenda diaria (GET /solicitacoes?data_agendada=) inclui agendamentos por turno, sem agendado_para', function () {
+    $porTurno = Solicitacao::factory()->create(['status' => 'EM_ANALISE', 'prioridade' => 'MEDIA']);
+    $porHorario = Solicitacao::factory()->create(['status' => 'EM_ANALISE', 'prioridade' => 'MEDIA']);
+    $outroDia = Solicitacao::factory()->create(['status' => 'EM_ANALISE', 'prioridade' => 'MEDIA']);
+
+    $this->patchJson("/api/v1/solicitacoes/{$porTurno->id}/status", [
+        'status' => 'AGENDADA', 'data_agendada' => '2026-09-25', 'turno' => 'TARDE',
+    ])->assertOk();
+
+    $this->patchJson("/api/v1/solicitacoes/{$porHorario->id}/status", [
+        'status' => 'AGENDADA', 'data_agendada' => '2026-09-25', 'hora_agendada' => '08:00',
+    ])->assertOk();
+
+    $this->patchJson("/api/v1/solicitacoes/{$outroDia->id}/status", [
+        'status' => 'AGENDADA', 'data_agendada' => '2026-09-26', 'turno' => 'MANHA',
+    ])->assertOk();
+
+    $resposta = $this->getJson('/api/v1/solicitacoes?data_agendada=2026-09-25')->assertOk();
+    $protocolos = collect($resposta->json('data'))->pluck('protocolo');
+
+    expect($protocolos)->toContain($porTurno->fresh()->protocolo);
+    expect($protocolos)->toContain($porHorario->fresh()->protocolo);
+    expect($protocolos)->not->toContain($outroDia->fresh()->protocolo);
+
+    // HORARIO (agendado_para preenchido) vem antes de TURNO (agendado_para nulo) no mesmo dia.
+    expect($protocolos->first())->toBe($porHorario->fresh()->protocolo);
+});

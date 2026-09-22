@@ -164,6 +164,36 @@ describe('Agenda diária', () => {
     }));
   });
 
+  it('mostra o turno (sem horário exato) na agenda do dia', async () => {
+    vi.mocked(solicitacoesApi.listar).mockResolvedValue({
+      data: [
+        {
+          ...solicitacaoBase,
+          id: 3,
+          protocolo: 'SOL-2026-0003',
+          status: 'AGENDADA',
+          agendado_para: null,
+          agendamento_ativo: {
+            id: 1,
+            modalidade: 'TURNO',
+            data_agendada: '2026-09-25',
+            hora_agendada: null,
+            turno: 'TARDE',
+            status: 'AGENDADO',
+            falta_registrada_em: null,
+            falta_corrigida_em: null,
+            resultado_em: null,
+          },
+        },
+      ],
+      total: 1,
+      last_page: 1,
+    });
+    renderPagina('/?visao=agenda&data=2026-09-25');
+    expect(await screen.findByText('SOL-2026-0003')).toBeInTheDocument();
+    expect(screen.getByText('Tarde')).toBeInTheDocument();
+  });
+
   it('sincroniza a visão com a URL ao voltar e avançar no navegador', async () => {
     renderPaginaComHistorico('/');
 
