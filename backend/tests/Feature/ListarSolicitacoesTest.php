@@ -153,3 +153,28 @@ test('agenda aceita grupo aberto e pagina resultados', function () {
     $response = $this->getJson('/api/v1/solicitacoes?data_agendada=2026-09-25&status_grupo=aberto&per_page=2&page=2');
     $response->assertOk()->assertJsonPath('meta.total', 3)->assertJsonCount(1, 'data');
 });
+
+test('filtra a fila por status AGENDADA e ordena por agendado_para, não por prioridade (ADR 003)', function () {
+    $criar = fn (string $protocolo, string $prioridade, string $utc) => Solicitacao::factory()->create([
+        'protocolo' => $protocolo,
+        'prioridade' => $prioridade,
+        'justificativa_prioridade' => $prioridade === 'URGENTE' ? 'Teste fictício.' : null,
+        'status' => 'AGENDADA',
+        'agendado_para' => $utc,
+    ]);
+    // Prioridade BAIXA agendada mais cedo deve vir antes de uma URGENTE agendada mais tarde:
+    // uma vez marcada a hora, quem decide a ordem é o compromisso, não a prioridade administrativa.
+    $criar('SOL-2026-0301', 'BAIXA', '2026-09-25T11:00:00Z');
+    $criar('SOL-2026-0302', 'URGENTE', '2026-09-26T09:00:00Z');
+    $criar('SOL-2026-0303', 'ALTA', '2026-09-25T11:00:00Z'); // empate de horário com 0301: desempata por prioridade
+
+    Solicitacao::factory()->create(['status' => 'RECEBIDA', 'prioridade' => 'URGENTE',
+        'justificativa_prioridade' => 'Teste fictício.']);
+
+    $response = $this->getJson('/api/v1/solicitacoes?status=AGENDADA')->assertOk();
+
+    expect($response->json('data.*.protocolo'))->toBe([
+        'SOL-2026-0303', 'SOL-2026-0301', 'SOL-2026-0302',
+    ]);
+    expect($response->json('data.*.status'))->each->toBe('AGENDADA');
+});

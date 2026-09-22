@@ -44,16 +44,18 @@ class SolicitacaoController
     public function index(ListarSolicitacoesRequest $request): ResourceCollection
     {
         $statusGrupo = $request->validated('status_grupo');
+        $dataAgendada = $request->validated('data_agendada');
+        // Com data_agendada o status já está restrito a AGENDADA (a Request rejeita combinações incompatíveis).
+        $status = $dataAgendada ? 'AGENDADA' : $request->validated('status');
         $query = Solicitacao::query();
 
-        if ($dataAgendada = $request->validated('data_agendada')) {
+        if ($dataAgendada) {
             // Agenda diária: intervalo UTC semiaberto do dia operacional, por horário e, em empate, prioridade.
             [$inicio, $fim] = HorarioAgendamento::limitesUtcDoDia(
                 $dataAgendada,
                 config('agendamento.timezone'),
             );
-            $query->where('status', 'AGENDADA')
-                ->where('agendado_para', '>=', $inicio)
+            $query->where('agendado_para', '>=', $inicio)
                 ->where('agendado_para', '<', $fim)
                 ->orderBy('agendado_para')
                 ->orderByRaw("CASE prioridade WHEN 'URGENTE' THEN 1 WHEN 'ALTA' THEN 2 WHEN 'MEDIA' THEN 3 WHEN 'BAIXA' THEN 4 END ASC")
@@ -64,6 +66,13 @@ class SolicitacaoController
             $query->whereIn('status', ['CONCLUIDA', 'CANCELADA'])
                 ->orderByDesc('updated_at')
                 ->orderByDesc('id');
+        } elseif ($status === 'AGENDADA') {
+            // Já tem hora marcada: quem decide a ordem deixa de ser a prioridade
+            // administrativa e passa a ser o horário já combinado (ADR 003).
+            $query->orderBy('agendado_para')
+                ->orderByRaw("CASE prioridade WHEN 'URGENTE' THEN 1 WHEN 'ALTA' THEN 2 WHEN 'MEDIA' THEN 3 WHEN 'BAIXA' THEN 4 END ASC")
+                ->orderBy('protocolo')
+                ->orderBy('id');
         } else {
             // A fila operacional é estável e explicável: demandas abertas,
             // maior prioridade e, em empate, maior tempo de espera.
@@ -73,8 +82,6 @@ class SolicitacaoController
                 ->orderBy('id');
         }
 
-        // Com data_agendada o status já está restrito a AGENDADA (a Request rejeita combinações incompatíveis).
-        $status = $dataAgendada ? null : $request->validated('status');
         if ($status) {
             $query->where('status', $status);
         } elseif (! $dataAgendada && $statusGrupo === 'aberto') {
@@ -115,7 +122,7 @@ class SolicitacaoController
     public function update(AtualizarSolicitacaoRequest $request, int $id): JsonResponse
     {
         $solicitacao = Solicitacao::findOrFail($id);
-        $atualizada  = $this->atualizarSolicitacao->execute($solicitacao, $request->validated());
+        $atualizada = $this->atualizarSolicitacao->execute($solicitacao, $request->validated());
 
         return (new SolicitacaoResource($atualizada))->response();
     }
@@ -123,7 +130,7 @@ class SolicitacaoController
     public function updateStatus(AtualizarStatusRequest $request, int $id): JsonResponse
     {
         $solicitacao = Solicitacao::findOrFail($id);
-        $atualizada  = $this->atualizarStatus->execute(
+        $atualizada = $this->atualizarStatus->execute(
             $solicitacao,
             $request->validated('status'),
             $request->agendadoPara(),
@@ -135,7 +142,7 @@ class SolicitacaoController
     public function updateAgendamento(ReagendarSolicitacaoRequest $request, int $id): JsonResponse
     {
         $solicitacao = Solicitacao::findOrFail($id);
-        $atualizada  = $this->reagendarSolicitacao->execute($solicitacao, $request->agendadoPara());
+        $atualizada = $this->reagendarSolicitacao->execute($solicitacao, $request->agendadoPara());
 
         return (new SolicitacaoResource($atualizada))->response();
     }
