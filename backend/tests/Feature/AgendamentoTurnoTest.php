@@ -43,7 +43,6 @@ test('check rejeita combinacao ambigua de modalidade e hora', function () {
     ]))->toThrow(QueryException::class);
 });
 
-
 test('horario deriva turno automaticamente', function (string $hora, string $turno) {
     expect(TurnoAgendamento::derivarDaHora($hora))->toBe($turno);
 })->with([

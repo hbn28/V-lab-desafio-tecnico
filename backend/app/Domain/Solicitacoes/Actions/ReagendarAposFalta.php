@@ -4,6 +4,7 @@ namespace App\Domain\Solicitacoes\Actions;
 
 use App\Models\Agendamento;
 use App\Models\Solicitacao;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 
@@ -15,7 +16,7 @@ use Illuminate\Support\Facades\DB;
 class ReagendarAposFalta
 {
     /**
-     * @param  array{modalidade:string,data_agendada:string,hora_agendada:?string,turno:string,agendado_para:?\Carbon\CarbonImmutable}  $dadosAgendamento
+     * @param  array{modalidade:string,data_agendada:string,hora_agendada:?string,turno:string,agendado_para:?CarbonImmutable}  $dadosAgendamento
      */
     public function execute(Agendamento $agendamento, array $dadosAgendamento): Agendamento
     {

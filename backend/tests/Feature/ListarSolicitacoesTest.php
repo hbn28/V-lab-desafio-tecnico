@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Paciente;
 use App\Models\Solicitacao;
 use Illuminate\Support\Carbon;
 
@@ -74,6 +75,7 @@ test('per_page inválido retorna 422', function () {
 
 test('ordena a fila por situação, prioridade e tempo de espera', function () {
     $base = [
+        'paciente_id' => Paciente::factory()->create()->id,
         'cpf_solicitante' => '123.456.789-00',
         'data_nascimento' => '1985-06-15',
         'categoria' => 'CONSULTA',
