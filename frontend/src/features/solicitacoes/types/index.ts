@@ -2,6 +2,52 @@ export type Categoria = 'CONSULTA' | 'EXAME' | 'VACINACAO' | 'OUTRO';
 export type Prioridade = 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE';
 export type Status = 'RECEBIDA' | 'EM_ANALISE' | 'AGENDADA' | 'CONCLUIDA' | 'CANCELADA';
 
+export type Turno = 'MANHA' | 'TARDE' | 'NOITE';
+export type ModalidadeAgendamento = 'HORARIO' | 'TURNO';
+export type StatusAgendamento = 'AGENDADO' | 'REALIZADO' | 'FALTA' | 'CANCELADO';
+export type ResultadoContato = 'SEM_RESPOSTA' | 'RECADO' | 'CONFIRMOU_RETORNO' | 'NUMERO_INVALIDO';
+
+export interface PacienteResumo {
+  id: number;
+  nome: string;
+  celular_mascarado: string | null;
+}
+
+export interface TentativaContato {
+  id: number;
+  resultado: ResultadoContato;
+  realizada_em: string;
+}
+
+export interface Agendamento {
+  id: number;
+  modalidade: ModalidadeAgendamento;
+  data_agendada: string;
+  hora_agendada: string | null;
+  turno: Turno | null;
+  status: StatusAgendamento;
+  falta_registrada_em: string | null;
+  falta_corrigida_em: string | null;
+  resultado_em: string | null;
+  solicitacao?: {
+    id: number;
+    protocolo: string;
+    nome_solicitante: string;
+    paciente?: PacienteResumo | null;
+  };
+  ultima_tentativa_contato?: TentativaContato | null;
+}
+
+export type FaltaListItem = Agendamento;
+
+export interface EntradaFilaItem {
+  id: number;
+  solicitacao_id: number;
+  entrou_em: string;
+  encerrada_em: string | null;
+  motivo_encerramento: 'AGENDAMENTO' | 'CANCELAMENTO' | null;
+}
+
 export interface Solicitacao {
   id: number;
   protocolo: string;
@@ -17,6 +63,8 @@ export interface Solicitacao {
   justificativa_prioridade: string | null;
   data_criacao: string;
   data_atualizacao: string;
+  paciente?: PacienteResumo | null;
+  agendamento_ativo?: Agendamento | null;
 }
 
 export interface PaginaMeta {
@@ -39,6 +87,12 @@ export interface ListaSolicitacoes {
   links: PaginaLinks;
 }
 
+export interface ListaFaltas {
+  data: FaltaListItem[];
+  meta: PaginaMeta;
+  links: PaginaLinks;
+}
+
 export interface CriarSolicitacaoPayload {
   nome_solicitante: string;
   cpf_solicitante: string;
@@ -47,13 +101,13 @@ export interface CriarSolicitacaoPayload {
   prioridade: Prioridade;
   descricao: string;
   justificativa_prioridade?: string | null;
+  celular?: string | null;
 }
 
-/** Data e hora locais (fuso operacional) de um agendamento. */
-export interface AgendamentoPayload {
-  data_agendada: string;
-  hora_agendada: string;
-}
+/** Data e horário local (fuso operacional) de um agendamento — por horário exato ou por turno. */
+export type AgendamentoPayload =
+  | { data_agendada: string; hora_agendada: string; turno?: never }
+  | { data_agendada: string; turno: Turno; hora_agendada?: never };
 
 export type StatusSemAgendamento = Exclude<Status, 'AGENDADA'>;
 
@@ -63,6 +117,7 @@ export type AtualizarStatusPayload =
       status: StatusSemAgendamento;
       data_agendada?: never;
       hora_agendada?: never;
+      turno?: never;
     };
 
 export type AtualizarSolicitacaoPayload = CriarSolicitacaoPayload;
@@ -77,6 +132,20 @@ export interface FiltrosSolicitacoes {
   data_agendada?: string;
   page?: number;
   per_page?: number;
+}
+
+export interface FiltrosFila {
+  page?: number;
+  per_page?: number;
+}
+
+export interface FiltrosFaltas {
+  page?: number;
+  per_page?: number;
+}
+
+export interface RegistrarContatoPayload {
+  resultado: ResultadoContato;
 }
 
 export interface ResumoSolicitacoes {
@@ -121,4 +190,17 @@ export const LABEL_PRIORIDADE: Record<Prioridade, string> = {
   MEDIA:   'Média',
   ALTA:    'Alta',
   URGENTE: 'Urgente',
+};
+
+export const LABEL_TURNO: Record<Turno, string> = {
+  MANHA: 'Manhã',
+  TARDE: 'Tarde',
+  NOITE: 'Noite',
+};
+
+export const LABEL_RESULTADO_CONTATO: Record<ResultadoContato, string> = {
+  SEM_RESPOSTA:      'Sem resposta',
+  RECADO:            'Recado deixado',
+  CONFIRMOU_RETORNO: 'Confirmou retorno',
+  NUMERO_INVALIDO:   'Número inválido',
 };
