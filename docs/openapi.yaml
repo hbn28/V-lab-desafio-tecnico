@@ -13,6 +13,10 @@ tags:
     description: Saúde da API
   - name: solicitacoes
     description: Solicitações de atendimento
+  - name: fila
+    description: Fila operacional contínua
+  - name: faltas
+    description: Faltas de agendamento e tentativas de contato
 
 paths:
   /health:
@@ -263,10 +267,12 @@ paths:
       tags: [solicitacoes]
       summary: Atualizar status da solicitação
       description: >-
-        Única via para mudar o status. Para AGENDADA (a partir de EM_ANALISE),
-        data_agendada e hora_agendada são obrigatórias e interpretadas no fuso
-        operacional; para qualquer outro destino são proibidas (422). O instante deve
-        ser estritamente futuro. CONCLUIDA e CANCELADA preservam agendado_para.
+        Única via para mudar o status. Para AGENDADA (a partir de EM_ANALISE), é
+        obrigatório enviar data_agendada e exatamente um de hora_agendada (modalidade
+        HORARIO) ou turno (modalidade TURNO) — nunca os dois, nunca nenhum; interpretados
+        no fuso operacional. Para qualquer outro destino esses campos são proibidos (422).
+        O instante/turno deve ser estritamente futuro. CONCLUIDA e CANCELADA preservam
+        agendado_para (somente para agendamentos HORARIO).
       operationId: atualizarStatus
       parameters:
         - $ref: '#/components/parameters/SolicitacaoId'
@@ -290,7 +296,14 @@ paths:
                   type: string
                   pattern: '^([01]\d|2[0-3]):[0-5]\d$'
                   example: '14:30'
-                  description: Obrigatória somente quando status=AGENDADA; proibida nos demais.
+                  description: >-
+                    Exclusiva com turno. Obrigatória somente quando status=AGENDADA e a
+                    modalidade escolhida é HORARIO; proibida nos demais casos.
+                turno:
+                  $ref: '#/components/schemas/Turno'
+                  description: >-
+                    Exclusiva com hora_agendada. Obrigatória somente quando status=AGENDADA e
+                    a modalidade escolhida é TURNO; proibida nos demais casos.
       responses:
         '200':
           description: Status atualizado
@@ -340,8 +353,196 @@ paths:
         '422':
           $ref: '#/components/responses/ValidationError'
 
+  /fila:
+    get:
+      tags: [fila]
+      summary: Listar fila operacional contínua
+      description: >-
+        Uma linha por EntradaFila aberta (RECEBIDA nunca aparece aqui; a fila abre em
+        EM_ANALISE e fecha ao agendar ou cancelar). Ordenada por prioridade (URGENTE,
+        ALTA, MEDIA, BAIXA) e, no empate, por entrou_em ASC.
+      operationId: listarFila
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 15 }
+      responses:
+        '200':
+          description: Fila paginada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EntradaFila'
+                  meta:
+                    type: object
+                    properties:
+                      total:        { type: integer }
+                      per_page:     { type: integer }
+                      current_page: { type: integer }
+                      last_page:    { type: integer }
+
+  /faltas:
+    get:
+      tags: [faltas]
+      summary: Listar agendamentos em falta
+      description: >-
+        Agendamentos com status=FALTA, com paciente (telefone mascarado), protocolo,
+        data/hora ou turno original e a última tentativa de contato, se houver.
+      operationId: listarFaltas
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: per_page
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 15 }
+      responses:
+        '200':
+          description: Faltas paginadas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agendamento'
+                  meta:
+                    type: object
+                    properties:
+                      total:        { type: integer }
+                      per_page:     { type: integer }
+                      current_page: { type: integer }
+                      last_page:    { type: integer }
+
+  /agendamentos/{id}/falta:
+    post:
+      tags: [faltas]
+      summary: Registrar falta em um agendamento
+      description: >-
+        Marca o agendamento AGENDADO como FALTA. solicitacoes.status permanece AGENDADA
+        — a falta é só um estado do agendamento. Só é aceito após o horário marcado
+        (HORARIO) ou após o fim do turno (TURNO); antes disso retorna 422.
+      operationId: registrarFalta
+      parameters:
+        - $ref: '#/components/parameters/AgendamentoId'
+      responses:
+        '200':
+          description: Falta registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Agendamento'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Agendamento não está AGENDADO
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          description: Ainda não passou do horário marcado ou do fim do turno
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /agendamentos/{id}/tentativas-contato:
+    post:
+      tags: [faltas]
+      summary: Registrar tentativa de contato após falta
+      operationId: registrarTentativaContato
+      parameters:
+        - $ref: '#/components/parameters/AgendamentoId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrarContatoBody'
+      responses:
+        '201':
+          description: Tentativa registrada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Agendamento'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Agendamento não está em FALTA
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /agendamentos/{id}/reagendar-apos-falta:
+    post:
+      tags: [faltas]
+      summary: Reagendar após falta
+      description: >-
+        Cria um novo Agendamento AGENDADO para a mesma solicitação, preservando o
+        registro FALTA original como histórico. Exige solicitação AGENDADA e nenhum
+        outro agendamento já AGENDADO.
+      operationId: reagendarAposFalta
+      parameters:
+        - $ref: '#/components/parameters/AgendamentoId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AgendamentoInput'
+      responses:
+        '201':
+          description: Novo agendamento criado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Agendamento'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Solicitação não está AGENDADA, agendamento não está em FALTA, ou já existe um AGENDADO
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
 components:
   parameters:
+    AgendamentoId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: ID do agendamento
+
     SolicitacaoId:
       name: id
       in: path
@@ -405,20 +606,140 @@ components:
         data_atualizacao:
           type: string
           format: date-time
+        paciente:
+          $ref: '#/components/schemas/PacienteResumo'
+          nullable: true
+        agendamento_ativo:
+          $ref: '#/components/schemas/Agendamento'
+          nullable: true
+
+    Turno:
+      type: string
+      enum: [MANHA, TARDE, NOITE]
+
+    ModalidadeAgendamento:
+      type: string
+      enum: [HORARIO, TURNO]
+
+    StatusAgendamento:
+      type: string
+      enum: [AGENDADO, REALIZADO, FALTA, CANCELADO]
+
+    ResultadoContato:
+      type: string
+      enum: [SEM_RESPOSTA, RECADO, CONFIRMOU_RETORNO, NUMERO_INVALIDO]
 
     AgendamentoInput:
+      description: >-
+        Exatamente um dos dois formatos — hora exata (modalidade HORARIO) ou
+        turno (modalidade TURNO). additionalProperties: false em cada variante
+        impede enviar os dois ao mesmo tempo.
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [data_agendada, hora_agendada]
+          properties:
+            data_agendada:
+              type: string
+              format: date
+              example: '2026-09-25'
+            hora_agendada:
+              type: string
+              pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+              example: '14:30'
+        - type: object
+          additionalProperties: false
+          required: [data_agendada, turno]
+          properties:
+            data_agendada:
+              type: string
+              format: date
+              example: '2026-09-25'
+            turno:
+              $ref: '#/components/schemas/Turno'
+
+    PacienteResumo:
       type: object
-      additionalProperties: false
-      required: [data_agendada, hora_agendada]
       properties:
+        id: { type: integer }
+        nome: { type: string }
+        celular_mascarado:
+          type: string
+          nullable: true
+          example: '(81) *****-0000'
+          description: Últimos 4 dígitos visíveis; o número completo nunca é retornado pela API.
+
+    TentativaContato:
+      type: object
+      properties:
+        id: { type: integer }
+        resultado:
+          $ref: '#/components/schemas/ResultadoContato'
+        realizada_em:
+          type: string
+          format: date-time
+
+    Agendamento:
+      type: object
+      properties:
+        id: { type: integer }
+        modalidade:
+          $ref: '#/components/schemas/ModalidadeAgendamento'
         data_agendada:
           type: string
           format: date
-          example: '2026-09-25'
         hora_agendada:
           type: string
-          pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+          nullable: true
           example: '14:30'
+        turno:
+          $ref: '#/components/schemas/Turno'
+          nullable: true
+        status:
+          $ref: '#/components/schemas/StatusAgendamento'
+        falta_registrada_em:
+          type: string
+          format: date-time
+          nullable: true
+        falta_corrigida_em:
+          type: string
+          format: date-time
+          nullable: true
+          description: Preenchido quando a solicitação é concluída após uma falta registrada por engano.
+        solicitacao:
+          type: object
+          nullable: true
+          properties:
+            id: { type: integer }
+            protocolo: { type: string }
+            nome_solicitante: { type: string }
+            paciente:
+              $ref: '#/components/schemas/PacienteResumo'
+        ultima_tentativa_contato:
+          $ref: '#/components/schemas/TentativaContato'
+          nullable: true
+
+    RegistrarContatoBody:
+      type: object
+      additionalProperties: false
+      required: [resultado]
+      properties:
+        resultado:
+          $ref: '#/components/schemas/ResultadoContato'
+      description: Payload enxuto — apenas o resultado fechado, sem campo de texto livre.
+
+    EntradaFila:
+      type: object
+      properties:
+        id: { type: integer }
+        solicitacao_id: { type: integer }
+        entrou_em:
+          type: string
+          format: date-time
+        protocolo: { type: string }
+        nome_solicitante: { type: string }
+        prioridade:
+          $ref: '#/components/schemas/Prioridade'
 
     SolicitacaoResponse:
       type: object

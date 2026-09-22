@@ -174,6 +174,73 @@ Bloqueado (409) quando a solicitação está em estado final (`CONCLUIDA` ou `CA
 
 Remove definitivamente a solicitação (hard delete). Permitido em qualquer estado. Resposta 204 sem corpo. Identificador inexistente retorna 404 no envelope comum.
 
+## Pacientes, fila contínua, agenda por turno e faltas
+
+> Extensão sobre o fluxo mínimo do edital (mesma permissão de "Alterações são permitidas desde que sejam consistentes, documentadas e preservem as funcionalidades solicitadas", seção 2.3-C). Não remove nem altera o contrato mínimo de `solicitacoes` descrito acima; `solicitacoes.status` continua a máquina de estados oficial e **nunca** armazena `FALTA`.
+
+### Paciente (`pacientes`)
+
+Cada solicitação passa a referenciar um `Paciente`, reaproveitado por CPF normalizado (`cpf_solicitante` sem máscara). Ao criar uma solicitação:
+
+- se já existe um paciente com o mesmo CPF e a mesma `data_nascimento`, ele é reaproveitado (`paciente_id` aponta para o registro existente);
+- se existe um paciente com o mesmo CPF e `data_nascimento` diferente, a criação retorna 422 em `cpf_solicitante` ("CPF já cadastrado com outra data de nascimento.");
+- caso contrário, um novo `Paciente` é criado.
+
+`celular` é opcional na criação (`CriarSolicitacaoRequest`) e fica em `pacientes.celular`. A API nunca devolve o número completo: `SolicitacaoResource` e os demais Resources expõem `paciente.celular_mascarado` (formato `(DD) *****-NNNN`, últimos 4 dígitos visíveis), via `MascararContato::celular()`.
+
+### Fila contínua (`entradas_fila`)
+
+A fila de espera passou a ser um registro próprio, independente da paginação/ordenação de `GET /solicitacoes`:
+
+- `EM_ANALISE` abre uma `EntradaFila` (`entrou_em = now()`), via efeito colateral em `AtualizarStatusSolicitacao`;
+- `AGENDADA` ou `CANCELADA` encerram a entrada aberta (`encerrada_em`, `motivo_encerramento` = `AGENDAMENTO` ou `CANCELAMENTO`);
+- há no máximo uma `EntradaFila` aberta por solicitação, garantido por índice único parcial (`WHERE encerrada_em IS NULL`).
+
+### Agendamento por horário ou por turno (`agendamentos`)
+
+`solicitacoes.agendado_para` é mantido **somente** para compatibilidade com agendamentos por horário exato (modalidade `HORARIO`); para modalidade `TURNO` ele permanece `null`. A fonte de verdade do agendamento passou a ser a tabela `agendamentos`:
+
+- `modalidade`: `HORARIO` ou `TURNO` (CHECK);
+- `data_agendada`: data local (fuso `AGENDAMENTO_TIMEZONE`);
+- `hora_agendada`: obrigatória e exclusiva de `HORARIO`; `turno` (`MANHA`, `TARDE` ou `NOITE`) obrigatório e exclusivo de `TURNO` (CHECK garante que apenas um dos dois esteja presente);
+- `status`: `AGENDADO`, `REALIZADO`, `FALTA` ou `CANCELADO` (CHECK). **Este é o único lugar do sistema onde `FALTA` existe** — `solicitacoes.status` nunca assume esse valor;
+- no máximo um `Agendamento` com `status = AGENDADO` por solicitação, garantido por índice único parcial.
+
+Derivação de turno a partir de horário exato (`TurnoAgendamento::derivarDaHora`, espelhada no frontend por `derivarTurnoDaHora`): `06:00–11:59 → MANHA`, `12:00–17:59 → TARDE`, `18:00–05:59 (dia seguinte) → NOITE`.
+
+`PATCH /solicitacoes/{id}/status` (transição para `AGENDADA`) e `PATCH /solicitacoes/{id}/agendamento` (reagendar) aceitam **exatamente um** dos dois formatos, nunca ambos nem nenhum:
+
+```json
+{ "data_agendada": "2026-09-25", "hora_agendada": "14:30" }
+```
+
+```json
+{ "data_agendada": "2026-09-25", "turno": "TARDE" }
+```
+
+Payload ambíguo (os dois presentes) ou incompleto (nenhum presente) retorna 422.
+
+### Faltas e tentativas de contato
+
+Uma falta é um **estado do agendamento**, não da solicitação:
+
+- `POST /api/v1/agendamentos/{id}/falta` marca o `Agendamento` ativo (`status = AGENDADO`) como `FALTA` (`falta_registrada_em = now()`). Só é aceito depois do horário marcado (modalidade `HORARIO`) ou do fim do turno (modalidade `TURNO`, via `TurnoAgendamento::fimDoTurnoUtc`); antes disso retorna 422. `solicitacoes.status` permanece `AGENDADA`.
+- `POST /api/v1/agendamentos/{id}/tentativas-contato` registra uma tentativa de contato (`TentativaContato`) para um agendamento em `FALTA`. O payload é enxuto — **apenas** o resultado fechado, sem campo de texto livre:
+
+  ```json
+  { "resultado": "SEM_RESPOSTA" }
+  ```
+
+  `resultado` é um de `SEM_RESPOSTA`, `RECADO`, `CONFIRMOU_RETORNO`, `NUMERO_INVALIDO` (CHECK). Agendamento fora de `FALTA` retorna 409.
+- `POST /api/v1/agendamentos/{id}/reagendar-apos-falta` cria um **novo** `Agendamento` (`status = AGENDADO`) para a mesma solicitação, com o mesmo payload de horário/turno de "Agendamento por horário ou por turno" acima, **preservando** a linha `FALTA` original como histórico. Exige que a solicitação esteja `AGENDADA` e que não exista outro `Agendamento` já `AGENDADO`.
+- Concluir (`CONCLUIDA`) uma solicitação cujo agendamento ativo está em `FALTA` corrige o registro: marca `REALIZADO` e preenche `falta_corrigida_em`, sem apagar `falta_registrada_em` — o histórico da ausência original não é perdido.
+- Cancelar (`CANCELADA`) uma solicitação com agendamento `AGENDADO` marca esse agendamento como `CANCELADO`.
+
+### Novos endpoints de leitura
+
+- `GET /api/v1/fila`: fila operacional contínua (uma linha por `EntradaFila` aberta, join com `solicitacoes`), ordenada por prioridade (`URGENTE`, `ALTA`, `MEDIA`, `BAIXA`) e, no empate, por `entrou_em ASC`.
+- `GET /api/v1/faltas`: lista agendamentos em `FALTA`, com paciente (nome, telefone mascarado), protocolo, data/horário ou turno original e última tentativa de contato (`ultima_tentativa_contato`, se houver).
+
 ## Contrato de erros
 
 Toda resposta JSON de erro usa:

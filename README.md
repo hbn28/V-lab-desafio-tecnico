@@ -52,6 +52,11 @@ docker compose down -v && docker compose up --build
 | PATCH | `/api/v1/solicitacoes/{id}/agendamento` | Reagendar uma solicitação já `AGENDADA` |
 | PUT | `/api/v1/solicitacoes/{id}` | *(extensão)* Editar dados cadastrais — bloqueado se status for final |
 | DELETE | `/api/v1/solicitacoes/{id}` | *(extensão)* Apagar solicitação definitivamente |
+| GET | `/api/v1/fila` | Fila operacional contínua (entradas/saídas independentes da paginação) |
+| GET | `/api/v1/faltas` | Agendamentos em falta, com telefone mascarado e última tentativa de contato |
+| POST | `/api/v1/agendamentos/{id}/falta` | Registrar falta no agendamento (não altera `solicitacoes.status`) |
+| POST | `/api/v1/agendamentos/{id}/tentativas-contato` | Registrar tentativa de contato (payload só `{ "resultado": ... }`) |
+| POST | `/api/v1/agendamentos/{id}/reagendar-apos-falta` | Reagendar preservando a falta original como histórico |
 
 Filtros disponíveis em `GET /api/v1/solicitacoes`: `status`, `categoria`, `prioridade`, `data_agendada`, `page`, `per_page`.
 
@@ -73,6 +78,51 @@ curl -X PATCH http://localhost:8000/api/v1/solicitacoes/1/agendamento \
 # Agenda de um dia (ordenada por horário, prioridade, protocolo)
 curl "http://localhost:8000/api/v1/solicitacoes?data_agendada=2026-09-25"
 ```
+
+### Paciente, fila, agenda por turno e faltas
+
+```bash
+# Criar solicitação com telefone opcional (paciente é reaproveitado por CPF em solicitações futuras)
+curl -X POST http://localhost:8000/api/v1/solicitacoes \
+  -H "Content-Type: application/json" -H "Accept: application/json" \
+  -d '{"nome_solicitante":"Maria Silva","cpf_solicitante":"123.456.789-00","data_nascimento":"1985-06-15","categoria":"CONSULTA","prioridade":"ALTA","descricao":"Consulta de rotina","celular":"(81) 91234-5678"}'
+
+# Entrar na fila (RECEBIDA -> EM_ANALISE abre uma EntradaFila)
+curl -X PATCH http://localhost:8000/api/v1/solicitacoes/1/status \
+  -H "Content-Type: application/json" -H "Accept: application/json" \
+  -d '{"status":"EM_ANALISE"}'
+
+# Agendar por horário exato
+curl -X PATCH http://localhost:8000/api/v1/solicitacoes/1/status \
+  -H "Content-Type: application/json" -H "Accept: application/json" \
+  -d '{"status":"AGENDADA","data_agendada":"2026-09-25","hora_agendada":"07:00"}'
+
+# ...ou por turno (sem horário exato; agendado_para fica null)
+curl -X PATCH http://localhost:8000/api/v1/solicitacoes/2/status \
+  -H "Content-Type: application/json" -H "Accept: application/json" \
+  -d '{"status":"AGENDADA","data_agendada":"2026-09-25","turno":"TARDE"}'
+
+# Fila operacional contínua
+curl "http://localhost:8000/api/v1/fila"
+
+# Marcar falta (só aceito após o horário/turno já ter passado)
+curl -X POST http://localhost:8000/api/v1/agendamentos/1/falta
+
+# Registrar contato após falta (payload fechado, sem texto livre)
+curl -X POST http://localhost:8000/api/v1/agendamentos/1/tentativas-contato \
+  -H "Content-Type: application/json" -H "Accept: application/json" \
+  -d '{"resultado":"CONFIRMOU_RETORNO"}'
+
+# Reagendar após falta (preserva o registro FALTA original como histórico)
+curl -X POST http://localhost:8000/api/v1/agendamentos/1/reagendar-apos-falta \
+  -H "Content-Type: application/json" -H "Accept: application/json" \
+  -d '{"data_agendada":"2026-09-27","hora_agendada":"10:00"}'
+
+# Faltas pendentes (para a aba "Faltas" do frontend)
+curl "http://localhost:8000/api/v1/faltas"
+```
+
+> `solicitacoes.status` nunca vira `FALTA` — o estado é sempre do agendamento (`agendamentos.status`), como explicado em [`docs/architecture.md`](docs/architecture.md#faltas-por-que-o-estado-vive-no-agendamento).
 
 > **Implantação coordenada:** a migration converte registros legados `AGENDADA` (sem horário) para `EM_ANALISE` e instala constraints que impedem `AGENDADA` sem horário. Implante backend e banco juntos; um frontend antigo não consegue agendar sem os novos campos.
 
@@ -121,6 +171,10 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 - Health check da API com verificação do banco
 - Fila operacional ordenada por estado aberto, prioridade e tempo de espera
 - Agendamento e reagendamento com data e hora obrigatórias, e agenda diária no painel (`/?visao=agenda&data=AAAA-MM-DD`)
+- Cadastro de paciente reaproveitado por CPF, com celular opcional e sempre exibido mascarado
+- Fila operacional contínua (`GET /fila`), independente da paginação e dos filtros da listagem
+- Agendamento por horário exato ou por turno (Manhã/Tarde/Noite)
+- Registro de falta no agendamento, tentativa de contato enxuta (resultado fechado) e reagendamento após falta, com o histórico da ausência preservado (`/?visao=faltas`)
 
 ## Limitações conhecidas
 
