@@ -65,14 +65,28 @@ class SolicitacaoController
         $query = Solicitacao::query()->with(['paciente', 'agendamentoAtivo']);
 
         if ($dataAgendada) {
-            // Agenda diária: intervalo UTC semiaberto do dia operacional, por horário e, em empate, prioridade.
+            // Agenda diária: intervalo UTC semiaberto do dia operacional (modalidade HORARIO,
+            // via agendado_para) OU o agendamento ativo por turno daquele mesmo dia operacional
+            // (modalidade TURNO, que nunca grava agendado_para). Sem o segundo ramo, agendamentos
+            // por turno nunca apareceriam nesta tela — agendado_para é sempre null para eles.
             [$inicio, $fim] = HorarioAgendamento::limitesUtcDoDia(
                 $dataAgendada,
                 config('agendamento.timezone'),
             );
-            $query->where('agendado_para', '>=', $inicio)
-                ->where('agendado_para', '<', $fim)
+            $query->where(function ($sub) use ($inicio, $fim, $dataAgendada) {
+                $sub->whereBetween('agendado_para', [$inicio, $fim])
+                    ->orWhereHas('agendamentoAtivo', function ($ativo) use ($dataAgendada) {
+                        $ativo->where('modalidade', 'TURNO')->where('data_agendada', $dataAgendada);
+                    });
+            })
+                // HORARIO primeiro, em ordem cronológica; TURNO (sem agendado_para) fica depois,
+                // ordenado por MANHA/TARDE/NOITE via subquery no agendamento ativo.
                 ->orderBy('agendado_para')
+                ->orderByRaw(
+                    "(SELECT CASE turno WHEN 'MANHA' THEN 1 WHEN 'TARDE' THEN 2 WHEN 'NOITE' THEN 3 ELSE 4 END ".
+                    'FROM agendamentos WHERE agendamentos.solicitacao_id = solicitacoes.id '.
+                    "AND agendamentos.status = 'AGENDADO' LIMIT 1)"
+                )
                 ->orderByRaw("CASE prioridade WHEN 'URGENTE' THEN 1 WHEN 'ALTA' THEN 2 WHEN 'MEDIA' THEN 3 WHEN 'BAIXA' THEN 4 END ASC")
                 ->orderBy('protocolo')
                 ->orderBy('id');

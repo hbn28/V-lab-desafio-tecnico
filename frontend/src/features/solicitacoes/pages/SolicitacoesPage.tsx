@@ -10,7 +10,7 @@ import { AgendamentoForm } from '../components/AgendamentoForm';
 import { dataHojeNoFuso, dataIsoValida, formatarAgendamento } from '../config/agendamento';
 import type { Status, Categoria, Prioridade } from '../types';
 import type { AgendamentoPayload, FaltaListItem, FiltrosSolicitacoes, ResultadoContato } from '../types';
-import { LABEL_STATUS, LABEL_CATEGORIA, LABEL_PRIORIDADE } from '../types';
+import { LABEL_STATUS, LABEL_CATEGORIA, LABEL_PRIORIDADE, LABEL_TURNO } from '../types';
 
 const STATUS_LIST: Status[] = ['RECEBIDA', 'EM_ANALISE', 'AGENDADA', 'CONCLUIDA', 'CANCELADA'];
 const CATEGORIA_LIST: Categoria[] = ['CONSULTA', 'EXAME', 'VACINACAO', 'OUTRO'];
@@ -509,6 +509,8 @@ export function SolicitacoesPage() {
                       <td data-label="Etapa"><StatusBadge status={request.status} /></td>
                       {request.agendado_para ? (
                         <td data-label="Agendado para"><time dateTime={request.agendado_para}>{formatarAgendamento(request.agendado_para)}</time></td>
+                      ) : request.agendamento_ativo?.modalidade === 'TURNO' && request.agendamento_ativo.turno ? (
+                        <td data-label="Turno">{LABEL_TURNO[request.agendamento_ativo.turno]}</td>
                       ) : (
                         <td data-label="Registrada em"><time dateTime={request.data_criacao}>{formatDate(request.data_criacao)}</time></td>
                       )}
