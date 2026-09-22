@@ -242,6 +242,7 @@ p, h1, h2, h3 { margin: 0; }
 .next-up__title .protocol-link { display: inline; }
 .next-up__title .requester-name { display: inline; margin-top: 0; }
 .next-up__meta { margin: 0; color: var(--color-text-secondary); font-size: 0.82rem; }
+.next-up__meta--atrasado { color: var(--color-danger); font-weight: 600; }
 .next-up__action { flex-shrink: 0; }
 .next-up__empty { margin: 0; color: var(--color-text-secondary); font-size: 0.88rem; }
 
