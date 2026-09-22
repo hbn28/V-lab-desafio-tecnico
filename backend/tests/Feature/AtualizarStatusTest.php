@@ -126,8 +126,8 @@ test('instância obsoleta é relida sob lock e recebe 409 após outro agendament
         'turno' => 'TARDE',
         'agendado_para' => CarbonImmutable::parse('2026-09-26T17:30:00Z'),
     ]))->toThrow(function (HttpResponseException $e) {
-            expect($e->getResponse()->getStatusCode())->toBe(409);
-        });
+        expect($e->getResponse()->getStatusCode())->toBe(409);
+    });
     expect($solicitacao->fresh()->agendado_para->toIso8601String())->toBe('2026-09-25T17:30:00+00:00');
 });
 

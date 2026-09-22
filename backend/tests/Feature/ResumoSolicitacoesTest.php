@@ -1,11 +1,13 @@
 <?php
 
+use App\Models\Paciente;
 use App\Models\Solicitacao;
 use Illuminate\Support\Carbon;
 
 function criarSolicitacaoResumo(string $protocolo, string $prioridade, string $status, string $categoria = 'CONSULTA'): Solicitacao
 {
     return Solicitacao::create([
+        'paciente_id' => Paciente::factory()->create()->id,
         'protocolo' => $protocolo,
         'nome_solicitante' => 'Solicitante '.$protocolo,
         'cpf_solicitante' => '123.456.789-00',

@@ -5,6 +5,7 @@ namespace App\Domain\Solicitacoes\Actions;
 use App\Models\Agendamento;
 use App\Models\EntradaFila;
 use App\Models\Solicitacao;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 
@@ -20,7 +21,7 @@ class AtualizarStatusSolicitacao
     ];
 
     /**
-     * @param  array{modalidade:string,data_agendada:string,hora_agendada:?string,turno:string,agendado_para:?\Carbon\CarbonImmutable}|null  $agendamento
+     * @param  array{modalidade:string,data_agendada:string,hora_agendada:?string,turno:string,agendado_para:?CarbonImmutable}|null  $agendamento
      */
     public function execute(
         Solicitacao $solicitacao,

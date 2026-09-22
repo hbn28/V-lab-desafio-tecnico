@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Paciente;
 use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
@@ -46,7 +47,7 @@ test('duas solicitacoes com mesmo cpf reaproveitam o mesmo paciente', function (
     $r1->assertStatus(201);
     $r2->assertStatus(201);
     expect($r1->json('data.paciente.id'))->toBe($r2->json('data.paciente.id'));
-    expect(\App\Models\Paciente::count())->toBe(1);
+    expect(Paciente::count())->toBe(1);
 });
 
 test('rejeita URGENTE sem justificativa', function () {

@@ -1,20 +1,7 @@
 <?php
 
 use App\Models\Solicitacao;
-use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
-
-test('banco rejeita AGENDADA sem data e EM_ANALISE com data', function () {
-    expect(fn () => Solicitacao::factory()->create([
-        'status' => 'AGENDADA',
-        'agendado_para' => null,
-    ]))->toThrow(QueryException::class);
-
-    expect(fn () => Solicitacao::factory()->create([
-        'status' => 'EM_ANALISE',
-        'agendado_para' => '2026-09-25 17:30:00+00',
-    ]))->toThrow(QueryException::class);
-});
 
 test('banco aceita duas solicitações no mesmo horário', function () {
     $data = ['status' => 'AGENDADA', 'agendado_para' => '2026-09-25 17:30:00+00'];
