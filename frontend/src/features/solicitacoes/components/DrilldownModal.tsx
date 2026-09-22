@@ -11,7 +11,9 @@ function formatDate(value: string) {
 
 interface DrilldownModalProps {
   title: string;
-  description: string;
+  /** Opcional: quando omitida, o cabeçalho mostra só o título — evita repetir a mesma
+   * informação em duas frases (uma pequena, uma grande) quando o título já é autoexplicativo. */
+  description?: string;
   accent: 'urgente' | 'alta' | 'media' | 'baixa' | 'neutro';
   filtros: FiltrosSolicitacoes;
   onClose: () => void;
@@ -64,7 +66,7 @@ export function DrilldownModal({ title, description, accent, filtros, onClose }:
       >
         <header className="drilldown-modal__header">
           <div>
-            <p className="eyebrow">{description}</p>
+            {description && <p className="eyebrow">{description}</p>}
             <h2 id="drilldown-title">{title}</h2>
           </div>
           <button

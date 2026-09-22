@@ -8,7 +8,7 @@ import { FaltaCard } from '../components/FaltaCard';
 import { ContatoFaltaDialog } from '../components/ContatoFaltaDialog';
 import { AgendamentoForm } from '../components/AgendamentoForm';
 import { dataHojeNoFuso, dataIsoValida, formatarAgendamento } from '../config/agendamento';
-import type { Status, Categoria, Prioridade } from '../types';
+import type { Status, Categoria, Prioridade, Solicitacao } from '../types';
 import type { AgendamentoPayload, FaltaListItem, FiltrosSolicitacoes, ResultadoContato } from '../types';
 import { LABEL_STATUS, LABEL_CATEGORIA, LABEL_PRIORIDADE, LABEL_TURNO } from '../types';
 
@@ -74,9 +74,42 @@ function formatAging(iso: string): string {
 
 interface Drilldown {
   title: string;
-  description: string;
+  description?: string;
   accent: 'urgente' | 'alta' | 'media' | 'baixa' | 'neutro';
   filtros: FiltrosSolicitacoes;
+}
+
+/** "25/09/2026" a partir de "2026-09-25", sem passar por Date (evita o fuso do navegador
+ * empurrar a data um dia para trás/frente). */
+function formatDataLocal(dataIso: string): string {
+  const [ano, mes, dia] = dataIso.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+
+/**
+ * Frase de status temporal da "próxima solicitação por prioridade". "Esperando há N dias"
+ * só faz sentido enquanto a solicitação ainda não tem agendamento (o tempo é medido desde a
+ * criação, na fila); depois de AGENDADA, mostrar essa mesma frase é enganoso — dá a entender
+ * que ainda está em espera/atrasada mesmo quando o agendamento é para uma data futura.
+ */
+function statusTemporal(item: Solicitacao): { texto: string; atrasado: boolean } {
+  const ativo = item.agendamento_ativo;
+
+  if (ativo?.modalidade === 'HORARIO' && item.agendado_para) {
+    return {
+      texto: `agendado para ${formatarAgendamento(item.agendado_para)}`,
+      atrasado: new Date(item.agendado_para).getTime() < Date.now(),
+    };
+  }
+
+  if (ativo?.modalidade === 'TURNO' && ativo.turno) {
+    return {
+      texto: `agendado para ${formatDataLocal(ativo.data_agendada)} · turno da ${LABEL_TURNO[ativo.turno].toLowerCase()}`,
+      atrasado: ativo.data_agendada < dataHojeNoFuso(),
+    };
+  }
+
+  return { texto: `esperando ${formatAging(item.data_criacao)}`, atrasado: false };
 }
 
 export function SolicitacoesPage() {
@@ -221,8 +254,9 @@ export function SolicitacoesPage() {
   const abrirPorPrioridade = (item: Prioridade) => {
     const count = resumo?.prioridade_aberta[item] ?? 0;
     setDrilldown({
-      title: `${LABEL_PRIORIDADE[item]} em aberto`,
-      description: `${count} ${count === 1 ? PRIORIDADE_ARIA[item][0] : PRIORIDADE_ARIA[item][1]}`,
+      // Uma frase só (sem eyebrow duplicada): antes tínhamos "N solicitações urgentes em
+      // aberto" pequeno em cima de "Urgente em aberto" grande, repetindo a mesma informação.
+      title: `${count} ${count === 1 ? PRIORIDADE_ARIA[item][0] : PRIORIDADE_ARIA[item][1]}`,
       accent: PRIORIDADE_ACCENT[item],
       // A contagem do cartão não é afetada pelo filtro de prioridade da listagem
       // (é a própria dimensão detalhada), então o drill-down também não aplica.
@@ -343,9 +377,15 @@ export function SolicitacoesPage() {
                   <span className="protocol-link">{proximo.protocolo}</span>
                   <span className="requester-name">{proximo.nome_solicitante}</span>
                 </p>
-                <p className="next-up__meta">
-                  {LABEL_CATEGORIA[proximo.categoria]} · esperando {formatAging(proximo.data_criacao)}
-                </p>
+                {(() => {
+                  const { texto, atrasado } = statusTemporal(proximo);
+                  return (
+                    <p className={`next-up__meta${atrasado ? ' next-up__meta--atrasado' : ''}`}>
+                      {LABEL_CATEGORIA[proximo.categoria]} · {texto}
+                      {atrasado && ' · em atraso'}
+                    </p>
+                  );
+                })()}
               </div>
               <Link to={`/solicitacoes/${proximo.id}`} className="button button--primary next-up__action">
                 Abrir solicitação ›

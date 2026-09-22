@@ -259,7 +259,8 @@ describe('SolicitacoesPage', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: /1 solicitação urgente em aberto/ }));
 
-    expect(await screen.findByRole('heading', { name: 'Urgente em aberto' })).toBeInTheDocument();
+    // Título do drill-down passou a ser uma frase só (sem eyebrow duplicada em cima).
+    expect(await screen.findByRole('heading', { name: '1 solicitação urgente em aberto' })).toBeInTheDocument();
     await waitFor(() => {
       expect(solicitacoesApi.listar).toHaveBeenCalledWith(
         expect.objectContaining({ prioridade: 'URGENTE', status_grupo: 'aberto', per_page: 50 })
@@ -270,7 +271,7 @@ describe('SolicitacoesPage', () => {
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Fechar' }));
     await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: 'Urgente em aberto' })).not.toBeInTheDocument();
+      expect(screen.queryByRole('heading', { name: '1 solicitação urgente em aberto' })).not.toBeInTheDocument();
     });
   });
 
@@ -372,6 +373,51 @@ describe('SolicitacoesPage', () => {
     expect(await screen.findByText('Próxima solicitação por prioridade')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Abrir solicitação/ })).toHaveAttribute('href', '/solicitacoes/1');
     expect(screen.queryByText(/Fila vazia/)).not.toBeInTheDocument();
+  });
+
+  it('mostra a data agendada (não "esperando") quando a próxima solicitação já está AGENDADA', async () => {
+    const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    vi.mocked(solicitacoesApi.listar).mockImplementation(async (filtros) => {
+      if (filtros?.per_page === 1) {
+        return {
+          data: [{
+            ...solicitacaoBase,
+            prioridade: 'URGENTE',
+            status: 'AGENDADA',
+            agendado_para: ontem,
+            agendamento_ativo: {
+              id: 1,
+              modalidade: 'HORARIO',
+              data_agendada: ontem.slice(0, 10),
+              hora_agendada: '08:00',
+              turno: 'MANHA',
+              status: 'AGENDADO',
+              falta_registrada_em: null,
+              falta_corrigida_em: null,
+              resultado_em: null,
+            },
+          }],
+          total: 1,
+          last_page: 1,
+        };
+      }
+      return { data: [], total: 0, last_page: 1 };
+    });
+
+    render(
+      <MemoryRouter>
+        <SolicitacoesPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText('Próxima solicitação por prioridade')).toBeInTheDocument();
+    // Já tem agendamento: a frase de "esperando há N dias" (tempo desde a criação) some,
+    // porque a solicitação não está mais só esperando — já foi marcada.
+    expect(screen.queryByText(/esperando há/)).not.toBeInTheDocument();
+    expect(screen.getByText(/agendado para/)).toBeInTheDocument();
+    // O horário agendado já passou (mock é de ontem): sinaliza atraso, em vez de sugerir
+    // que a solicitação está normalmente "em espera".
+    expect(screen.getByText(/em atraso/)).toBeInTheDocument();
   });
 
   it('mostra mensagem de fila vazia quando não há solicitações em aberto', async () => {
