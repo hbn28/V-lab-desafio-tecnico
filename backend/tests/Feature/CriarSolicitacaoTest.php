@@ -31,10 +31,22 @@ test('cria solicitação com dados válidos', function () {
         ->assertJsonPath('data.status', 'RECEBIDA')
         ->assertJsonPath('data.categoria', 'CONSULTA')
         ->assertJsonPath('data.nome_solicitante', 'Maria Silva')
-        ->assertJsonPath('data.agendado_para', null);
+        ->assertJsonPath('data.agendado_para', null)
+        ->assertJsonPath('data.paciente.celular_mascarado', null);
 
     $this->assertDatabaseHas('solicitacoes', ['id' => $response->json('data.id'), 'agendado_para' => null]);
     expect($response->json('data.protocolo'))->toMatch('/^SOL-\d{4}-\d{4}$/');
+    expect($response->json('data.paciente.id'))->not->toBeNull();
+});
+
+test('duas solicitacoes com mesmo cpf reaproveitam o mesmo paciente', function () {
+    $r1 = $this->postJson('/api/v1/solicitacoes', payloadValido());
+    $r2 = $this->postJson('/api/v1/solicitacoes', payloadValido());
+
+    $r1->assertStatus(201);
+    $r2->assertStatus(201);
+    expect($r1->json('data.paciente.id'))->toBe($r2->json('data.paciente.id'));
+    expect(\App\Models\Paciente::count())->toBe(1);
 });
 
 test('rejeita URGENTE sem justificativa', function () {
