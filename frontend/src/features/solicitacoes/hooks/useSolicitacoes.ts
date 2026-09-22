@@ -87,7 +87,7 @@ export function useResumoSolicitacoes(filtros: Parameters<typeof solicitacoesApi
   return { data, loading, error, reload: load };
 }
 
-export function useProximoAtendimento(options: ResumoOptions = {}) {
+export function useProximaSolicitacao(options: ResumoOptions = {}) {
   const [data, setData] = useState<Solicitacao | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +101,7 @@ export function useProximoAtendimento(options: ResumoOptions = {}) {
       setData(result.data[0] ?? null);
       if (silencioso) setError(null);
     } catch (e: unknown) {
-      if (!silencioso) setError(e instanceof Error ? e.message : 'Erro ao carregar o próximo atendimento');
+      if (!silencioso) setError(e instanceof Error ? e.message : 'Erro ao carregar a próxima solicitação');
     } finally {
       if (!silencioso) setLoading(false);
     }

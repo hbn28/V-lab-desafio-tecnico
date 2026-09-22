@@ -617,8 +617,25 @@ p, h1, h2, h3 { margin: 0; }
 .schedule-form__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .schedule-form .alert { margin: 0; }
 
+/* Visão diária do painel: o seletor de dia reaproveita as regras de .filter-field */
+.agenda-toolbar { display: flex; align-items: flex-end; padding: var(--space-4) var(--space-5) 0; background: var(--slate-50); }
+.agenda-date-field { min-width: 12rem; }
+.agenda-date-field input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+.agenda-date-field input:focus { outline: none; border-color: var(--color-focus); box-shadow: 0 0 0 3px rgb(2 132 199 / 0.16); }
+
 @media (max-width: 48rem) {
   .schedule-form__fields { grid-template-columns: 1fr; }
   .schedule-form__actions { flex-direction: column; align-items: stretch; }
   .schedule-form__actions .button { width: 100%; }
+  .agenda-toolbar { padding-inline: var(--space-4); }
+  .agenda-date-field { min-width: 0; width: 100%; }
 }
