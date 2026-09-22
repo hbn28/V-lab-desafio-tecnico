@@ -1,11 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useSolicitacoes, useResumoSolicitacoes, useProximaSolicitacao } from '../hooks/useSolicitacoes';
+import { useSolicitacoes, useResumoSolicitacoes, useProximaSolicitacao, useFaltas } from '../hooks/useSolicitacoes';
+import { solicitacoesApi } from '../api/client';
 import { StatusBadge, PrioridadeBadge } from '../../../components/Badge';
 import { DrilldownModal } from '../components/DrilldownModal';
+import { FaltaCard } from '../components/FaltaCard';
+import { ContatoFaltaDialog } from '../components/ContatoFaltaDialog';
+import { AgendamentoForm } from '../components/AgendamentoForm';
 import { dataHojeNoFuso, dataIsoValida, formatarAgendamento } from '../config/agendamento';
 import type { Status, Categoria, Prioridade } from '../types';
-import type { FiltrosSolicitacoes } from '../types';
+import type { AgendamentoPayload, FaltaListItem, FiltrosSolicitacoes, ResultadoContato } from '../types';
 import { LABEL_STATUS, LABEL_CATEGORIA, LABEL_PRIORIDADE } from '../types';
 
 const STATUS_LIST: Status[] = ['RECEBIDA', 'EM_ANALISE', 'AGENDADA', 'CONCLUIDA', 'CANCELADA'];
@@ -36,8 +40,16 @@ const LABEL_STATUS_PLURAL: Record<Status, string> = {
 };
 
 const STATUS_ENCERRADO = ['CONCLUIDA', 'CANCELADA'] as const satisfies readonly Status[];
-type VisaoPrincipal = 'fila' | 'agenda' | 'historico';
+type VisaoPrincipal = 'fila' | 'agenda' | 'historico' | 'faltas';
 type ModoFila = 'prioridade' | 'categoria';
+
+function visaoPelosParametros(searchParams: URLSearchParams): VisaoPrincipal {
+  const parametro = searchParams.get('visao');
+  if (parametro === 'agenda') return 'agenda';
+  if (parametro === 'historico') return 'historico';
+  if (parametro === 'faltas') return 'faltas';
+  return 'fila';
+}
 
 const PRIORIDADE_ACCENT: Record<Prioridade, 'urgente' | 'alta' | 'media' | 'baixa'> = {
   URGENTE: 'urgente',
@@ -72,15 +84,11 @@ export function SolicitacoesPage() {
   const [categoria, setCategoria] = useState<Categoria | ''>('');
   const [prioridade, setPrioridade] = useState<Prioridade | ''>('');
   const [searchParams, setSearchParams] = useSearchParams();
-  const [visao, setVisao] = useState<VisaoPrincipal>(() => {
-    const parametro = searchParams.get('visao');
-    return parametro === 'agenda' ? 'agenda' : parametro === 'historico' ? 'historico' : 'fila';
-  });
-  // Calculada uma única vez: passar da meia-noite com a tela aberta não troca o dia consultado.
-  const [dataAgenda, setDataAgenda] = useState(() => {
-    const parametro = searchParams.get('data');
-    return dataIsoValida(parametro) ? parametro : dataHojeNoFuso();
-  });
+  const visao = visaoPelosParametros(searchParams);
+  // O fallback é calculado uma única vez: passar da meia-noite com a tela aberta não troca o dia consultado.
+  const [dataAgendaPadrao] = useState(dataHojeNoFuso);
+  const dataDaUrl = searchParams.get('data');
+  const dataAgenda = dataIsoValida(dataDaUrl) ? dataDaUrl : dataAgendaPadrao;
   const [modo, setModo] = useState<ModoFila>('prioridade');
   const [page, setPage] = useState(1);
   const [drilldown, setDrilldown] = useState<Drilldown | null>(null);
@@ -89,16 +97,61 @@ export function SolicitacoesPage() {
   const [dataFilaAgendada, setDataFilaAgendada] = useState('');
 
   const emAgenda = visao === 'agenda';
+  const emFaltas = visao === 'faltas';
   const escopo = visao === 'historico' ? 'encerrado' : 'aberto';
   const filaFiltradaPorAgendada = !emAgenda && status === 'AGENDADA';
+
+  const { data: faltas, loading: faltasLoading, error: faltasError, reload: reloadFaltas } = useFaltas({ enabled: emFaltas });
+  const [faltaContato, setFaltaContato] = useState<FaltaListItem | null>(null);
+  const [enviandoContato, setEnviandoContato] = useState(false);
+  const [erroContato, setErroContato] = useState<string | null>(null);
+  const [faltaReagendando, setFaltaReagendando] = useState<FaltaListItem | null>(null);
+  const [salvandoReagendamento, setSalvandoReagendamento] = useState(false);
+  const [errosReagendamento, setErrosReagendamento] = useState<Record<string, string[]>>({});
+
+  const abrirContato = (falta: FaltaListItem) => { setErroContato(null); setFaltaContato(falta); };
+  const fecharContato = () => setFaltaContato(null);
+  const salvarContato = async (resultado: ResultadoContato) => {
+    if (!faltaContato) return;
+    setEnviandoContato(true);
+    setErroContato(null);
+    try {
+      await solicitacoesApi.registrarContato(faltaContato.id, { resultado });
+      setFaltaContato(null);
+      await reloadFaltas();
+    } catch (caught: unknown) {
+      setErroContato(caught instanceof Error ? caught.message : 'Erro ao registrar contato');
+    } finally {
+      setEnviandoContato(false);
+    }
+  };
+
+  const abrirReagendamento = (falta: FaltaListItem) => { setErrosReagendamento({}); setFaltaReagendando(falta); };
+  const fecharReagendamento = () => setFaltaReagendando(null);
+  const salvarReagendamento = async (payload: AgendamentoPayload) => {
+    if (!faltaReagendando) return;
+    setSalvandoReagendamento(true);
+    setErrosReagendamento({});
+    try {
+      await solicitacoesApi.reagendarAposFalta(faltaReagendando.id, payload);
+      setFaltaReagendando(null);
+      await reloadFaltas();
+    } catch (caught: unknown) {
+      const erros = caught instanceof Error && 'errors' in caught
+        ? ((caught as Error & { errors?: Record<string, string[]> }).errors ?? {})
+        : {};
+      if (Object.keys(erros).length > 0) setErrosReagendamento(erros);
+    } finally {
+      setSalvandoReagendamento(false);
+    }
+  };
 
   // Data ausente ou inválida na URL da agenda é normalizada para o dia efetivamente consultado.
   useEffect(() => {
     if (visao === 'agenda' && searchParams.get('data') !== dataAgenda) {
       setSearchParams({ visao: 'agenda', data: dataAgenda }, { replace: true });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [dataAgenda, searchParams, setSearchParams, visao]);
 
   const { data, loading, error, reload } = useSolicitacoes(
     emAgenda
@@ -150,18 +203,17 @@ export function SolicitacoesPage() {
   };
 
   const mudarVisao = (novaVisao: VisaoPrincipal) => {
-    setVisao(novaVisao);
     setStatus('');
     setDataFilaAgendada('');
     setPage(1);
     if (novaVisao === 'agenda') setSearchParams({ visao: 'agenda', data: dataAgenda });
     else if (novaVisao === 'historico') setSearchParams({ visao: 'historico' });
+    else if (novaVisao === 'faltas') setSearchParams({ visao: 'faltas' });
     else setSearchParams({});
   };
 
   const trocarDia = (novaData: string) => {
     if (!dataIsoValida(novaData)) return;
-    setDataAgenda(novaData);
     setPage(1);
     setSearchParams({ visao: 'agenda', data: novaData });
   };
@@ -187,6 +239,79 @@ export function SolicitacoesPage() {
       filtros: { status: item, categoria: categoria || undefined, prioridade: prioridade || undefined },
     });
   };
+
+  if (emFaltas) {
+    return (
+      <div className="page-stack">
+        <header className="page-heading">
+          <div>
+            <p className="eyebrow">Ausências</p>
+            <h1>Faltas</h1>
+            <p className="page-heading__description">
+              Pacientes que faltaram ao atendimento agendado — registre o contato ou reagende.
+            </p>
+          </div>
+        </header>
+
+        <div className="view-switcher" aria-label="Visão da fila">
+          <div className="view-switcher__group" role="group" aria-label="Escopo da listagem">
+            <button type="button" className="button button--outline" onClick={() => mudarVisao('fila')}>Fila atual</button>
+            <button type="button" className="button button--outline" onClick={() => mudarVisao('agenda')}>Agenda</button>
+            <button type="button" className="button button--outline" onClick={() => mudarVisao('historico')}>Histórico encerrado</button>
+            <button type="button" className="button button--outline is-active" aria-pressed="true" onClick={() => mudarVisao('faltas')}>Faltas</button>
+          </div>
+        </div>
+
+        {erroContato && <div className="alert alert--error alert--compact" role="alert"><p>{erroContato}</p></div>}
+
+        {faltasLoading && (
+          <div className="state-view" role="status" aria-live="polite">
+            <span className="spinner" aria-hidden="true" />
+            <strong>Carregando faltas</strong>
+          </div>
+        )}
+
+        {faltasError && (
+          <div className="alert alert--error" role="alert">
+            <div><strong>Não foi possível carregar as faltas</strong><p>{faltasError}</p></div>
+            <button onClick={reloadFaltas} className="button button--outline" type="button">Tentar novamente</button>
+          </div>
+        )}
+
+        {!faltasLoading && !faltasError && (faltas?.data.length ?? 0) === 0 && (
+          <div className="state-view">
+            <span className="state-view__icon" aria-hidden="true">○</span>
+            <strong>Nenhuma falta pendente</strong>
+          </div>
+        )}
+
+        {!faltasLoading && !faltasError && faltas && faltas.data.length > 0 && (
+          <div className="faltas-list">
+            {faltas.data.map(falta => (
+              <FaltaCard key={falta.id} falta={falta} onRegistrarContato={abrirContato} onReagendar={abrirReagendamento} />
+            ))}
+          </div>
+        )}
+
+        {faltaContato && (
+          <ContatoFaltaDialog submitting={enviandoContato} onSalvar={salvarContato} onCancelar={fecharContato} />
+        )}
+
+        {faltaReagendando && (
+          <div className="dialog" role="dialog" aria-labelledby="reagendar-falta-heading">
+            <h2 id="reagendar-falta-heading">Reagendar após falta</h2>
+            <AgendamentoForm
+              submitting={salvandoReagendamento}
+              serverErrors={errosReagendamento}
+              submitLabel="Confirmar novo agendamento"
+              onSubmit={salvarReagendamento}
+              onCancel={fecharReagendamento}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="page-stack">
@@ -255,6 +380,7 @@ export function SolicitacoesPage() {
             <button type="button" className={`button button--outline ${visao === 'fila' ? 'is-active' : ''}`} aria-pressed={visao === 'fila'} onClick={() => mudarVisao('fila')}>Fila atual</button>
             <button type="button" className={`button button--outline ${emAgenda ? 'is-active' : ''}`} aria-pressed={emAgenda} onClick={() => mudarVisao('agenda')}>Agenda</button>
             <button type="button" className={`button button--outline ${visao === 'historico' ? 'is-active' : ''}`} aria-pressed={visao === 'historico'} onClick={() => mudarVisao('historico')}>Histórico encerrado</button>
+            <button type="button" className="button button--outline" aria-pressed={false} onClick={() => mudarVisao('faltas')}>Faltas</button>
           </div>
           {visao === 'fila' && (
             <div className="view-switcher__group" role="group" aria-label="Organização da fila">

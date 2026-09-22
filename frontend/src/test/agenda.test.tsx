@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { SolicitacoesPage } from '../features/solicitacoes/pages/SolicitacoesPage';
 import { solicitacoesApi } from '../features/solicitacoes/api/client';
 import { dataHojeNoFuso } from '../features/solicitacoes/config/agendamento';
@@ -62,6 +62,26 @@ function renderPagina(entrada: string) {
   );
 }
 
+function NavegacaoDoTeste() {
+  const navigate = useNavigate();
+
+  return (
+    <>
+      <button type="button" onClick={() => navigate(-1)}>Voltar no navegador</button>
+      <button type="button" onClick={() => navigate(1)}>Avançar no navegador</button>
+    </>
+  );
+}
+
+function renderPaginaComHistorico(entrada: string) {
+  return render(
+    <MemoryRouter initialEntries={[entrada]}>
+      <NavegacaoDoTeste />
+      <Routes><Route path="/" element={<SolicitacoesPage />} /></Routes>
+    </MemoryRouter>
+  );
+}
+
 describe('Agenda diária', () => {
   it('abre agenda pelo dia da URL e consulta somente AGENDADA', async () => {
     renderPagina('/?visao=agenda&data=2026-09-25');
@@ -89,11 +109,11 @@ describe('Agenda diária', () => {
     const campo = await screen.findByLabelText('Data da agenda');
     expect(campo).toHaveValue(dataHojeNoFuso());
     await userEvent.click(await screen.findByRole('button', { name: 'Próxima' }));
-    expect(solicitacoesApi.listar).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }));
+    await waitFor(() => expect(solicitacoesApi.listar).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 })));
     fireEvent.change(campo, { target: { value: '2026-09-27' } });
-    expect(solicitacoesApi.listar).toHaveBeenLastCalledWith(expect.objectContaining({
+    await waitFor(() => expect(solicitacoesApi.listar).toHaveBeenLastCalledWith(expect.objectContaining({
       data_agendada: '2026-09-27', page: 1,
-    }));
+    })));
   });
 
   it('renderiza erro recuperável e depois o estado vazio', async () => {
@@ -142,5 +162,22 @@ describe('Agenda diária', () => {
     expect(solicitacoesApi.listar).toHaveBeenCalledWith(expect.objectContaining({
       status: 'AGENDADA', data_agendada: dataHojeNoFuso(),
     }));
+  });
+
+  it('sincroniza a visão com a URL ao voltar e avançar no navegador', async () => {
+    renderPaginaComHistorico('/');
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Agenda' }));
+    expect(await screen.findByRole('heading', { name: 'Agenda do dia' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Histórico encerrado' }));
+    expect(await screen.findByRole('heading', { name: 'Histórico encerrado' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Voltar no navegador' }));
+    expect(await screen.findByRole('heading', { name: 'Agenda do dia' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Data da agenda')).toHaveValue(dataHojeNoFuso());
+
+    await userEvent.click(screen.getByRole('button', { name: 'Avançar no navegador' }));
+    expect(await screen.findByRole('heading', { name: 'Histórico encerrado' })).toBeInTheDocument();
   });
 });

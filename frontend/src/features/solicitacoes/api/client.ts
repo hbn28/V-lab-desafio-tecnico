@@ -1,10 +1,16 @@
 import type {
+  Agendamento,
   AgendamentoPayload,
   AtualizarSolicitacaoPayload,
   AtualizarStatusPayload,
   CriarSolicitacaoPayload,
+  EntradaFilaItem,
+  FiltrosFaltas,
+  FiltrosFila,
   FiltrosSolicitacoes,
+  ListaFaltas,
   ListaSolicitacoes,
+  RegistrarContatoPayload,
   ResumoSolicitacoes,
   Solicitacao,
 } from '../types';
@@ -155,5 +161,61 @@ export const solicitacoesApi = {
     await request<unknown>(`/api/v1/solicitacoes/${id}`, {
       method: 'DELETE',
     });
+  },
+
+  async listarFila(filtros: FiltrosFila = {}): Promise<{ data: EntradaFilaItem[]; total: number; last_page: number }> {
+    const params = new URLSearchParams();
+    if (filtros.page)     params.set('page', String(filtros.page));
+    if (filtros.per_page) params.set('per_page', String(filtros.per_page));
+    const qs = params.toString() ? `?${params}` : '';
+    const res = await request<ListaSolicitacoes & { data: EntradaFilaItem[] }>(`/api/v1/fila${qs}`);
+    if (!res?.data || !res?.meta) {
+      throw new Error('O servidor retornou uma resposta inesperada ao listar a fila.');
+    }
+    return { data: res.data, total: res.meta.total, last_page: res.meta.last_page };
+  },
+
+  async listarFaltas(filtros: FiltrosFaltas = {}): Promise<ListaFaltas> {
+    const params = new URLSearchParams();
+    if (filtros.page)     params.set('page', String(filtros.page));
+    if (filtros.per_page) params.set('per_page', String(filtros.per_page));
+    const qs = params.toString() ? `?${params}` : '';
+    const res = await request<ListaFaltas>(`/api/v1/faltas${qs}`);
+    if (!res?.data || !res?.meta) {
+      throw new Error('O servidor retornou uma resposta inesperada ao listar as faltas.');
+    }
+    return res;
+  },
+
+  async registrarFalta(agendamentoId: number): Promise<Agendamento> {
+    const res = await request<{ data: Agendamento }>(`/api/v1/agendamentos/${agendamentoId}/falta`, {
+      method: 'POST',
+    });
+    if (!res?.data) {
+      throw new Error('Não foi possível registrar a falta. Tente novamente.');
+    }
+    return res.data;
+  },
+
+  async registrarContato(agendamentoId: number, payload: RegistrarContatoPayload): Promise<Agendamento> {
+    const res = await request<{ data: Agendamento }>(`/api/v1/agendamentos/${agendamentoId}/tentativas-contato`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res?.data) {
+      throw new Error('Não foi possível registrar a tentativa de contato. Tente novamente.');
+    }
+    return res.data;
+  },
+
+  async reagendarAposFalta(agendamentoId: number, payload: AgendamentoPayload): Promise<Agendamento> {
+    const res = await request<{ data: Agendamento }>(`/api/v1/agendamentos/${agendamentoId}/reagendar-apos-falta`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    if (!res?.data) {
+      throw new Error('Não foi possível reagendar após a falta. Tente novamente.');
+    }
+    return res.data;
   },
 };

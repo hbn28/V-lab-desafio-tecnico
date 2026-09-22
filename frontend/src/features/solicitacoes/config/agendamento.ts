@@ -47,3 +47,13 @@ export function dataIsoValida(value: string | null): value is string {
   const data = new Date(Date.UTC(ano, mes - 1, dia));
   return data.getUTCFullYear() === ano && data.getUTCMonth() === mes - 1 && data.getUTCDate() === dia;
 }
+
+/** Deriva o turno (MANHA/TARDE/NOITE) a partir de um horário HH:mm, espelhando TurnoAgendamento::derivarDaHora no backend. */
+export function derivarTurnoDaHora(hora: string): 'MANHA' | 'TARDE' | 'NOITE' | null {
+  if (!/^\d{2}:\d{2}$/.test(hora)) return null;
+  const h = Number(hora.slice(0, 2));
+  if (Number.isNaN(h)) return null;
+  if (h >= 6 && h < 12) return 'MANHA';
+  if (h >= 12 && h < 18) return 'TARDE';
+  return 'NOITE';
+}

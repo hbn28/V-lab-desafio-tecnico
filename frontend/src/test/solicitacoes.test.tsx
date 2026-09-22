@@ -236,6 +236,12 @@ describe('SolicitacoesPage', () => {
     // Trocar para outro status descarta o filtro de dia (só faz sentido com AGENDADA).
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'RECEBIDA' } });
     expect(screen.queryByLabelText('Data agendada (opcional)')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(solicitacoesApi.listar).toHaveBeenLastCalledWith(expect.objectContaining({
+        status: 'RECEBIDA',
+        data_agendada: undefined,
+      }));
+    });
   });
 
   it('abre o drill-down com a lista filtrada ao clicar em um bloco de prioridade', async () => {

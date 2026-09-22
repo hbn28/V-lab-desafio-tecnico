@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { usePolling } from '../../../hooks/usePolling';
 import { solicitacoesApi, type ListarParams } from '../api/client';
-import type { ResumoSolicitacoes, Solicitacao } from '../types';
+import type { FaltaListItem, ResumoSolicitacoes, Solicitacao } from '../types';
 
 const POLL_INTERVAL_MS = 30_000;
 
@@ -109,6 +109,36 @@ export function useProximaSolicitacao(options: ResumoOptions = {}) {
 
   useEffect(() => { load(); }, [load]);
   usePolling(() => load(true), { intervalMs: POLL_INTERVAL_MS, enabled: !options.paused });
+
+  return { data, loading, error, reload: load };
+}
+
+interface FaltasOptions {
+  /** false pula a busca por completo — usado quando a aba Faltas não está visível. */
+  enabled?: boolean;
+}
+
+export function useFaltas(options: FaltasOptions = {}) {
+  const enabled = options.enabled ?? true;
+  const [data, setData] = useState<{ data: FaltaListItem[]; total: number; last_page: number } | null>(null);
+  const [loading, setLoading] = useState(enabled);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    if (!enabled) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await solicitacoesApi.listarFaltas();
+      setData({ data: result.data, total: result.meta.total, last_page: result.meta.last_page });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Erro ao carregar as faltas');
+    } finally {
+      setLoading(false);
+    }
+  }, [enabled]);
+
+  useEffect(() => { load(); }, [load]);
 
   return { data, loading, error, reload: load };
 }

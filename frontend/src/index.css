@@ -639,3 +639,42 @@ p, h1, h2, h3 { margin: 0; }
   .agenda-toolbar { padding-inline: var(--space-4); }
   .agenda-date-field { min-width: 0; width: 100%; }
 }
+
+.schedule-form__modalidade {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  border: none;
+  padding: 0;
+  margin: 0 0 var(--space-3) 0;
+}
+.schedule-form__modalidade legend { font-weight: 600; margin-bottom: var(--space-2); }
+.schedule-form__modalidade label { display: inline-flex; align-items: center; gap: 0.375rem; font-size: 0.9rem; }
+
+.falta-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--white);
+}
+.falta-card__nome { font-weight: 600; }
+.falta-card__actions { display: flex; flex-direction: column; gap: var(--space-2); }
+.faltas-list { display: flex; flex-direction: column; gap: var(--space-3); }
+
+.dialog {
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--white);
+  padding: var(--space-4);
+  margin-top: var(--space-3);
+}
+.dialog fieldset { border: none; padding: 0; margin: 0 0 var(--space-3) 0; }
+.dialog fieldset label { display: block; margin-bottom: var(--space-2); }
+.dialog__actions { display: flex; gap: var(--space-3); }
+
+.turno-group__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.turno-group__item { display: flex; gap: var(--space-3); align-items: baseline; }
