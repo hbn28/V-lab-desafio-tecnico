@@ -28,9 +28,9 @@ class ReagendarSolicitacaoRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'data_agendada.required'    => 'Informe a data do atendimento.',
+            'data_agendada.required' => 'Informe a data do atendimento.',
             'data_agendada.date_format' => 'A data do atendimento deve estar no formato AAAA-MM-DD.',
-            'hora_agendada.required'    => 'Informe o horário do atendimento.',
+            'hora_agendada.required' => 'Informe o horário do atendimento.',
             'hora_agendada.date_format' => 'O horário do atendimento deve estar no formato HH:mm.',
         ];
     }

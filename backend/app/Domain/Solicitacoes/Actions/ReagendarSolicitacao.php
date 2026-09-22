@@ -21,7 +21,7 @@ class ReagendarSolicitacao
             if ($solicitacao->status !== 'AGENDADA') {
                 throw new HttpResponseException(response()->json([
                     'message' => 'Somente solicitações agendadas podem ser reagendadas.',
-                    'errors'  => [],
+                    'errors' => [],
                 ], 409));
             }
 
