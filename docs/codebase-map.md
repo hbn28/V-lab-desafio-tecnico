@@ -29,6 +29,15 @@ frontend/src/features/solicitacoes/pages
 - Testes de comportamento: `backend/tests/Feature/` e `frontend/src/test/solicitacoes.test.tsx`.
 - Tela de fila atual, agenda, histórico e exploração por categoria: `frontend/src/features/solicitacoes/pages/SolicitacoesPage.tsx` (alterna `VisaoPrincipal` entre `fila`/`agenda`/`historico`, refletida na URL `?visao=&data=`, e `ModoFila` entre `prioridade`/`categoria`).
 
+## Pacientes, fila contínua, agenda por turno e faltas
+
+- Paciente reaproveitado por CPF: `CriarSolicitacao::localizarOuCriarPaciente()`, mascaramento em `Support/MascararContato.php` e `PacienteResumoResource.php`.
+- Fila contínua (entradas/saídas independentes da paginação): efeitos em `AtualizarStatusSolicitacao.php` (abre em `EM_ANALISE`, fecha em `AGENDADA`/`CANCELADA`), leitura em `SolicitacaoController::fila()` / `GET /fila`, `EntradaFilaResource.php`.
+- Agendamento por horário ou turno: `Support/TurnoAgendamento.php` (deriva turno / calcula fim do turno em UTC), `AgendamentoResource.php`, `Actions/AtualizarStatusSolicitacao.php` e `Actions/ReagendarSolicitacao.php` (criam/atualizam a linha `Agendamento` ativa). Front: `derivarTurnoDaHora()` em `config/agendamento.ts`, formulário em `components/AgendamentoForm.tsx` (radio Horário exato / Turno).
+- Faltas: `Actions/RegistrarFaltaAgendamento.php` (`POST /agendamentos/{id}/falta`), `Actions/RegistrarTentativaContato.php` (`POST /agendamentos/{id}/tentativas-contato`, payload só `resultado`), `Actions/ReagendarAposFalta.php` (`POST /agendamentos/{id}/reagendar-apos-falta`, cria novo `Agendamento` preservando o `FALTA` antigo). `AtualizarStatusSolicitacao::concluirAgendamentoAtivo()` corrige uma falta ao concluir (`falta_corrigida_em`). `solicitacoes.status` nunca vira `FALTA` — o estado vive só em `agendamentos.status`.
+- Tela de faltas: `SolicitacoesPage.tsx` (visão `?visao=faltas`, hook `useFaltas` em `hooks/useSolicitacoes.ts`), `components/FaltaCard.tsx`, `components/ContatoFaltaDialog.tsx` (quatro opções fechadas, sem texto livre), `components/GrupoTurnoAgenda.tsx` (agrupamento da agenda por turno).
+- Testes novos: `backend/tests/Feature/{PacienteSolicitacaoTest,AgendamentoTurnoTest,FilaOperacionalTest,FaltasTest,ReagendarAposFaltaTest}.php`, `frontend/src/test/{agendamento-turno,faltas}.test.tsx`.
+
 ## Alertas de manutenção
 
 - O frontend pode esconder transições impossíveis, mas nunca decide uma transição.

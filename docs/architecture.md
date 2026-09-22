@@ -93,7 +93,9 @@ backend/
 │   │       │   ├── ReagendarSolicitacao.php   # só altera agendado_para de AGENDADA
 │   │       │   └── ApagarSolicitacao.php      # extensão documentada
 │   │       ├── Support/
-│   │       │   └── HorarioAgendamento.php     # data/hora local <-> UTC, sem normalização silenciosa
+│   │       │   ├── HorarioAgendamento.php     # data/hora local <-> UTC, sem normalização silenciosa
+│   │       │   ├── TurnoAgendamento.php       # deriva/limita turno (MANHA/TARDE/NOITE)
+│   │       │   └── MascararContato.php        # mascara celular do paciente para a API
 │   │       └── Http/
 │   │           ├── Controllers/
 │   │           │   └── SolicitacaoController.php  # thin controller
@@ -102,9 +104,17 @@ backend/
 │   │           │   ├── ListarSolicitacoesRequest.php
 │   │           │   ├── AtualizarStatusRequest.php
 │   │           │   ├── ReagendarSolicitacaoRequest.php
-│   │           │   └── AtualizarSolicitacaoRequest.php
+│   │           │   ├── AtualizarSolicitacaoRequest.php
+│   │           │   ├── ListarFilaRequest.php
+│   │           │   ├── ListarFaltasRequest.php
+│   │           │   ├── RegistrarTentativaContatoRequest.php
+│   │           │   └── ReagendarAposFaltaRequest.php
 │   │           └── Resources/
-│   │               └── SolicitacaoResource.php
+│   │               ├── SolicitacaoResource.php
+│   │               ├── PacienteResumoResource.php
+│   │               ├── EntradaFilaResource.php
+│   │               ├── AgendamentoResource.php
+│   │               └── TentativaContatoResource.php
 │   ├── Http/
 │   │   └── Middleware/
 │   │       └── RequestId.php
@@ -140,6 +150,19 @@ backend/
 | Invariantes de agenda | CHECK no PostgreSQL + lock na Action | `AGENDADA` nunca fica sem horário, mesmo fora da API |
 | Fuso da agenda | UTC no banco/API, `America/Recife` configurável na interpretação | Instante absoluto; horário local ambíguo é rejeitado |
 | Horários repetidos | Permitidos (sem UNIQUE) | O edital não define capacidade; conflito exigiria recurso e duração |
+| Falta é status do agendamento, não da solicitação | `agendamentos.status` ganha `FALTA`; `solicitacoes.status` continua só a máquina de estados original | Uma ausência não é uma nova etapa do atendimento — a solicitação segue `AGENDADA` enquanto o agendamento específico registra a falta. Isso permite reagendar (novo `Agendamento`) sem perder o histórico da falta original, e concluir corrige o registro (`falta_corrigida_em`) sem apagar `falta_registrada_em` |
+| Paciente reaproveitado por CPF | `pacientes` separado de `solicitacoes`, casado por CPF normalizado | O mesmo paciente pode abrir várias solicitações ao longo do tempo; CPF com data de nascimento divergente é tratado como erro de cadastro (422), não como pessoa nova |
+| Fila como registro próprio | `entradas_fila` (não reaproveita a ordenação de `GET /solicitacoes`) | A fila operacional contínua (tempo de espera real) é um conceito distinto da listagem paginada e filtrável da tela de solicitações |
+| Contato pós-falta enxuto | `tentativas_contato.resultado` é enum fechado, sem texto livre | Reduz dado sensível armazenado e mantém o relatório de faltas simples de auditar |
+
+## Faltas: por que o estado vive no agendamento
+
+Uma falta acontece em um **compromisso específico** (`Agendamento`), não na solicitação como um todo. Modelar `FALTA` em `solicitacoes.status` exigiria voltar para `AGENDADA` (ou inventar um novo estado) ao reagendar, quebrando a máquina de estados original do edital e obrigando a Action de transição a lidar com um caminho de "desfazer falta". Em vez disso:
+
+- `AtualizarStatusSolicitacao` continua sendo a única autoridade de `solicitacoes.status`, sem nenhuma mudança na máquina de estados original;
+- `RegistrarFaltaAgendamento` e `RegistrarTentativaContato` operam exclusivamente sobre `Agendamento` e `TentativaContato`;
+- reagendar após falta cria um **novo** `Agendamento` (preservando o antigo, agora histórico) em vez de mutar o registro `FALTA`;
+- concluir um atendimento cujo agendamento ativo está em `FALTA` corrige esse mesmo registro (`REALIZADO` + `falta_corrigida_em`), sem apagar `falta_registrada_em`.
 
 ## Evolução Futura
 
