@@ -2,6 +2,7 @@
 
 namespace App\Domain\Solicitacoes\Actions;
 
+use App\Models\EntradaFila;
 use App\Models\Solicitacao;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -47,8 +48,32 @@ class AtualizarStatusSolicitacao
 
             $solicitacao->update($dados);
 
+            if ($novoStatus === 'EM_ANALISE') {
+                EntradaFila::query()->firstOrCreate(
+                    ['solicitacao_id' => $solicitacao->id, 'encerrada_em' => null],
+                    ['entrou_em' => now()]
+                );
+            }
+
+            if ($novoStatus === 'AGENDADA') {
+                $this->encerrarFilaAberta($solicitacao, 'AGENDAMENTO');
+            }
+
+            if ($novoStatus === 'CANCELADA') {
+                $this->encerrarFilaAberta($solicitacao, 'CANCELAMENTO');
+            }
+
             return $solicitacao->fresh();
         });
+    }
+
+    private function encerrarFilaAberta(Solicitacao $solicitacao, string $motivo): void
+    {
+        EntradaFila::query()
+            ->where('solicitacao_id', $solicitacao->id)
+            ->whereNull('encerrada_em')
+            ->lockForUpdate()
+            ->update(['encerrada_em' => now(), 'motivo_encerramento' => $motivo]);
     }
 
     private function conflito(string $mensagem): never

@@ -9,6 +9,7 @@ Route::prefix('api/v1')->group(function () {
 
     Route::post('/solicitacoes', [SolicitacaoController::class, 'store']);
     Route::get('/solicitacoes/resumo', [SolicitacaoController::class, 'resumo']);
+    Route::get('/fila', [SolicitacaoController::class, 'fila']);
     Route::get('/solicitacoes', [SolicitacaoController::class, 'index']);
     Route::get('/solicitacoes/{id}', [SolicitacaoController::class, 'show']);
     Route::put('/solicitacoes/{id}', [SolicitacaoController::class, 'update']);
