@@ -19,16 +19,16 @@ test('lista solicitações vazia retorna estrutura correta', function () {
 test('filtra por status', function () {
     $this->postJson('/api/v1/solicitacoes', [
         'nome_solicitante' => 'Ana Beatriz',
-        'cpf_solicitante'  => '111.222.333-44',
-        'data_nascimento'  => '1992-07-10',
-        'categoria'        => 'CONSULTA',
-        'prioridade'       => 'BAIXA',
-        'descricao'        => 'Consulta de rotina anual para checkup geral completo.',
+        'cpf_solicitante' => '111.222.333-44',
+        'data_nascimento' => '1992-07-10',
+        'categoria' => 'CONSULTA',
+        'prioridade' => 'BAIXA',
+        'descricao' => 'Consulta de rotina anual para checkup geral completo.',
     ])->assertStatus(201);
 
-    $all      = $this->getJson('/api/v1/solicitacoes')->assertStatus(200);
+    $all = $this->getJson('/api/v1/solicitacoes')->assertStatus(200);
     $filtered = $this->getJson('/api/v1/solicitacoes?status=RECEBIDA')->assertStatus(200);
-    $empty    = $this->getJson('/api/v1/solicitacoes?status=CONCLUIDA')->assertStatus(200);
+    $empty = $this->getJson('/api/v1/solicitacoes?status=CONCLUIDA')->assertStatus(200);
 
     expect($all->json('meta.total'))->toBe(1);
     expect($filtered->json('meta.total'))->toBe(1);
