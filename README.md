@@ -48,11 +48,33 @@ docker compose down -v && docker compose up --build
 | GET | `/api/v1/solicitacoes` | Listar com paginação e filtros |
 | POST | `/api/v1/solicitacoes` | Criar solicitação |
 | GET | `/api/v1/solicitacoes/{id}` | Buscar detalhes por ID |
-| PATCH | `/api/v1/solicitacoes/{id}/status` | Atualizar status |
+| PATCH | `/api/v1/solicitacoes/{id}/status` | Atualizar status (`AGENDADA` exige `data_agendada` e `hora_agendada`) |
+| PATCH | `/api/v1/solicitacoes/{id}/agendamento` | Reagendar uma solicitação já `AGENDADA` |
 | PUT | `/api/v1/solicitacoes/{id}` | *(extensão)* Editar dados cadastrais — bloqueado se status for final |
 | DELETE | `/api/v1/solicitacoes/{id}` | *(extensão)* Apagar solicitação definitivamente |
 
-Filtros disponíveis em `GET /api/v1/solicitacoes`: `status`, `categoria`, `prioridade`, `page`, `per_page`.
+Filtros disponíveis em `GET /api/v1/solicitacoes`: `status`, `categoria`, `prioridade`, `data_agendada`, `page`, `per_page`.
+
+### Agenda
+
+Agendar exige data e hora, interpretadas no fuso operacional (`AGENDAMENTO_TIMEZONE`, padrão `America/Recife`; o frontend usa `VITE_AGENDAMENTO_TIMEZONE`, que deve ser o mesmo). O banco e a API trabalham em UTC. Solicitações diferentes podem ocupar o mesmo horário; não há capacidade, conflito de vaga nem registro de chegada.
+
+```bash
+# EM_ANALISE -> AGENDADA (data e hora obrigatórias)
+curl -X PATCH http://localhost:8000/api/v1/solicitacoes/1/status \
+  -H "Content-Type: application/json" -H "Accept: application/json" \
+  -d '{"status":"AGENDADA","data_agendada":"2026-09-25","hora_agendada":"14:30"}'
+
+# Reagendar (só para solicitações AGENDADA; não muda o status)
+curl -X PATCH http://localhost:8000/api/v1/solicitacoes/1/agendamento \
+  -H "Content-Type: application/json" -H "Accept: application/json" \
+  -d '{"data_agendada":"2026-09-28","hora_agendada":"09:00"}'
+
+# Agenda de um dia (ordenada por horário, prioridade, protocolo)
+curl "http://localhost:8000/api/v1/solicitacoes?data_agendada=2026-09-25"
+```
+
+> **Implantação coordenada:** a migration converte registros legados `AGENDADA` (sem horário) para `EM_ANALISE` e instala constraints que impedem `AGENDADA` sem horário. Implante backend e banco juntos; um frontend antigo não consegue agendar sem os novos campos.
 
 > As rotas `PUT` e `DELETE` são uma extensão fora do fluxo obrigatório do edital (criar, listar/consultar, filtrar, atualizar status). O edital não define nem proíbe editar/apagar, e permite explicitamente estender as rotas sugeridas desde que documentadas e consistentes (seção 2.3-C). Detalhes em [`docs/spec.md`](docs/spec.md#extensão-além-do-edital--editar-e-apagar).
 
@@ -71,6 +93,8 @@ docker compose exec frontend npm test -- --run
 ## Variáveis de ambiente
 
 As variáveis de conexão (banco, URLs, etc.) já vêm configuradas no `docker-compose.yml` para ambiente local — nenhuma senha ou credencial real está versionada.
+
+O fuso operacional da agenda é `AGENDAMENTO_TIMEZONE=America/Recife` (backend) e `VITE_AGENDAMENTO_TIMEZONE=America/Recife` (frontend); ambos estão em `docker-compose.yml` e nos `.env.example` e devem representar o mesmo fuso.
 
 A `APP_KEY` **não** fica no `docker-compose.yml` nem em nenhum arquivo versionado: no primeiro `docker compose up`, o entrypoint do backend cria `backend/.env` a partir de `backend/.env.example` e gera a chave automaticamente (`php artisan key:generate`), salvando-a só localmente nesse arquivo (que está no `.gitignore`). Como `backend/.env` está no volume montado do host, a chave permanece estável entre reinícios (`docker compose down`/`up`) — só muda se você apagar o arquivo.
 
@@ -96,6 +120,7 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 - Validação de entradas com mensagens em português
 - Health check da API com verificação do banco
 - Fila operacional ordenada por estado aberto, prioridade e tempo de espera
+- Agendamento e reagendamento com data e hora obrigatórias, e agenda diária no painel (`/?visao=agenda&data=AAAA-MM-DD`)
 
 ## Limitações conhecidas
 

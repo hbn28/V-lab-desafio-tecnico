@@ -53,6 +53,30 @@ stateDiagram-v2
     CANCELADA --> [*]
 ```
 
+## Fluxo de agendamento
+
+O agendamento é um dado complementar de `AGENDADA`, não um estado novo. O agendamento inicial continua sendo a transição `EM_ANALISE → AGENDADA` em `AtualizarStatusSolicitacao`; o reagendamento é uma Action separada que só altera `agendado_para`.
+
+```mermaid
+sequenceDiagram
+    participant F as AgendamentoForm (React)
+    participant R as FormRequest
+    participant H as HorarioAgendamento
+    participant A as Action
+    participant DB as PostgreSQL
+
+    F->>R: PATCH /solicitacoes/{id}/status {AGENDADA, data_agendada, hora_agendada}
+    F->>R: PATCH /solicitacoes/{id}/agendamento {data_agendada, hora_agendada}
+    R->>H: interpretarLocal(data, hora, AGENDAMENTO_TIMEZONE)
+    H-->>R: instante UTC (ou 422 se inexistente/ambíguo/passado)
+    R->>A: AtualizarStatusSolicitacao / ReagendarSolicitacao
+    A->>DB: BEGIN + SELECT ... FOR UPDATE
+    A->>DB: UPDATE agendado_para (CHECK garante AGENDADA ⇒ horário)
+    A-->>F: 200 SolicitacaoResource (agendado_para em UTC)
+```
+
+A consulta diária (`GET /solicitacoes?data_agendada=`) usa `HorarioAgendamento::limitesUtcDoDia` para o intervalo semiaberto `[início do dia local, início do seguinte)` e ordena por horário, prioridade, protocolo e id. Horários iguais são permitidos: não há capacidade, conflito de vaga nem check-in.
+
 ## Estrutura de Pastas (Backend)
 
 ```
@@ -65,8 +89,11 @@ backend/
 │   │       ├── Actions/
 │   │       │   ├── CriarSolicitacao.php       # lógica de negócio + protocolo
 │   │       │   ├── AtualizarSolicitacao.php   # edição de dados abertos
-│   │       │   ├── AtualizarStatusSolicitacao.php  # máquina de estados
+│   │       │   ├── AtualizarStatusSolicitacao.php  # máquina de estados + agendamento inicial
+│   │       │   ├── ReagendarSolicitacao.php   # só altera agendado_para de AGENDADA
 │   │       │   └── ApagarSolicitacao.php      # extensão documentada
+│   │       ├── Support/
+│   │       │   └── HorarioAgendamento.php     # data/hora local <-> UTC, sem normalização silenciosa
 │   │       └── Http/
 │   │           ├── Controllers/
 │   │           │   └── SolicitacaoController.php  # thin controller
@@ -74,6 +101,7 @@ backend/
 │   │           │   ├── CriarSolicitacaoRequest.php
 │   │           │   ├── ListarSolicitacoesRequest.php
 │   │           │   ├── AtualizarStatusRequest.php
+│   │           │   ├── ReagendarSolicitacaoRequest.php
 │   │           │   └── AtualizarSolicitacaoRequest.php
 │   │           └── Resources/
 │   │               └── SolicitacaoResource.php
@@ -108,6 +136,10 @@ backend/
 | Logs estruturados | JSON via `JsonFormatter` → stderr | Compatível com Loki/CloudWatch sem parsear texto |
 | Error envelope único | `{message, errors}` em todos os erros | Frontend trata erros de forma uniforme |
 | Fila operacional | Abertas, prioridade descendente, mais antigas primeiro | Mantém a ordem de atenção estável com paginação |
+| Agendamento híbrido | Agendar via `PATCH /status`; reagendar via `PATCH /agendamento` | Uma única autoridade para transições; reagendar não é mudança de estado |
+| Invariantes de agenda | CHECK no PostgreSQL + lock na Action | `AGENDADA` nunca fica sem horário, mesmo fora da API |
+| Fuso da agenda | UTC no banco/API, `America/Recife` configurável na interpretação | Instante absoluto; horário local ambíguo é rejeitado |
+| Horários repetidos | Permitidos (sem UNIQUE) | O edital não define capacidade; conflito exigiria recurso e duração |
 
 ## Evolução Futura
 
