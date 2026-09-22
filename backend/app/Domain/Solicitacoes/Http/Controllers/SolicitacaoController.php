@@ -47,7 +47,7 @@ class SolicitacaoController
         $dataAgendada = $request->validated('data_agendada');
         // Com data_agendada o status já está restrito a AGENDADA (a Request rejeita combinações incompatíveis).
         $status = $dataAgendada ? 'AGENDADA' : $request->validated('status');
-        $query = Solicitacao::query();
+        $query = Solicitacao::query()->with('paciente');
 
         if ($dataAgendada) {
             // Agenda diária: intervalo UTC semiaberto do dia operacional, por horário e, em empate, prioridade.
@@ -114,7 +114,7 @@ class SolicitacaoController
 
     public function show(int $id): JsonResponse
     {
-        $solicitacao = Solicitacao::findOrFail($id);
+        $solicitacao = Solicitacao::with('paciente')->findOrFail($id);
 
         return (new SolicitacaoResource($solicitacao))->response();
     }

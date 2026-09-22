@@ -23,6 +23,7 @@ class SolicitacaoResource extends JsonResource
             'justificativa_prioridade' => $this->justificativa_prioridade,
             'data_criacao' => $this->created_at?->toIso8601String(),
             'data_atualizacao' => $this->updated_at?->toIso8601String(),
+            'paciente' => new PacienteResumoResource($this->whenLoaded('paciente')),
         ];
     }
 }
