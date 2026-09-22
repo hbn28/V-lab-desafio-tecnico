@@ -138,6 +138,7 @@ Query: `status`, `status_grupo`, `categoria`, `prioridade`, `data_agendada`, `pa
 - `status_grupo=encerrado` retorna apenas `CONCLUIDA` e `CANCELADA`, por `updated_at DESC` (encerramento mais recente primeiro), com `id DESC` como desempate.
 - sem `status_grupo`, a listagem preserva a ordenação legada: abertas primeiro, depois encerradas.
 - `data_agendada=YYYY-MM-DD` seleciona a agenda de um dia operacional: restringe a `AGENDADA` com `agendado_para` no intervalo UTC semiaberto `[início do dia local, início do dia local seguinte)` e ordena por `agendado_para ASC`, prioridade (`URGENTE`, `ALTA`, `MEDIA`, `BAIXA`), `protocolo ASC` e `id ASC`. Combinar com `status` diferente de `AGENDADA` ou com `status_grupo=encerrado` retorna 422; `status_grupo=aberto` é aceito. Paginação preservada.
+- `status=AGENDADA` sem `data_agendada` usa a mesma ordenação da agenda (`agendado_para ASC`, prioridade, protocolo, id) em vez da ordenação por prioridade/tempo de espera: uma vez marcado o horário, quem decide a ordem é o compromisso, não a prioridade administrativa (ADR 003, `docs/decisions/003-separar-fila-de-triagem-e-agenda.md`). Qualquer outro valor de `status` mantém a ordenação da fila operacional.
 
 Solicitações `CONCLUIDA` e `CANCELADA` permanecem disponíveis na listagem, mas ficam depois dos estados ativos. A ordenação é aplicada no backend para permanecer consistente entre páginas e consumidores da API.
 
@@ -255,6 +256,8 @@ Não criar DTO, Repository, CQRS, Event Sourcing ou histórico de status sem req
 ```
 
 O destaque da fila chama-se "Próxima solicitação por prioridade". Na visão de agenda, o dia selecionado é fixado na montagem e não muda sozinho na virada da meia-noite; trocar o dia volta à página 1.
+
+Na visão "Fila atual", filtrar por `status=AGENDADA` reaproveita `data_agendada` como filtro de dia opcional (ADR 003) e mostra o horário marcado na coluna de data de qualquer linha que já tenha `agendado_para`, dentro ou fora da aba Agenda.
 
 A tela inicial apresenta resumo por status ou prioridade. Toda consulta trata carregando, sucesso, vazio e erro. O cliente HTTP é tipado e centraliza o envelope de erro.
 
