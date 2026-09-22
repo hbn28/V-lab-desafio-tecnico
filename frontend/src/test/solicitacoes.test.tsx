@@ -203,6 +203,41 @@ describe('SolicitacoesPage', () => {
     }));
   });
 
+  it('filtra a fila por AGENDADA e ordena por horário, com filtro de dia opcional (ADR 003)', async () => {
+    render(
+      <MemoryRouter>
+        <SolicitacoesPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByRole('heading', { name: 'Fila de atendimento' });
+    expect(screen.queryByLabelText('Data agendada (opcional)')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'AGENDADA' } });
+
+    expect(screen.getByText('Já têm horário marcado: ordenadas por horário e, no empate, por prioridade.')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(solicitacoesApi.listar).toHaveBeenLastCalledWith(expect.objectContaining({
+        status: 'AGENDADA',
+        status_grupo: 'aberto',
+        data_agendada: undefined,
+      }));
+    });
+
+    const campoData = screen.getByLabelText('Data agendada (opcional)');
+    fireEvent.change(campoData, { target: { value: '2026-09-25' } });
+    await waitFor(() => {
+      expect(solicitacoesApi.listar).toHaveBeenLastCalledWith(expect.objectContaining({
+        status: 'AGENDADA',
+        data_agendada: '2026-09-25',
+      }));
+    });
+
+    // Trocar para outro status descarta o filtro de dia (só faz sentido com AGENDADA).
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'RECEBIDA' } });
+    expect(screen.queryByLabelText('Data agendada (opcional)')).not.toBeInTheDocument();
+  });
+
   it('abre o drill-down com a lista filtrada ao clicar em um bloco de prioridade', async () => {
     vi.mocked(solicitacoesApi.listar).mockResolvedValue({
       data: [{ ...solicitacaoBase, prioridade: 'URGENTE' }],

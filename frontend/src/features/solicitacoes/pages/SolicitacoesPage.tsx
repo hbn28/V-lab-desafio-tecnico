@@ -84,9 +84,13 @@ export function SolicitacoesPage() {
   const [modo, setModo] = useState<ModoFila>('prioridade');
   const [page, setPage] = useState(1);
   const [drilldown, setDrilldown] = useState<Drilldown | null>(null);
+  // Filtro de dia dentro da própria fila (ADR 003): só faz sentido com status=AGENDADA,
+  // que é quando a ordenação passa a ser por horário em vez de prioridade.
+  const [dataFilaAgendada, setDataFilaAgendada] = useState('');
 
   const emAgenda = visao === 'agenda';
   const escopo = visao === 'historico' ? 'encerrado' : 'aberto';
+  const filaFiltradaPorAgendada = !emAgenda && status === 'AGENDADA';
 
   // Data ausente ou inválida na URL da agenda é normalizada para o dia efetivamente consultado.
   useEffect(() => {
@@ -111,6 +115,7 @@ export function SolicitacoesPage() {
           categoria: categoria || undefined,
           prioridade: prioridade || undefined,
           status_grupo: escopo,
+          data_agendada: filaFiltradaPorAgendada && dataIsoValida(dataFilaAgendada) ? dataFilaAgendada : undefined,
           page,
           per_page: 10,
         }
@@ -124,7 +129,7 @@ export function SolicitacoesPage() {
   // não muda com os filtros da listagem, que são só uma forma de explorar o resto da fila.
   const { data: proximo, loading: proximoLoading, error: proximoError } = useProximaSolicitacao({ paused: isDrilldownAberto || emAgenda });
 
-  const hasFilters = Boolean(status || categoria || prioridade);
+  const hasFilters = Boolean(status || categoria || prioridade || dataFilaAgendada);
   const statusDisponiveis = escopo === 'aberto'
     ? STATUS_LIST.filter(item => !(STATUS_ENCERRADO as readonly Status[]).includes(item))
     : STATUS_ENCERRADO;
@@ -133,12 +138,21 @@ export function SolicitacoesPage() {
     setStatus('');
     setCategoria('');
     setPrioridade('');
+    setDataFilaAgendada('');
+    setPage(1);
+  };
+
+  const alterarStatus = (novoStatus: Status | '') => {
+    setStatus(novoStatus);
+    // A data só se aplica com status=AGENDADA (a API rejeita a combinação com outro status).
+    if (novoStatus !== 'AGENDADA') setDataFilaAgendada('');
     setPage(1);
   };
 
   const mudarVisao = (novaVisao: VisaoPrincipal) => {
     setVisao(novaVisao);
     setStatus('');
+    setDataFilaAgendada('');
     setPage(1);
     if (novaVisao === 'agenda') setSearchParams({ visao: 'agenda', data: dataAgenda });
     else if (novaVisao === 'historico') setSearchParams({ visao: 'historico' });
@@ -226,9 +240,11 @@ export function SolicitacoesPage() {
             <p className="list-order-hint">
               {emAgenda
                 ? 'Atendimentos ordenados por horário e, no empate, por prioridade.'
-                : escopo === 'aberto'
-                  ? 'Registros ordenados pela prioridade e pelo tempo de espera.'
-                  : 'Solicitações concluídas e canceladas, do encerramento mais recente ao mais antigo.'}
+                : filaFiltradaPorAgendada
+                  ? 'Já têm horário marcado: ordenadas por horário e, no empate, por prioridade.'
+                  : escopo === 'aberto'
+                    ? 'Registros ordenados pela prioridade e pelo tempo de espera.'
+                    : 'Solicitações concluídas e canceladas, do encerramento mais recente ao mais antigo.'}
             </p>
           </div>
           {data && !loading && !error && <span className="record-count">{data.total} no total</span>}
@@ -271,10 +287,21 @@ export function SolicitacoesPage() {
           {!emAgenda && (
             <div className="filter-field">
               <label htmlFor="filtro-status">Status</label>
-              <select id="filtro-status" value={status} onChange={event => { setStatus(event.target.value as Status | ''); setPage(1); }}>
+              <select id="filtro-status" value={status} onChange={event => alterarStatus(event.target.value as Status | '')}>
                 <option value="">Todos</option>
                 {statusDisponiveis.map(item => <option key={item} value={item}>{LABEL_STATUS[item]}</option>)}
               </select>
+            </div>
+          )}
+          {filaFiltradaPorAgendada && (
+            <div className="filter-field agenda-date-field">
+              <label htmlFor="filtro-data-fila">Data agendada (opcional)</label>
+              <input
+                id="filtro-data-fila"
+                type="date"
+                value={dataFilaAgendada}
+                onChange={event => { setDataFilaAgendada(event.target.value); setPage(1); }}
+              />
             </div>
           )}
           <div className="filter-field">
@@ -340,7 +367,7 @@ export function SolicitacoesPage() {
                     <th scope="col">Solicitação</th>
                     <th scope="col">Categoria</th>
                     <th scope="col">Etapa</th>
-                    <th scope="col">{emAgenda ? 'Agendado para' : 'Registrada em'}</th>
+                    <th scope="col">{emAgenda ? 'Agendado para' : 'Data'}</th>
                     <th scope="col"><span className="sr-only">Ações</span></th>
                   </tr>
                 </thead>
@@ -354,7 +381,7 @@ export function SolicitacoesPage() {
                       </td>
                       <td data-label="Categoria">{LABEL_CATEGORIA[request.categoria]}</td>
                       <td data-label="Etapa"><StatusBadge status={request.status} /></td>
-                      {emAgenda && request.agendado_para ? (
+                      {request.agendado_para ? (
                         <td data-label="Agendado para"><time dateTime={request.agendado_para}>{formatarAgendamento(request.agendado_para)}</time></td>
                       ) : (
                         <td data-label="Registrada em"><time dateTime={request.data_criacao}>{formatDate(request.data_criacao)}</time></td>
