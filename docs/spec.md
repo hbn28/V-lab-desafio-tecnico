@@ -22,6 +22,7 @@ export interface Solicitacao {
   categoria: Categoria;
   prioridade: Prioridade;
   status: Status;
+  agendado_para: string | null;
   descricao: string;
   justificativa_prioridade: string | null;
   data_criacao: string;
@@ -46,6 +47,52 @@ CANCELADA  -> nenhum
 - Repetir o status atual, pular etapas ou sair de estado final retorna 409.
 - A Action executa em `DB::transaction`, recarrega a solicitação com `lockForUpdate`, valida o estado obtido sob o lock e só então atualiza.
 - O frontend pode esconder opções impossíveis por usabilidade, mas sua tabela não é autoridade de negócio.
+
+## Agenda de solicitações
+
+A agenda é informação complementar do estado `AGENDADA`, não uma nova etapa: nenhum estado ou transição foi adicionado.
+
+### Campo `agendado_para`
+
+`agendado_para` é `TIMESTAMP WITH TIME ZONE` nulo, persistido e retornado em UTC (ISO 8601), com índice simples. Invariantes protegidas por CHECK no PostgreSQL:
+
+```sql
+CHECK (status <> 'AGENDADA' OR agendado_para IS NOT NULL)
+CHECK (status NOT IN ('RECEBIDA', 'EM_ANALISE') OR agendado_para IS NULL)
+```
+
+- `AGENDADA` sempre tem horário; `RECEBIDA` e `EM_ANALISE` nunca têm.
+- `CONCLUIDA` e `CANCELADA` preservam o horário quando a solicitação foi agendada antes; podem ser nulos (cancelada antes de agendar ou dado legado).
+- Não existe índice ou constraint única: **horários iguais para solicitações diferentes são permitidos**, e igualdade de horário não é conflito. Capacidade, vaga, duração, sala e profissional estão fora de escopo.
+- A agenda **não registra chegada ao local** (check-in); a ordem real de chegada permanece fora do sistema, e não há priorização clínica automática.
+- A migration converte registros legados `AGENDADA` em `EM_ANALISE` (sem inventar horário) antes de instalar as constraints; backend e banco devem ser implantados juntos.
+
+### Fuso operacional
+
+O Laravel permanece em UTC. A data/hora digitada é interpretada em `AGENDAMENTO_TIMEZONE` (padrão `America/Recife`; espelhada no frontend por `VITE_AGENDAMENTO_TIMEZONE`). Horário local inexistente ou ambíguo por mudança de offset é rejeitado com 422, sem normalização silenciosa. O instante deve ser estritamente futuro; segundos não são aceitos.
+
+### Agendamento inicial
+
+`PATCH /api/v1/solicitacoes/{id}/status` continua sendo a única via para entrar em `AGENDADA` (`EM_ANALISE → AGENDADA`, em `AtualizarStatusSolicitacao`):
+
+```json
+{ "status": "AGENDADA", "data_agendada": "2026-09-25", "hora_agendada": "14:30" }
+```
+
+- para `AGENDADA`, `data_agendada` (`YYYY-MM-DD`) e `hora_agendada` (`HH:mm`) são obrigatórias;
+- para qualquer outro destino, esses campos são proibidos (422);
+- campos desconhecidos retornam 422;
+- `RECEBIDA → AGENDADA` continua 409, mesmo com payload completo.
+
+### PATCH `/api/v1/solicitacoes/{id}/agendamento`
+
+Reagendamento: altera somente `agendado_para` de uma solicitação já `AGENDADA`, na Action `ReagendarSolicitacao` (transação + `lockForUpdate`), que nunca altera `status`.
+
+```json
+{ "data_agendada": "2026-09-28", "hora_agendada": "09:00" }
+```
+
+Resposta 200: `{ "data": Solicitacao }`. Reenviar o mesmo instante é idempotente (200, sem escrita, `updated_at` inalterado). Solicitação fora de `AGENDADA` retorna 409; payload inválido, no passado ou com campo desconhecido retorna 422; inexistente retorna 404. Não é possível apagar o horário de uma solicitação agendada. Em reagendamentos concorrentes, o último válido processado vence (sem controle otimista por versão).
 
 ## Endpoints
 
@@ -81,7 +128,7 @@ Resposta 201: `{ "data": Solicitacao }`.
 
 ### GET `/api/v1/solicitacoes`
 
-Query: `status`, `status_grupo`, `categoria`, `prioridade`, `page`, `per_page`.
+Query: `status`, `status_grupo`, `categoria`, `prioridade`, `data_agendada`, `page`, `per_page`.
 
 - filtros vazios são tratados como ausentes;
 - enums desconhecidos retornam 422;
@@ -90,6 +137,7 @@ Query: `status`, `status_grupo`, `categoria`, `prioridade`, `page`, `per_page`.
 - `status_grupo=aberto` retorna apenas `RECEBIDA`, `EM_ANALISE` e `AGENDADA`; a ordenação é `URGENTE`, `ALTA`, `MEDIA`, `BAIXA`, depois `created_at ASC` (mais antiga primeiro), com `id ASC` como desempate.
 - `status_grupo=encerrado` retorna apenas `CONCLUIDA` e `CANCELADA`, por `updated_at DESC` (encerramento mais recente primeiro), com `id DESC` como desempate.
 - sem `status_grupo`, a listagem preserva a ordenação legada: abertas primeiro, depois encerradas.
+- `data_agendada=YYYY-MM-DD` seleciona a agenda de um dia operacional: restringe a `AGENDADA` com `agendado_para` no intervalo UTC semiaberto `[início do dia local, início do dia local seguinte)` e ordena por `agendado_para ASC`, prioridade (`URGENTE`, `ALTA`, `MEDIA`, `BAIXA`), `protocolo ASC` e `id ASC`. Combinar com `status` diferente de `AGENDADA` ou com `status_grupo=encerrado` retorna 422; `status_grupo=aberto` é aceito. Paginação preservada.
 
 Solicitações `CONCLUIDA` e `CANCELADA` permanecem disponíveis na listagem, mas ficam depois dos estados ativos. A ordenação é aplicada no backend para permanecer consistente entre páginas e consumidores da API.
 
@@ -109,7 +157,7 @@ Resposta 200: `{ "data": Solicitacao }`. Identificador inexistente retorna 404 n
 
 ### PATCH `/api/v1/solicitacoes/{id}/status`
 
-O único campo aceito é `status`, obrigatório e pertencente a `Status`. Resposta 200: `{ "data": Solicitacao }`. Transição não permitida retorna 409.
+Campos aceitos: `status` (obrigatório, pertencente a `Status`) e, somente quando `status` é `AGENDADA`, `data_agendada` e `hora_agendada` (obrigatórios; ver "Agenda de solicitações"). Resposta 200: `{ "data": Solicitacao }`. Transição não permitida retorna 409.
 
 ## Extensão além do edital — editar e apagar
 
@@ -139,7 +187,7 @@ Toda resposta JSON de erro usa:
 | --- | --- |
 | 404 | rota ou solicitação inexistente |
 | 405 | método HTTP não permitido |
-| 409 | transição incompatível com o status atual |
+| 409 | transição incompatível com o status atual, ou reagendamento de solicitação que não está `AGENDADA` |
 | 422 | body, parâmetro, enum ou regra de entrada inválida |
 | 429 | limite de requisições excedido |
 | 500 | falha interna genérica, sem detalhes internos |
@@ -160,9 +208,11 @@ Criar `solicitacoes` e `protocolo_counters` antes dos endpoints.
 - `categoria`, `prioridade`, `status`: string com CHECK;
 - `descricao`: text;
 - `justificativa_prioridade`: text nullable;
+- `agendado_para`: timestamptz nullable, com índice (migration `2026_09_21_000003`);
 - timestamps;
 - índices individuais em `status`, `categoria` e `prioridade`;
-- CHECK: prioridade diferente de `URGENTE` ou justificativa não nula e não vazia após `btrim`.
+- CHECK: prioridade diferente de `URGENTE` ou justificativa não nula e não vazia após `btrim`;
+- CHECK: `chk_agendada_com_horario` e `chk_estado_inicial_sem_horario` (ver "Agenda de solicitações").
 
 ### `protocolo_counters`
 
@@ -198,10 +248,13 @@ Não criar DTO, Repository, CQRS, Event Sourcing ou histórico de status sem req
 ## Frontend
 
 ```text
-/                         resumo + listagem paginada + filtros
+/                         resumo + listagem paginada + filtros (visões: fila, agenda, histórico)
+/?visao=agenda&data=YYYY-MM-DD   agenda do dia (data inválida ou ausente vira o dia atual no fuso operacional)
 /solicitacoes/nova        criação
-/solicitacoes/:id         detalhe + atualização de status
+/solicitacoes/:id         detalhe + atualização de status + agendar/reagendar
 ```
+
+O destaque da fila chama-se "Próxima solicitação por prioridade". Na visão de agenda, o dia selecionado é fixado na montagem e não muda sozinho na virada da meia-noite; trocar o dia volta à página 1.
 
 A tela inicial apresenta resumo por status ou prioridade. Toda consulta trata carregando, sucesso, vazio e erro. O cliente HTTP é tipado e centraliza o envelope de erro.
 
@@ -229,7 +282,8 @@ Usar PostgreSQL nos testes que exercitam constraints, transações ou locks.
 - concorrência de status lê o estado atualizado;
 - primeira geração concorrente do ano não falha nem duplica protocolo;
 - filtros/paginação inválidos retornam 422;
-- frontend exibe erro 422 com cliente HTTP mockado.
+- frontend exibe erro 422 com cliente HTTP mockado;
+- constraints de agenda, agendamento inicial, reagendamento, filtro diário, conversão de fuso e relock de instância obsoleta.
 
 ---
 
