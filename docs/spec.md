@@ -202,11 +202,21 @@ A fila de espera passou a ser um registro próprio, independente da paginação/
 
 - `modalidade`: `HORARIO` ou `TURNO` (CHECK);
 - `data_agendada`: data local (fuso `AGENDAMENTO_TIMEZONE`);
-- `hora_agendada`: obrigatória e exclusiva de `HORARIO`; `turno` (`MANHA`, `TARDE` ou `NOITE`) obrigatório e exclusivo de `TURNO` (CHECK garante que apenas um dos dois esteja presente);
+- `hora_agendada`: exclusiva de `HORARIO` — presente só nessa modalidade (CHECK `chk_modalidade_hora` garante `hora_agendada IS NOT NULL` só quando `modalidade = 'HORARIO'` e `IS NULL` quando `modalidade = 'TURNO'`);
+- `turno` (`MANHA`, `TARDE` ou `NOITE`): **sempre presente, nas duas modalidades** — não é exclusivo de `TURNO`. Ao agendar só por horário exato, o turno correspondente é **derivado e persistido automaticamente** (`TurnoAgendamento::derivarDaHora`, chamada dentro de `AtualizarStatusRequest`/`ReagendarSolicitacaoRequest` antes de a Action criar o `Agendamento`). O CHECK (`chk_modalidade_hora`) exige `turno IS NOT NULL` em ambas as modalidades — só `hora_agendada` é exclusiva de `HORARIO`;
 - `status`: `AGENDADO`, `REALIZADO`, `FALTA` ou `CANCELADO` (CHECK). **Este é o único lugar do sistema onde `FALTA` existe** — `solicitacoes.status` nunca assume esse valor;
 - no máximo um `Agendamento` com `status = AGENDADO` por solicitação, garantido por índice único parcial.
 
-Derivação de turno a partir de horário exato (`TurnoAgendamento::derivarDaHora`, espelhada no frontend por `derivarTurnoDaHora`): `06:00–11:59 → MANHA`, `12:00–17:59 → TARDE`, `18:00–05:59 (dia seguinte) → NOITE`.
+Derivação de turno a partir de horário exato (`TurnoAgendamento::derivarDaHora`, espelhada no frontend por `derivarTurnoDaHora`, usada só para o texto ao vivo "Turno: Manhã" no formulário — quem persiste o valor é sempre o backend): `06:00–11:59 → MANHA`, `12:00–17:59 → TARDE`, `18:00–05:59 (dia seguinte) → NOITE`. Como todo `Agendamento` sempre tem `turno` preenchido (derivado ou explícito), a agenda e o painel de faltas podem agrupar/filtrar por turno independentemente da modalidade escolhida na hora de marcar.
+
+### Agenda do dia inclui HORARIO e TURNO
+
+`GET /solicitacoes?data_agendada=` (usada pela visão "Agenda" do painel) casa dois critérios, unidos por OR, para o dia operacional pedido:
+
+1. `agendado_para` dentro do intervalo UTC semiaberto do dia (cobre `modalidade = HORARIO`, que é o único caso em que `agendado_para` é preenchido); ou
+2. existe um `Agendamento` ativo (`status = AGENDADO`) com `modalidade = TURNO` e `data_agendada` igual ao dia pedido.
+
+Sem o segundo critério, uma solicitação agendada só por turno nunca apareceria nessa tela — `agendado_para` é sempre `null` para `TURNO`, e a query original filtrava exclusivamente por esse campo. Dentro do dia, os itens por horário exato vêm primeiro (ordenados por `agendado_para`); os itens por turno vêm depois, ordenados por `MANHA` → `TARDE` → `NOITE` e, dentro do mesmo turno, por prioridade. Na tabela, a coluna que mostraria o horário mostra o nome do turno (`Manhã`/`Tarde`/`Noite`) quando não há horário exato.
 
 `PATCH /solicitacoes/{id}/status` (transição para `AGENDADA`) e `PATCH /solicitacoes/{id}/agendamento` (reagendar) aceitam **exatamente um** dos dois formatos, nunca ambos nem nenhum:
 
