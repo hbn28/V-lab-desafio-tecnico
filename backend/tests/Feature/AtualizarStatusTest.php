@@ -111,10 +111,21 @@ test('instância obsoleta é relida sob lock e recebe 409 após outro agendament
     $segunda = Solicitacao::findOrFail($solicitacao->id);
     $action = app(AtualizarStatusSolicitacao::class);
 
-    $action->execute($primeira, 'AGENDADA', CarbonImmutable::parse('2026-09-25T17:30:00Z'));
+    $action->execute($primeira, 'AGENDADA', [
+        'modalidade' => 'HORARIO',
+        'data_agendada' => '2026-09-25',
+        'hora_agendada' => '14:30',
+        'turno' => 'TARDE',
+        'agendado_para' => CarbonImmutable::parse('2026-09-25T17:30:00Z'),
+    ]);
 
-    expect(fn () => $action->execute($segunda, 'AGENDADA', CarbonImmutable::parse('2026-09-26T17:30:00Z')))
-        ->toThrow(function (HttpResponseException $e) {
+    expect(fn () => $action->execute($segunda, 'AGENDADA', [
+        'modalidade' => 'HORARIO',
+        'data_agendada' => '2026-09-26',
+        'hora_agendada' => '14:30',
+        'turno' => 'TARDE',
+        'agendado_para' => CarbonImmutable::parse('2026-09-26T17:30:00Z'),
+    ]))->toThrow(function (HttpResponseException $e) {
             expect($e->getResponse()->getStatusCode())->toBe(409);
         });
     expect($solicitacao->fresh()->agendado_para->toIso8601String())->toBe('2026-09-25T17:30:00+00:00');

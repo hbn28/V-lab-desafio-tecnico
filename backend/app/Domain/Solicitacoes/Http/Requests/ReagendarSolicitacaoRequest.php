@@ -3,14 +3,16 @@
 namespace App\Domain\Solicitacoes\Http\Requests;
 
 use App\Domain\Solicitacoes\Support\HorarioAgendamento;
+use App\Domain\Solicitacoes\Support\TurnoAgendamento;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ReagendarSolicitacaoRequest extends FormRequest
 {
-    private const CAMPOS_PERMITIDOS = ['data_agendada', 'hora_agendada'];
+    private const CAMPOS_PERMITIDOS = ['data_agendada', 'hora_agendada', 'turno'];
 
-    private ?CarbonImmutable $agendadoPara = null;
+    /** @var array{modalidade:string,data_agendada:string,hora_agendada:?string,turno:string,agendado_para:?CarbonImmutable}|null */
+    private ?array $dadosAgendamento = null;
 
     public function authorize(): bool
     {
@@ -21,7 +23,8 @@ class ReagendarSolicitacaoRequest extends FormRequest
     {
         return [
             'data_agendada' => ['required', 'date_format:Y-m-d'],
-            'hora_agendada' => ['required', 'date_format:H:i'],
+            'hora_agendada' => ['nullable', 'date_format:H:i'],
+            'turno' => ['nullable', 'string', 'in:'.implode(',', TurnoAgendamento::TURNOS)],
         ];
     }
 
@@ -30,8 +33,8 @@ class ReagendarSolicitacaoRequest extends FormRequest
         return [
             'data_agendada.required' => 'Informe a data do atendimento.',
             'data_agendada.date_format' => 'A data do atendimento deve estar no formato AAAA-MM-DD.',
-            'hora_agendada.required' => 'Informe o horário do atendimento.',
             'hora_agendada.date_format' => 'O horário do atendimento deve estar no formato HH:mm.',
+            'turno.in' => 'O turno deve ser MANHA, TARDE ou NOITE.',
         ];
     }
 
@@ -46,24 +49,63 @@ class ReagendarSolicitacaoRequest extends FormRequest
                 return;
             }
 
-            $instante = HorarioAgendamento::interpretarLocal(
-                $this->input('data_agendada'),
-                $this->input('hora_agendada'),
-                config('agendamento.timezone'),
-            );
+            $temHora = $this->filled('hora_agendada');
+            $temTurno = $this->filled('turno');
 
-            if ($instante === null) {
-                $validator->errors()->add('data_agendada', 'Data e horário não correspondem a um instante válido no fuso operacional.');
-            } elseif (! $instante->greaterThan(CarbonImmutable::now())) {
-                $validator->errors()->add('data_agendada', 'O agendamento deve ser em um instante futuro.');
-            } else {
-                $this->agendadoPara = $instante;
+            if ($temHora === $temTurno) {
+                $validator->errors()->add($temHora ? 'turno' : 'hora_agendada', 'Informe horário ou turno, mas não ambos.');
+
+                return;
             }
+
+            $timezone = config('agendamento.timezone');
+
+            if ($temHora) {
+                $instante = HorarioAgendamento::interpretarLocal($this->input('data_agendada'), $this->input('hora_agendada'), $timezone);
+
+                if ($instante === null) {
+                    $validator->errors()->add('data_agendada', 'Data e horário não correspondem a um instante válido no fuso operacional.');
+
+                    return;
+                }
+
+                if (! $instante->greaterThan(CarbonImmutable::now())) {
+                    $validator->errors()->add('data_agendada', 'O agendamento deve ser em um instante futuro.');
+
+                    return;
+                }
+
+                $this->dadosAgendamento = [
+                    'modalidade' => 'HORARIO',
+                    'data_agendada' => $this->input('data_agendada'),
+                    'hora_agendada' => $this->input('hora_agendada'),
+                    'turno' => TurnoAgendamento::derivarDaHora($this->input('hora_agendada')),
+                    'agendado_para' => $instante,
+                ];
+
+                return;
+            }
+
+            $fimTurno = TurnoAgendamento::fimDoTurnoUtc($this->input('data_agendada'), $this->input('turno'), $timezone);
+
+            if (! $fimTurno->greaterThan(CarbonImmutable::now())) {
+                $validator->errors()->add('data_agendada', 'O agendamento deve ser em um instante futuro.');
+
+                return;
+            }
+
+            $this->dadosAgendamento = [
+                'modalidade' => 'TURNO',
+                'data_agendada' => $this->input('data_agendada'),
+                'hora_agendada' => null,
+                'turno' => $this->input('turno'),
+                'agendado_para' => null,
+            ];
         });
     }
 
-    public function agendadoPara(): CarbonImmutable
+    public function dadosAgendamento(): array
     {
-        return $this->agendadoPara;
+        return $this->dadosAgendamento;
     }
 }

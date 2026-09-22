@@ -50,7 +50,7 @@ class SolicitacaoController
         $dataAgendada = $request->validated('data_agendada');
         // Com data_agendada o status já está restrito a AGENDADA (a Request rejeita combinações incompatíveis).
         $status = $dataAgendada ? 'AGENDADA' : $request->validated('status');
-        $query = Solicitacao::query()->with('paciente');
+        $query = Solicitacao::query()->with(['paciente', 'agendamentoAtivo']);
 
         if ($dataAgendada) {
             // Agenda diária: intervalo UTC semiaberto do dia operacional, por horário e, em empate, prioridade.
@@ -135,7 +135,7 @@ class SolicitacaoController
 
     public function show(int $id): JsonResponse
     {
-        $solicitacao = Solicitacao::with('paciente')->findOrFail($id);
+        $solicitacao = Solicitacao::with(['paciente', 'agendamentoAtivo'])->findOrFail($id);
 
         return (new SolicitacaoResource($solicitacao))->response();
     }
@@ -154,8 +154,9 @@ class SolicitacaoController
         $atualizada = $this->atualizarStatus->execute(
             $solicitacao,
             $request->validated('status'),
-            $request->agendadoPara(),
+            $request->dadosAgendamento(),
         );
+        $atualizada->load(['paciente', 'agendamentoAtivo']);
 
         return (new SolicitacaoResource($atualizada))->response();
     }
@@ -163,7 +164,8 @@ class SolicitacaoController
     public function updateAgendamento(ReagendarSolicitacaoRequest $request, int $id): JsonResponse
     {
         $solicitacao = Solicitacao::findOrFail($id);
-        $atualizada = $this->reagendarSolicitacao->execute($solicitacao, $request->agendadoPara());
+        $atualizada = $this->reagendarSolicitacao->execute($solicitacao, $request->dadosAgendamento());
+        $atualizada->load(['paciente', 'agendamentoAtivo']);
 
         return (new SolicitacaoResource($atualizada))->response();
     }

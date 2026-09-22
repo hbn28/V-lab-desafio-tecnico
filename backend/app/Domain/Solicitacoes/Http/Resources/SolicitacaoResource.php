@@ -24,6 +24,7 @@ class SolicitacaoResource extends JsonResource
             'data_criacao' => $this->created_at?->toIso8601String(),
             'data_atualizacao' => $this->updated_at?->toIso8601String(),
             'paciente' => new PacienteResumoResource($this->whenLoaded('paciente')),
+            'agendamento_ativo' => new AgendamentoResource($this->whenLoaded('agendamentoAtivo')),
         ];
     }
 }

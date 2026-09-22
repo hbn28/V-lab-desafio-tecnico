@@ -2,9 +2,9 @@
 
 namespace App\Domain\Solicitacoes\Actions;
 
+use App\Models\Agendamento;
 use App\Models\EntradaFila;
 use App\Models\Solicitacao;
-use Carbon\CarbonImmutable;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 
@@ -19,12 +19,15 @@ class AtualizarStatusSolicitacao
         'CANCELADA' => [],
     ];
 
+    /**
+     * @param  array{modalidade:string,data_agendada:string,hora_agendada:?string,turno:string,agendado_para:?\Carbon\CarbonImmutable}|null  $agendamento
+     */
     public function execute(
         Solicitacao $solicitacao,
         string $novoStatus,
-        ?CarbonImmutable $agendadoPara = null,
+        ?array $agendamento = null,
     ): Solicitacao {
-        return DB::transaction(function () use ($solicitacao, $novoStatus, $agendadoPara) {
+        return DB::transaction(function () use ($solicitacao, $novoStatus, $agendamento) {
             // Relê com lock para evitar race condition
             $solicitacao = Solicitacao::lockForUpdate()->findOrFail($solicitacao->id);
 
@@ -36,14 +39,14 @@ class AtualizarStatusSolicitacao
                 );
             }
 
-            if ($novoStatus === 'AGENDADA' && $agendadoPara === null) {
-                $this->conflito('A data e o horário são obrigatórios para agendar a solicitação.');
+            if ($novoStatus === 'AGENDADA' && $agendamento === null) {
+                $this->conflito('A data e o horário ou turno são obrigatórios para agendar a solicitação.');
             }
 
             // Concluir/cancelar preservam agendado_para como histórico; só AGENDADA o escreve.
             $dados = ['status' => $novoStatus];
             if ($novoStatus === 'AGENDADA') {
-                $dados['agendado_para'] = $agendadoPara;
+                $dados['agendado_para'] = $agendamento['agendado_para'];
             }
 
             $solicitacao->update($dados);
@@ -56,6 +59,15 @@ class AtualizarStatusSolicitacao
             }
 
             if ($novoStatus === 'AGENDADA') {
+                Agendamento::query()->create([
+                    'solicitacao_id' => $solicitacao->id,
+                    'data_agendada' => $agendamento['data_agendada'],
+                    'modalidade' => $agendamento['modalidade'],
+                    'hora_agendada' => $agendamento['hora_agendada'],
+                    'turno' => $agendamento['turno'],
+                    'status' => 'AGENDADO',
+                ]);
+
                 $this->encerrarFilaAberta($solicitacao, 'AGENDAMENTO');
             }
 
