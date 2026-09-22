@@ -328,8 +328,8 @@ describe('SolicitacoesPage', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText('Próximo atendimento')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Atender/ })).toHaveAttribute('href', '/solicitacoes/1');
+    expect(await screen.findByText('Próxima solicitação por prioridade')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Abrir solicitação/ })).toHaveAttribute('href', '/solicitacoes/1');
     expect(screen.queryByText(/Fila vazia/)).not.toBeInTheDocument();
   });
 
@@ -343,7 +343,7 @@ describe('SolicitacoesPage', () => {
     );
 
     expect(await screen.findByText(/Fila vazia/)).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Atender/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Abrir solicitação/ })).not.toBeInTheDocument();
   });
 });
 
