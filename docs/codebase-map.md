@@ -19,6 +19,7 @@ frontend/src/features/solicitacoes/pages
 - Agenda — dois pontos de mutação: `PATCH /solicitacoes/{id}/status` (agendamento inicial, `AtualizarStatusRequest`) e `PATCH /solicitacoes/{id}/agendamento` (`ReagendarSolicitacao.php` + `ReagendarSolicitacaoRequest.php`, só altera `agendado_para`).
 - Fuso e conversão data/hora local ⇄ UTC: `Support/HorarioAgendamento.php` e `config/agendamento.php` (front: `features/solicitacoes/config/agendamento.ts`).
 - Filtro diário `data_agendada`: validado em `ListarSolicitacoesRequest.php`, consultado em `SolicitacaoController::index()` (intervalo UTC semiaberto; ordem horário, prioridade, protocolo, id).
+- ADR 003 (`docs/decisions/003-separar-fila-de-triagem-e-agenda.md`): `status=AGENDADA` sem `data_agendada` também ordena por `agendado_para` em `SolicitacaoController::index()`; a "Fila atual" ganha um filtro de dia opcional e mostra `agendado_para` em qualquer linha que o tenha, não só na aba Agenda.
 - Formulário de horário: `frontend/.../components/AgendamentoForm.tsx`, usado por `SolicitacaoDetailPage.tsx` (agendar/reagendar) e visão `agenda` de `SolicitacoesPage.tsx`.
 - Ordenação da fila e grupos de status: `SolicitacaoController::index()` — decide a ordenação (fila operacional ativa vs. histórico encerrado por `updated_at` descendente) a partir de `status_grupo`.
 - Validação de `status_grupo` (`aberto`/`encerrado`): `ListarSolicitacoesRequest.php`.

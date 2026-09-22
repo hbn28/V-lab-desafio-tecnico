@@ -48,7 +48,11 @@ paths:
           in: query
           schema:
             $ref: '#/components/schemas/Status'
-          description: Filtrar por status
+          description: >-
+            Filtrar por status. Quando o status resolvido é exatamente AGENDADA
+            (este filtro ou data_agendada), a ordenação passa a ser por
+            agendado_para e prioridade como desempate, em vez da ordenação por
+            prioridade/tempo de espera da fila operacional.
         - name: categoria
           in: query
           schema:
