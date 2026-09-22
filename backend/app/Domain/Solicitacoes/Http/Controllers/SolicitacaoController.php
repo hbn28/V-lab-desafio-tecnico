@@ -8,6 +8,7 @@ use App\Domain\Solicitacoes\Actions\AtualizarStatusSolicitacao;
 use App\Domain\Solicitacoes\Actions\CriarSolicitacao;
 use App\Domain\Solicitacoes\Actions\ObterResumoSolicitacoes;
 use App\Domain\Solicitacoes\Actions\ReagendarSolicitacao;
+use App\Domain\Solicitacoes\Actions\ReagendarAposFalta;
 use App\Domain\Solicitacoes\Actions\RegistrarFaltaAgendamento;
 use App\Domain\Solicitacoes\Actions\RegistrarTentativaContato;
 use App\Domain\Solicitacoes\Http\Requests\AtualizarSolicitacaoRequest;
@@ -16,6 +17,7 @@ use App\Domain\Solicitacoes\Http\Requests\CriarSolicitacaoRequest;
 use App\Domain\Solicitacoes\Http\Requests\ListarFaltasRequest;
 use App\Domain\Solicitacoes\Http\Requests\ListarFilaRequest;
 use App\Domain\Solicitacoes\Http\Requests\ListarSolicitacoesRequest;
+use App\Domain\Solicitacoes\Http\Requests\ReagendarAposFaltaRequest;
 use App\Domain\Solicitacoes\Http\Requests\ReagendarSolicitacaoRequest;
 use App\Domain\Solicitacoes\Http\Requests\RegistrarTentativaContatoRequest;
 use App\Domain\Solicitacoes\Http\Requests\ResumoSolicitacoesRequest;
@@ -42,6 +44,7 @@ class SolicitacaoController
         private readonly ObterResumoSolicitacoes $obterResumo,
         private readonly RegistrarFaltaAgendamento $registrarFaltaAgendamento,
         private readonly RegistrarTentativaContato $registrarTentativaContato,
+        private readonly ReagendarAposFalta $reagendarAposFalta,
     ) {}
 
     public function store(CriarSolicitacaoRequest $request): JsonResponse
@@ -221,5 +224,14 @@ class SolicitacaoController
         $tentativa = $this->registrarTentativaContato->execute($agendamento, $request->validated('resultado'));
 
         return (new TentativaContatoResource($tentativa))->response()->setStatusCode(201);
+    }
+
+    public function reagendarAposFalta(ReagendarAposFaltaRequest $request, int $id): JsonResponse
+    {
+        $agendamento = Agendamento::findOrFail($id);
+        $novoAgendamento = $this->reagendarAposFalta->execute($agendamento, $request->dadosAgendamento());
+        $novoAgendamento->load('solicitacao.paciente');
+
+        return (new AgendamentoResource($novoAgendamento))->response()->setStatusCode(201);
     }
 }

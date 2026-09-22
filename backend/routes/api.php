@@ -20,4 +20,5 @@ Route::prefix('api/v1')->group(function () {
     Route::get('/faltas', [SolicitacaoController::class, 'faltas']);
     Route::post('/agendamentos/{id}/falta', [SolicitacaoController::class, 'registrarFalta']);
     Route::post('/agendamentos/{id}/tentativas-contato', [SolicitacaoController::class, 'registrarTentativaContato']);
+    Route::post('/agendamentos/{id}/reagendar-apos-falta', [SolicitacaoController::class, 'reagendarAposFalta']);
 });

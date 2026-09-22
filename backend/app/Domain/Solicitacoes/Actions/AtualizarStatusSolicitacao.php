@@ -71,12 +71,51 @@ class AtualizarStatusSolicitacao
                 $this->encerrarFilaAberta($solicitacao, 'AGENDAMENTO');
             }
 
+            if ($novoStatus === 'CONCLUIDA') {
+                $this->concluirAgendamentoAtivo($solicitacao);
+            }
+
             if ($novoStatus === 'CANCELADA') {
                 $this->encerrarFilaAberta($solicitacao, 'CANCELAMENTO');
+                $this->cancelarAgendamentoAtivo($solicitacao);
             }
 
             return $solicitacao->fresh();
         });
+    }
+
+    /**
+     * Finaliza o agendamento ativo (AGENDADO) ou, se uma falta havia sido
+     * lançada por engano e o atendimento foi realizado, corrige a falta sem
+     * apagar o registro de que ela ocorreu.
+     */
+    private function concluirAgendamentoAtivo(Solicitacao $solicitacao): void
+    {
+        $agendamento = Agendamento::query()
+            ->where('solicitacao_id', $solicitacao->id)
+            ->whereIn('status', ['AGENDADO', 'FALTA'])
+            ->latest('id')
+            ->lockForUpdate()
+            ->first();
+
+        if ($agendamento === null) {
+            return;
+        }
+
+        $agendamento->update([
+            'status' => 'REALIZADO',
+            'resultado_em' => now(),
+            'falta_corrigida_em' => $agendamento->status === 'FALTA' ? now() : $agendamento->falta_corrigida_em,
+        ]);
+    }
+
+    private function cancelarAgendamentoAtivo(Solicitacao $solicitacao): void
+    {
+        Agendamento::query()
+            ->where('solicitacao_id', $solicitacao->id)
+            ->where('status', 'AGENDADO')
+            ->lockForUpdate()
+            ->update(['status' => 'CANCELADO', 'resultado_em' => now()]);
     }
 
     private function encerrarFilaAberta(Solicitacao $solicitacao, string $motivo): void
