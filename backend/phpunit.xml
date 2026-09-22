@@ -18,10 +18,18 @@
         </include>
     </source>
     <php>
-        <env name="APP_ENV" value="testing"/>
-        <env name="CACHE_DRIVER" value="array"/>
-        <env name="QUEUE_CONNECTION" value="sync"/>
-        <env name="SESSION_DRIVER" value="array"/>
-        <env name="DB_CONNECTION" value="pgsql_test"/>
+        <!--
+            force="true" é obrigatório aqui: docker-compose.yml define APP_ENV e
+            DB_CONNECTION como variáveis de ambiente reais do container (backend.environment).
+            Sem force, o <env> do PHPUnit NUNCA sobrescreve uma variável de ambiente já
+            definida pelo processo — então os testes rodavam silenciosamente com
+            APP_ENV=local e DB_CONNECTION=pgsql, e RefreshDatabase limpava o banco de
+            desenvolvimento (vlab) a cada execução, em vez do banco de teste (vlab_test).
+        -->
+        <env name="APP_ENV" value="testing" force="true"/>
+        <env name="CACHE_DRIVER" value="array" force="true"/>
+        <env name="QUEUE_CONNECTION" value="sync" force="true"/>
+        <env name="SESSION_DRIVER" value="array" force="true"/>
+        <env name="DB_CONNECTION" value="pgsql_test" force="true"/>
     </php>
 </phpunit>
