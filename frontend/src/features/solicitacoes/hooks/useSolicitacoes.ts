@@ -35,22 +35,23 @@ export function useSolicitacao(id: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const load = useCallback(async (silencioso = false) => {
+    // Recarga silenciosa mantém a tela montada (ex.: formulário de agendamento em edição).
+    if (!silencioso) { setLoading(true); setError(null); }
     try {
       const result = await solicitacoesApi.buscar(id);
       setData(result);
+      if (silencioso) setError(null);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Erro ao carregar solicitação');
+      if (!silencioso) setError(e instanceof Error ? e.message : 'Erro ao carregar solicitação');
     } finally {
-      setLoading(false);
+      if (!silencioso) setLoading(false);
     }
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
 
-  return { data, loading, error, reload: load };
+  return { data, loading, error, reload: () => load(), refresh: () => load(true) };
 }
 
 interface ResumoOptions {

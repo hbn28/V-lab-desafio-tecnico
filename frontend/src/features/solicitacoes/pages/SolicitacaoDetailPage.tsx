@@ -1,10 +1,25 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useSolicitacao } from '../hooks/useSolicitacoes';
 import { solicitacoesApi } from '../api/client';
 import { StatusBadge, PrioridadeBadge } from '../../../components/Badge';
+import { AgendamentoForm } from '../components/AgendamentoForm';
+import { camposDoAgendamento, formatarAgendamento } from '../config/agendamento';
 import { TRANSICOES_PERMITIDAS, LABEL_STATUS, LABEL_CATEGORIA } from '../types';
-import type { Status } from '../types';
+import type { AgendamentoPayload, Status } from '../types';
+
+const MENSAGEM_CONFLITO = 'A solicitação mudou enquanto você editava. Revise o estado atual e tente novamente.';
+
+function statusHttp(caught: unknown): number | undefined {
+  return caught instanceof Error && 'status' in caught ? (caught as Error & { status?: number }).status : undefined;
+}
+
+function errosDaApi(caught: unknown): Record<string, string[]> {
+  return caught instanceof Error && 'errors' in caught
+    ? ((caught as Error & { errors?: Record<string, string[]> }).errors ?? {})
+    : {};
+}
 
 function formatDate(value: string, includeTime = false) {
   const options: Intl.DateTimeFormatOptions = includeTime
@@ -16,10 +31,14 @@ function formatDate(value: string, includeTime = false) {
 export function SolicitacaoDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { data, loading, error, reload } = useSolicitacao(id ?? '');
+  const { data, loading, error, reload, refresh } = useSolicitacao(id ?? '');
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [updateSuccess, setUpdateSuccess] = useState<string | null>(null);
+  const [editandoAgenda, setEditandoAgenda] = useState(false);
+  const [salvandoAgenda, setSalvandoAgenda] = useState(false);
+  const [errosAgenda, setErrosAgenda] = useState<Record<string, string[]>>({});
+  const abridorAgendaRef = useRef<HTMLButtonElement>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -55,6 +74,53 @@ export function SolicitacaoDetailPage() {
     }
   };
 
+  const abrirAgenda = () => {
+    setUpdateError(null);
+    setUpdateSuccess(null);
+    setErrosAgenda({});
+    setEditandoAgenda(true);
+  };
+
+  const fecharAgenda = () => {
+    setEditandoAgenda(false);
+    setErrosAgenda({});
+    // O botão que abriu o painel continua montado: devolve o foco a uma posição previsível.
+    abridorAgendaRef.current?.focus();
+  };
+
+  const salvarAgenda = async (payload: AgendamentoPayload) => {
+    if (!data) return;
+    const reagendando = data.status === 'AGENDADA';
+    setSalvandoAgenda(true);
+    setErrosAgenda({});
+    setUpdateError(null);
+    setUpdateSuccess(null);
+    try {
+      if (reagendando) {
+        await solicitacoesApi.reagendar(data.id.toString(), payload);
+      } else {
+        await solicitacoesApi.atualizarStatus(data.id.toString(), { status: 'AGENDADA', ...payload });
+      }
+      await refresh();
+      setEditandoAgenda(false);
+      setUpdateSuccess(reagendando ? 'Agendamento atualizado.' : 'Agendamento confirmado.');
+    } catch (caught: unknown) {
+      const http = statusHttp(caught);
+      const erros = errosDaApi(caught);
+      if (http === 409) {
+        // Estado mudou em outra sessão: mantém os valores digitados e mostra o estado atual.
+        setUpdateError(MENSAGEM_CONFLITO);
+        await refresh();
+      } else if (Object.keys(erros).length > 0) {
+        setErrosAgenda(erros);
+      } else {
+        setUpdateError(caught instanceof Error ? caught.message : 'Erro ao salvar o agendamento');
+      }
+    } finally {
+      setSalvandoAgenda(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="state-view state-view--page" role="status" aria-live="polite">
@@ -77,7 +143,7 @@ export function SolicitacaoDetailPage() {
   if (!data) return null;
 
   const transicoes = TRANSICOES_PERMITIDAS[data.status];
-  const details = [
+  const details: Array<[string, ReactNode]> = [
     ['Protocolo', <span className="protocol" key="protocol">{data.protocolo}</span>],
     ['Solicitante', data.nome_solicitante],
     ['CPF', data.cpf_solicitante],
@@ -85,7 +151,11 @@ export function SolicitacaoDetailPage() {
     ['Categoria', LABEL_CATEGORIA[data.categoria]],
     ['Prioridade', <PrioridadeBadge key="priority" prioridade={data.prioridade} />],
     ['Status', <StatusBadge key="status" status={data.status} />],
-  ] as const;
+  ];
+  // Também em estados terminais: preserva o horário histórico.
+  if (data.agendado_para) {
+    details.push(['Agendado para', <time key="agendado" dateTime={data.agendado_para}>{formatarAgendamento(data.agendado_para)}</time>]);
+  }
 
   return (
     <div className="page-stack">
@@ -163,10 +233,54 @@ export function SolicitacaoDetailPage() {
           ) : (
             <div className="status-actions">
               <p>Próximas ações permitidas</p>
-              {transicoes.map(status => (
+
+              {data.status === 'AGENDADA' && data.agendado_para && (
+                <div className="schedule-summary">
+                  <p className="schedule-summary__label">Agendado para</p>
+                  <p className="schedule-summary__value">
+                    <time dateTime={data.agendado_para}>{formatarAgendamento(data.agendado_para)}</time>
+                  </p>
+                </div>
+              )}
+
+              {(data.status === 'EM_ANALISE' || data.status === 'AGENDADA') && (
+                <button
+                  ref={abridorAgendaRef}
+                  type="button"
+                  className="button button--status"
+                  disabled={updating}
+                  aria-expanded={editandoAgenda}
+                  aria-controls="agendamento-painel"
+                  onClick={abrirAgenda}
+                >
+                  <span>{data.status === 'AGENDADA' ? 'Alterar agendamento' : 'Agendar atendimento'}</span>
+                  <span aria-hidden="true">→</span>
+                </button>
+              )}
+
+              {editandoAgenda && (
+                <div id="agendamento-painel">
+                  <AgendamentoForm
+                    key="agendamento-form"
+                    mode={data.status === 'AGENDADA' ? 'reagendar' : 'agendar'}
+                    initialValue={data.status === 'AGENDADA' && data.agendado_para ? camposDoAgendamento(data.agendado_para) : undefined}
+                    submitting={salvandoAgenda}
+                    serverErrors={errosAgenda}
+                    context={
+                      <p>
+                        <strong>{data.protocolo}</strong> · {LABEL_CATEGORIA[data.categoria]} · <PrioridadeBadge prioridade={data.prioridade} />
+                      </p>
+                    }
+                    onSubmit={salvarAgenda}
+                    onCancel={fecharAgenda}
+                  />
+                </div>
+              )}
+
+              {transicoes.filter(status => status !== 'AGENDADA').map(status => (
                 <button
                   key={status}
-                  disabled={updating}
+                  disabled={updating || salvandoAgenda}
                   onClick={() => handleStatusChange(status)}
                   className={`button button--status${status === 'CANCELADA' ? ' button--danger-outline' : ''}`}
                   type="button"
