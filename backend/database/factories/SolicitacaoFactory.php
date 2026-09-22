@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Paciente;
 use App\Models\Solicitacao;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -24,6 +25,7 @@ class SolicitacaoFactory extends Factory
         );
 
         return [
+            'paciente_id' => Paciente::factory(),
             'protocolo' => 'SOL-'.date('Y').'-'.str_pad($faker->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
             'nome_solicitante' => $faker->name(),
             'cpf_solicitante' => $cpf,

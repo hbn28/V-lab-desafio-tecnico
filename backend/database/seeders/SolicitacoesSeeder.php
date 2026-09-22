@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Paciente;
 use App\Models\Solicitacao;
 use Illuminate\Database\Seeder;
 
@@ -30,6 +31,17 @@ class SolicitacoesSeeder extends Seeder
         foreach ($fixtures as $dados) {
             // chk_agendada_com_horario: AGENDADA exige horário; os demais estados iniciais não podem tê-lo.
             $dados['agendado_para'] = $agenda[$dados['protocolo']] ?? null;
+
+            // Reaproveita o paciente pelo CPF normalizado, como faria CriarSolicitacao.
+            $cpfNormalizado = preg_replace('/\D/', '', $dados['cpf_solicitante']);
+            $paciente = Paciente::firstOrCreate(
+                ['cpf' => $cpfNormalizado],
+                [
+                    'nome' => $dados['nome_solicitante'],
+                    'data_nascimento' => $dados['data_nascimento'],
+                ]
+            );
+            $dados['paciente_id'] = $paciente->id;
 
             Solicitacao::firstOrCreate(
                 ['protocolo' => $dados['protocolo']],
