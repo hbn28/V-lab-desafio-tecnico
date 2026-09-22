@@ -1399,11 +1399,11 @@ git commit -m "feat(frontend): adiciona agenda por turno e faltas"
 - Consumes: all implemented backend and frontend contracts.
 - Produces: evaluator-ready documentation and final evidence.
 
-- [ ] **Step 1: Update `docs/spec.md`**
+- [x] **Step 1: Update `docs/spec.md`**
 
 Add sections for `pacientes`, `entradas_fila`, `agendamentos`, `tentativas_contato`, `/fila`, `/faltas`, `/agendamentos/{id}/falta`, `/tentativas-contato`, `/reagendar-apos-falta`, hour-or-turn payload, lack of `FALTA` in `solicitacoes.status`, and `agendado_para` as compatibility field.
 
-- [ ] **Step 2: Update OpenAPI**
+- [x] **Step 2: Update OpenAPI**
 
 Document schemas:
 
@@ -1421,11 +1421,11 @@ Document routes and examples for 200/201, 409 and 422. Include that contact payl
 { "resultado": "SEM_RESPOSTA" }
 ```
 
-- [ ] **Step 3: Update architecture, map and README**
+- [x] **Step 3: Update architecture, map and README**
 
 `docs/architecture.md` must explain why falta is appointment status, not request status. `docs/codebase-map.md` must point to new Actions, Resources, frontend components and tests. `README.md` must include examples for creating with optional phone, entering queue, scheduling by hour, scheduling by shift, marking absence, registering contact and rebooking.
 
-- [ ] **Step 4: Run complete backend verification**
+- [~] **Step 4: Run complete backend verification** (parcial)
 
 Run:
 
@@ -1436,7 +1436,13 @@ docker compose exec backend ./vendor/bin/pest
 
 Expected: all pass. Record exact test counts in `HANDOFF.md`.
 
-- [ ] **Step 5: Run complete frontend verification**
+Status: rodado pelo usuário na própria máquina para o conjunto original da Task 1–7 (confirmado
+"todos os testes passaram", sem contagem exata anotada). Os 2 testes novos de `AgendamentoTurnoTest.php`
+adicionados durante a revisão de turno (2026-09-22) **ainda não foram executados** — este ambiente
+de sandbox não tem PHP/Docker. Pendente: rodar `php artisan test` (ou os comandos acima) na máquina
+com Docker e registrar o resultado em `HANDOFF.md`.
+
+- [x] **Step 5: Run complete frontend verification**
 
 Run:
 
@@ -1451,15 +1457,15 @@ Set-Location ..
 
 Expected: all pass. Record exact counts and warnings in `HANDOFF.md`.
 
-- [ ] **Step 6: Run integrated API smoke**
+- [ ] **Step 6: Run integrated API smoke** — pendente (precisa da stack Docker rodando; não disponível neste sandbox)
 
 Use fictitious data only. Exercise create, `EM_ANALISE`, schedule by hour, list `/fila`, list agenda day, mark absence after an eligible past slot, register contact, rebook after absence, and conclude. Confirm request status never becomes `FALTA`.
 
-- [ ] **Step 7: Run visual and accessibility check**
+- [ ] **Step 7: Run visual and accessibility check** — pendente (precisa do frontend rodando em navegador real; não disponível neste sandbox)
 
 In browser against the running Docker frontend, check 320 px, 375 px, 768 px, 1024 px and desktop. Verify no horizontal overflow, tabs wrap, Faltas cards have only the allowed fields, dialog focus stays trapped, radios have labels, and actions are at least 44 px high.
 
-- [ ] **Step 8: Update Graphify**
+- [ ] **Step 8: Update Graphify** — pendente (`graphify` não está instalado neste sandbox; `graphify-out/` existente é de 2026-09-18/21, anterior aos commits desta rodada)
 
 Run:
 
@@ -1469,7 +1475,7 @@ Run:
 
 Expected: update completes. Do not commit `graphify-out` if it is ignored or derived.
 
-- [ ] **Step 9: Update task tracking**
+- [x] **Step 9: Update task tracking**
 
 Add a completed line to `TASKS.md` only after verification passes:
 
@@ -1486,7 +1492,7 @@ Rewrite `HANDOFF.md` with:
 - next task;
 - blockers, if any.
 
-- [ ] **Step 10: Commit documentation**
+- [x] **Step 10: Commit documentation** (em mais de um commit — ver nota abaixo)
 
 Run:
 
@@ -1495,21 +1501,41 @@ git add docs/spec.md docs/openapi.yaml docs/architecture.md docs/codebase-map.md
 git commit -m "docs: consolida pacientes fila agenda e faltas"
 ```
 
+Feito como `b6ae131` (`docs: consolida pacientes fila agenda e faltas`, commit original da Task 8) mais
+dois commits de acompanhamento que corrigiram/complementaram a mesma documentação depois de achados
+posteriores: `743c65b` (correção da descrição de `turno`, encontrada na revisão profunda de agenda por
+turno) e `c34814a` (nota sobre as mensagens "esperando"/"agendado para"/"em atraso" do painel).
+`TASKS.md`/`HANDOFF.md` continuam fora do git (gitignored) e foram atualizados localmente a cada rodada.
+
 ## Final Acceptance Checklist
 
-- [ ] `solicitacoes.status` never stores `FALTA`.
-- [ ] `AtualizarStatusSolicitacao` remains the only Action changing request status.
-- [ ] New request with existing CPF reuses patient.
-- [ ] Existing CPF with different birth date returns 422.
-- [ ] `RECEBIDA -> EM_ANALISE` opens queue entry.
-- [ ] `EM_ANALISE -> AGENDADA` closes queue entry and creates active appointment.
-- [ ] Hour mode derives `MANHA`, `TARDE`, or `NOITE`.
-- [ ] Shift mode stores no artificial time and leaves `agendado_para = null`.
-- [ ] `GET /fila` is server ordered by priority and oldest entry.
-- [ ] `GET /faltas` exposes masked phone, last contact and next action data.
-- [ ] Contact form has only four closed results and no notes.
-- [ ] Absence before exact time or before shift end returns 422.
-- [ ] Rebooking after absence creates a new active appointment and preserves the old `FALTA`.
-- [ ] Concluding after mistaken absence preserves `falta_registrada_em` and fills `falta_corrigida_em`.
-- [ ] Frontend URL supports `fila`, `agenda`, `faltas`, `historico` with back/forward.
-- [ ] Pest, Pint, Vitest, TypeScript, ESLint, build, smoke test, visual check and Graphify have evidence in `HANDOFF.md`.
+Itens 1–15: implementados e cobertos por teste de feature dedicado (nomeado abaixo); evidência de
+execução é o Pest/Pint que o usuário confirmou ter passado por completo na própria máquina (sem
+contagem exata anotada) — não foram reexecutados neste sandbox (sem PHP/Docker aqui), exceto onde
+indicado.
+
+- [x] `solicitacoes.status` never stores `FALTA`. — por design: só `AtualizarStatusSolicitacao` escreve `solicitacoes.status`, e `FALTA` só existe em `agendamentos.status` (`RegistrarFaltaAgendamento`).
+- [x] `AtualizarStatusSolicitacao` remains the only Action changing request status. — confirmado por revisão de código; `ReagendarSolicitacao`, `ReagendarAposFalta`, `RegistrarFaltaAgendamento` e `RegistrarTentativaContato` só tocam `Agendamento`/`TentativaContato`.
+- [x] New request with existing CPF reuses patient. — `PacienteSolicitacaoTest`.
+- [x] Existing CPF with different birth date returns 422. — `PacienteSolicitacaoTest`.
+- [x] `RECEBIDA -> EM_ANALISE` opens queue entry. — `FilaOperacionalTest`.
+- [x] `EM_ANALISE -> AGENDADA` closes queue entry and creates active appointment. — `FilaOperacionalTest`, `AgendamentoTurnoTest`.
+- [x] Hour mode derives `MANHA`, `TARDE`, or `NOITE`. — `AgendamentoTurnoTest` (mais o teste novo `'AGENDADA por horario deriva e persiste o turno automaticamente'`, adicionado na revisão de 2026-09-22 e **ainda não executado** neste sandbox).
+- [x] Shift mode stores no artificial time and leaves `agendado_para = null`. — `AgendamentoTurnoTest`.
+- [x] `GET /fila` is server ordered by priority and oldest entry. — `FilaOperacionalTest`.
+- [x] `GET /faltas` exposes masked phone, last contact and next action data. — `FaltasTest`.
+- [x] Contact form has only four closed results and no notes. — `FaltasTest` (backend); `ContatoFaltaDialog.tsx` (frontend, sem campo de texto livre).
+- [x] Absence before exact time or before shift end returns 422. — `FaltasTest`.
+- [x] Rebooking after absence creates a new active appointment and preserves the old `FALTA`. — `ReagendarAposFaltaTest`.
+- [x] Concluding after mistaken absence preserves `falta_registrada_em` and fills `falta_corrigida_em`. — `ReagendarAposFaltaTest`.
+- [x] Frontend URL supports `fila`, `agenda`, `faltas`, `historico` with back/forward. — `agenda.test.tsx`, `solicitacoes.test.tsx`.
+- [~] Pest, Pint, Vitest, TypeScript, ESLint, build, smoke test, visual check and Graphify have evidence in `HANDOFF.md`. — **parcial**:
+  - Vitest, `tsc --noEmit`, ESLint e `vite build`: ✅ executados neste sandbox repetidas vezes, evidência em `HANDOFF.md`.
+  - Pest/Pint: ✅ confirmado pelo usuário para o conjunto original (Task 1–7), sem contagem exata; ❌ os 2 testes novos de `AgendamentoTurnoTest.php` da revisão de turno ainda não rodaram.
+  - Smoke test integrado de API: ❌ não executado nesta rodada (precisa da stack Docker; feito anteriormente para uma versão anterior do agendamento, não para pacientes/fila/faltas completos).
+  - Verificação visual/acessibilidade (320px–desktop): ❌ não feita em navegador real.
+  - Graphify: ❌ não roda neste sandbox; `graphify-out/` existente é de 2026-09-18/21, anterior aos commits desta rodada (`36fdddb` em diante).
+
+  Pendências para fechar este item, todas na máquina do usuário: rodar Pest completo (com foco nos 2
+  testes novos), o smoke test de API, a checagem visual e `graphify update .`; registrar os resultados
+  em `HANDOFF.md`.
