@@ -13,3 +13,7 @@ yarn-error.log
 /.fleet
 /.idea
 /.vscode
+
+# Seeders de dados fictícios só para teste local — nunca versionar.
+/database/seeders/DevMockSeeder.php
+/database/seeders/Dev*Seeder.php
