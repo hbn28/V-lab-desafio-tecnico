@@ -65,8 +65,20 @@ test('chamadores obsoletos são serializados e o último valor válido vence', f
     $primeira = Solicitacao::findOrFail($solicitacao->id);
     $segunda = Solicitacao::findOrFail($solicitacao->id);
     $action = app(ReagendarSolicitacao::class);
-    $action->execute($primeira, CarbonImmutable::parse('2026-09-28T12:00:00Z'));
-    $action->execute($segunda, CarbonImmutable::parse('2026-09-29T13:00:00Z'));
+    $action->execute($primeira, [
+        'modalidade' => 'HORARIO',
+        'data_agendada' => '2026-09-28',
+        'hora_agendada' => '09:00',
+        'turno' => 'MANHA',
+        'agendado_para' => CarbonImmutable::parse('2026-09-28T12:00:00Z'),
+    ]);
+    $action->execute($segunda, [
+        'modalidade' => 'HORARIO',
+        'data_agendada' => '2026-09-29',
+        'hora_agendada' => '10:00',
+        'turno' => 'MANHA',
+        'agendado_para' => CarbonImmutable::parse('2026-09-29T13:00:00Z'),
+    ]);
     expect($solicitacao->fresh()->agendado_para->toIso8601String())->toBe('2026-09-29T13:00:00+00:00');
 });
 
