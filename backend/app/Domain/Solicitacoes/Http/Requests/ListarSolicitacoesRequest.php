@@ -14,12 +14,12 @@ class ListarSolicitacoesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status'    => ['nullable', 'string', 'in:RECEBIDA,EM_ANALISE,AGENDADA,CONCLUIDA,CANCELADA'],
+            'status' => ['nullable', 'string', 'in:RECEBIDA,EM_ANALISE,AGENDADA,CONCLUIDA,CANCELADA'],
             'status_grupo' => ['nullable', 'string', 'in:aberto,encerrado'],
             'categoria' => ['nullable', 'string', 'in:CONSULTA,EXAME,VACINACAO,OUTRO'],
             'prioridade' => ['nullable', 'string', 'in:BAIXA,MEDIA,ALTA,URGENTE'],
-            'page'      => ['nullable', 'integer', 'min:1'],
-            'per_page'  => ['nullable', 'integer', 'min:1', 'max:100'],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
             'data_agendada' => ['nullable', 'date_format:Y-m-d'],
         ];
     }

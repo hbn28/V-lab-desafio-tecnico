@@ -4,20 +4,20 @@ use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\StreamHandler;
 
 return [
-    'default'  => env('LOG_CHANNEL', 'stack'),
+    'default' => env('LOG_CHANNEL', 'stack'),
     'channels' => [
         'stack' => [
-            'driver'   => 'stack',
+            'driver' => 'stack',
             'channels' => ['daily'],
         ],
         'daily' => [
             'driver' => 'monolog',
             'handler' => StreamHandler::class,
-            'with'    => [
+            'with' => [
                 'stream' => storage_path('logs/laravel.log'),
             ],
             'formatter' => JsonFormatter::class,
-            'level'     => env('LOG_LEVEL', 'debug'),
+            'level' => env('LOG_LEVEL', 'debug'),
         ],
     ],
 ];

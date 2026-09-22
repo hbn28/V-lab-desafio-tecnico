@@ -38,12 +38,12 @@ class AtualizarStatusRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'data_agendada.required'    => 'Informe a data do atendimento.',
+            'data_agendada.required' => 'Informe a data do atendimento.',
             'data_agendada.date_format' => 'A data do atendimento deve estar no formato AAAA-MM-DD.',
-            'data_agendada.prohibited'  => 'A data do atendimento só é aceita ao agendar.',
-            'hora_agendada.required'    => 'Informe o horário do atendimento.',
+            'data_agendada.prohibited' => 'A data do atendimento só é aceita ao agendar.',
+            'hora_agendada.required' => 'Informe o horário do atendimento.',
             'hora_agendada.date_format' => 'O horário do atendimento deve estar no formato HH:mm.',
-            'hora_agendada.prohibited'  => 'O horário do atendimento só é aceito ao agendar.',
+            'hora_agendada.prohibited' => 'O horário do atendimento só é aceito ao agendar.',
         ];
     }
 

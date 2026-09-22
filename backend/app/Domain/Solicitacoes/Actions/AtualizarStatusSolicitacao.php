@@ -11,11 +11,11 @@ class AtualizarStatusSolicitacao
 {
     /** @var array<string, string[]> */
     private const TRANSICOES = [
-        'RECEBIDA'   => ['EM_ANALISE', 'CANCELADA'],
+        'RECEBIDA' => ['EM_ANALISE', 'CANCELADA'],
         'EM_ANALISE' => ['AGENDADA', 'CANCELADA'],
-        'AGENDADA'   => ['CONCLUIDA', 'CANCELADA'],
-        'CONCLUIDA'  => [],
-        'CANCELADA'  => [],
+        'AGENDADA' => ['CONCLUIDA', 'CANCELADA'],
+        'CONCLUIDA' => [],
+        'CANCELADA' => [],
     ];
 
     public function execute(
@@ -29,7 +29,7 @@ class AtualizarStatusSolicitacao
 
             $permitidos = self::TRANSICOES[$solicitacao->status] ?? [];
 
-            if (!in_array($novoStatus, $permitidos, true)) {
+            if (! in_array($novoStatus, $permitidos, true)) {
                 $this->conflito(
                     "Transição de '{$solicitacao->status}' para '{$novoStatus}' não é permitida."
                 );

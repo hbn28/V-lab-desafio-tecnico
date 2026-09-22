@@ -1,9 +1,10 @@
 <?php
 
 use App\Models\Solicitacao;
+use Illuminate\Support\Facades\DB;
 
 beforeEach(function () {
-    \Illuminate\Support\Facades\DB::statement('
+    DB::statement('
         CREATE TABLE IF NOT EXISTS protocolo_counters (
             ano INT PRIMARY KEY,
             ultimo_numero INT NOT NULL DEFAULT 0 CHECK (ultimo_numero >= 0)
@@ -15,11 +16,11 @@ function payloadEdicaoValido(): array
 {
     return [
         'nome_solicitante' => 'Maria Silva Atualizada',
-        'cpf_solicitante'  => '123.456.789-00',
-        'data_nascimento'  => '1985-06-15',
-        'categoria'        => 'EXAME',
-        'prioridade'       => 'ALTA',
-        'descricao'        => 'Descrição corrigida após erro de cadastro inicial.',
+        'cpf_solicitante' => '123.456.789-00',
+        'data_nascimento' => '1985-06-15',
+        'categoria' => 'EXAME',
+        'prioridade' => 'ALTA',
+        'descricao' => 'Descrição corrigida após erro de cadastro inicial.',
     ];
 }
 

@@ -26,8 +26,8 @@ class Solicitacao extends Model
 
     protected $casts = [
         'data_nascimento' => 'date',
-        'agendado_para'   => 'immutable_datetime',
-        'created_at'      => 'datetime',
-        'updated_at'      => 'datetime',
+        'agendado_para' => 'immutable_datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 }

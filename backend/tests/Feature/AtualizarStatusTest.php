@@ -13,15 +13,16 @@ function criarSolicitacaoViaApi($context, array $extra = []): array
 {
     $payload = array_merge([
         'nome_solicitante' => 'João Teste',
-        'cpf_solicitante'  => '987.654.321-00',
-        'data_nascimento'  => '1990-03-20',
-        'categoria'        => 'EXAME',
-        'prioridade'       => 'BAIXA',
-        'descricao'        => 'Exame de sangue de rotina para check-up anual.',
+        'cpf_solicitante' => '987.654.321-00',
+        'data_nascimento' => '1990-03-20',
+        'categoria' => 'EXAME',
+        'prioridade' => 'BAIXA',
+        'descricao' => 'Exame de sangue de rotina para check-up anual.',
     ], $extra);
 
     $response = $context->postJson('/api/v1/solicitacoes', $payload);
     $response->assertStatus(201);
+
     return $response->json('data');
 }
 
@@ -29,7 +30,7 @@ function agendarViaApi($context, int $id): void
 {
     $context->patchJson("/api/v1/solicitacoes/{$id}/status", ['status' => 'EM_ANALISE'])->assertStatus(200);
     $context->patchJson("/api/v1/solicitacoes/{$id}/status", [
-        'status'        => 'AGENDADA',
+        'status' => 'AGENDADA',
         'data_agendada' => '2026-09-25',
         'hora_agendada' => '14:30',
     ])->assertStatus(200);

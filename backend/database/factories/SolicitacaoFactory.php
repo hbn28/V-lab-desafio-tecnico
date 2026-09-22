@@ -11,7 +11,7 @@ class SolicitacaoFactory extends Factory
 
     public function definition(): array
     {
-        $faker      = \Faker\Factory::create('pt_BR');
+        $faker = \Faker\Factory::create('pt_BR');
         $prioridade = $faker->randomElement(['BAIXA', 'MEDIA', 'ALTA', 'URGENTE']);
 
         // CPF fictício no formato 000.000.000-00
@@ -24,15 +24,15 @@ class SolicitacaoFactory extends Factory
         );
 
         return [
-            'protocolo'               => 'SOL-' . date('Y') . '-' . str_pad($faker->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
-            'nome_solicitante'        => $faker->name(),
-            'cpf_solicitante'         => $cpf,
-            'data_nascimento'         => $faker->dateTimeBetween('-80 years', '-18 years')->format('Y-m-d'),
-            'categoria'               => $faker->randomElement(['CONSULTA', 'EXAME', 'VACINACAO', 'OUTRO']),
-            'prioridade'              => $prioridade,
-            'status'                  => 'RECEBIDA',
-            'agendado_para'           => null,
-            'descricao'               => $faker->sentence(12),
+            'protocolo' => 'SOL-'.date('Y').'-'.str_pad($faker->unique()->numberBetween(1, 9999), 4, '0', STR_PAD_LEFT),
+            'nome_solicitante' => $faker->name(),
+            'cpf_solicitante' => $cpf,
+            'data_nascimento' => $faker->dateTimeBetween('-80 years', '-18 years')->format('Y-m-d'),
+            'categoria' => $faker->randomElement(['CONSULTA', 'EXAME', 'VACINACAO', 'OUTRO']),
+            'prioridade' => $prioridade,
+            'status' => 'RECEBIDA',
+            'agendado_para' => null,
+            'descricao' => $faker->sentence(12),
             'justificativa_prioridade' => $prioridade === 'URGENTE'
                 ? $faker->sentence(8)
                 : null,

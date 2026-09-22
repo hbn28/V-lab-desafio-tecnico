@@ -6,16 +6,16 @@ use Illuminate\Support\Carbon;
 function criarSolicitacaoResumo(string $protocolo, string $prioridade, string $status, string $categoria = 'CONSULTA'): Solicitacao
 {
     return Solicitacao::create([
-        'protocolo'        => $protocolo,
+        'protocolo' => $protocolo,
         'nome_solicitante' => 'Solicitante '.$protocolo,
-        'cpf_solicitante'  => '123.456.789-00',
-        'data_nascimento'  => '1990-01-01',
-        'categoria'        => $categoria,
-        'prioridade'       => $prioridade,
-        'status'           => $status,
+        'cpf_solicitante' => '123.456.789-00',
+        'data_nascimento' => '1990-01-01',
+        'categoria' => $categoria,
+        'prioridade' => $prioridade,
+        'status' => $status,
         // chk_agendada_com_horario exige horário quando AGENDADA.
-        'agendado_para'    => $status === 'AGENDADA' ? '2026-09-25T17:30:00Z' : null,
-        'descricao'        => 'Solicitação fictícia para o resumo do painel.',
+        'agendado_para' => $status === 'AGENDADA' ? '2026-09-25T17:30:00Z' : null,
+        'descricao' => 'Solicitação fictícia para o resumo do painel.',
         // chk_justificativa_urgente exige justificativa não vazia quando URGENTE.
         'justificativa_prioridade' => $prioridade === 'URGENTE'
             ? 'Justificativa fictícia para teste do resumo.'
