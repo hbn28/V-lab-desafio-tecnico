@@ -334,6 +334,11 @@ Não criar DTO, Repository, CQRS, Event Sourcing ou histórico de status sem req
 
 O destaque da fila chama-se "Próxima solicitação por prioridade". Na visão de agenda, o dia selecionado é fixado na montagem e não muda sozinho na virada da meia-noite; trocar o dia volta à página 1.
 
+Nesse cartão e no drill-down de prioridade, o texto evita duplicar a mesma informação e evita sugerir espera/atraso quando não é o caso:
+
+- Drill-down por prioridade (`abrirPorPrioridade`): uma única frase grande no cabeçalho (ex.: "4 solicitações urgentes em aberto"); não há mais uma frase pequena repetindo a mesma contagem em cima do título.
+- "Próxima solicitação por prioridade": mostra "esperando há N dias" (a partir de `data_criacao`) só enquanto a solicitação ainda não tem agendamento ativo. Com agendamento ativo, mostra a data/turno real — "agendado para 23/09/2026 08:00" (modalidade `HORARIO`, a partir de `agendado_para`) ou "agendado para 25/09/2026 · turno da tarde" (modalidade `TURNO`, a partir de `data_agendada`/`turno`) — e só acrescenta "em atraso" quando esse horário (ou o dia do turno) já passou de fato.
+
 Na visão "Fila atual", filtrar por `status=AGENDADA` reaproveita `data_agendada` como filtro de dia opcional (ADR 003) e mostra o horário marcado na coluna de data de qualquer linha que já tenha `agendado_para`, dentro ou fora da aba Agenda.
 
 A tela inicial apresenta resumo por status ou prioridade. Toda consulta trata carregando, sucesso, vazio e erro. O cliente HTTP é tipado e centraliza o envelope de erro.
