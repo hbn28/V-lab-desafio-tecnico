@@ -804,6 +804,14 @@ components:
         justificativa_prioridade:
           type: string
           description: Obrigatório quando prioridade=URGENTE
+        celular:
+          type: string
+          nullable: true
+          pattern: '^\(?\d{2}\)?\s?9?\d{4}-?\d{4}$'
+          example: '(81) 99999-0000'
+          description: >-
+            Opcional. Vai para pacientes.celular; a API nunca devolve o número
+            completo de volta (ver PacienteResumo.celular_mascarado).
 
     HealthOk:
       type: object
