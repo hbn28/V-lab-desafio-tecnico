@@ -155,7 +155,7 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 ```
 
-Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca reutilize a de desenvolvimento.
+Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca reutilize a de desenvolvimento. Para implantar os serviços no Railway, veja [docs/railway-deployment.md](docs/railway-deployment.md).
 
 ## Funcionalidades implementadas
 
