@@ -27,7 +27,9 @@ frontend/src/features/solicitacoes/pages
 - Cliente e envelope de erro: `frontend/src/features/solicitacoes/api/client.ts`.
 - Tokens e responsividade: `frontend/src/index.css` e `docs/design-system.md`.
 - Testes de comportamento: `backend/tests/Feature/` e `frontend/src/test/solicitacoes.test.tsx`.
-- Tela de fila atual, agenda, histórico e exploração por categoria: `frontend/src/features/solicitacoes/pages/SolicitacoesPage.tsx` (alterna `VisaoPrincipal` entre `fila`/`agenda`/`historico`, refletida na URL `?visao=&data=`, e `ModoFila` entre `prioridade`/`categoria`).
+- Tela de fila atual, agenda e exploração por categoria: `frontend/src/features/solicitacoes/pages/SolicitacoesPage.tsx` (alterna `VisaoPrincipal` entre `fila`/`agenda`/`faltas`, refletida na URL `?visao=&data=`, e `ModoFila` entre `prioridade`/`categoria`; trocar de visão reseta os filtros locais e a página).
+- Histórico encerrado (CONCLUIDA/CANCELADA) é página própria, não visão de `SolicitacoesPage`: `frontend/src/features/solicitacoes/pages/HistoricoSolicitacoesPage.tsx`, rota `/solicitacoes/historico`, link na navegação (`components/Layout.tsx`). Separada para não diluir o destaque operacional da fila (ADR: quanto mais separado o que está em aberto do que já foi encerrado, mais fácil de visualizar).
+- Componentes compartilhados entre `SolicitacoesPage` e `HistoricoSolicitacoesPage`: `components/ViewSwitcher.tsx` (navegação fila/agenda/histórico/faltas) e `components/SolicitacoesTable.tsx` (tabela + paginação + estados de carregando/erro/vazio).
 
 ## Pacientes, fila contínua, agenda por turno e faltas
 

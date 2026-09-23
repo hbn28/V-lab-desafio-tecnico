@@ -326,13 +326,17 @@ Não criar DTO, Repository, CQRS, Event Sourcing ou histórico de status sem req
 ## Frontend
 
 ```text
-/                         resumo + listagem paginada + filtros (visões: fila, agenda, histórico)
+/                         resumo + listagem paginada + filtros (visões: fila, agenda, faltas)
 /?visao=agenda&data=YYYY-MM-DD   agenda do dia (data inválida ou ausente vira o dia atual no fuso operacional)
+/?visao=faltas             pacientes com falta e histórico de contato
+/solicitacoes/historico    histórico encerrado (CONCLUIDA/CANCELADA) — página própria
 /solicitacoes/nova        criação
 /solicitacoes/:id         detalhe + atualização de status + agendar/reagendar
 ```
 
-O destaque da fila chama-se "Próxima solicitação por prioridade". Na visão de agenda, o dia selecionado é fixado na montagem e não muda sozinho na virada da meia-noite; trocar o dia volta à página 1.
+O Histórico encerrado deixou de ser uma visão da página principal (`/?visao=historico`) e passou a ser uma página própria em `/solicitacoes/historico`, com link dedicado na navegação principal. O motivo: misturar itens já concluídos/cancelados na mesma página que "Prioridades em aberto" e "Próxima solicitação por prioridade" diluía o foco operacional — quanto mais separado o que está em aberto do que já foi encerrado, mais fácil de visualizar. A página principal (`/`) agora só cobre fila em aberto, agenda e faltas; `HistoricoSolicitacoesPage` tem filtros próprios de Status (restritos a CONCLUIDA/CANCELADA), Categoria e Prioridade, e não repete o destaque operacional da fila. A navegação entre visões (`ViewSwitcher`) e a tabela paginada com estados de carregando/erro/vazio (`SolicitacoesTable`) são componentes compartilhados entre as duas páginas.
+
+O destaque da fila chama-se "Próxima solicitação por prioridade". Na visão de agenda, o dia selecionado é fixado na montagem e não muda sozinho na virada da meia-noite; trocar o dia volta à página 1. Trocar de visão (fila/agenda/faltas) na página principal reseta os filtros locais (status, data agendada) e volta para a página 1 da listagem.
 
 Nesse cartão e no drill-down de prioridade, o texto evita duplicar a mesma informação e evita sugerir espera/atraso quando não é o caso:
 
