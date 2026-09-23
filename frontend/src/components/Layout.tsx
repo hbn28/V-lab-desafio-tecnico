@@ -22,6 +22,12 @@ export function Layout() {
             Painel
           </NavLink>
           <NavLink
+            to="/solicitacoes/historico"
+            className={({ isActive }) => `main-nav__link${isActive ? ' is-active' : ''}`}
+          >
+            Histórico
+          </NavLink>
+          <NavLink
             to="/solicitacoes/nova"
             className={({ isActive }) => `main-nav__link${isActive ? ' is-active' : ''}`}
           >
