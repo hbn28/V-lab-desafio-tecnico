@@ -2,9 +2,11 @@
 
 namespace App\Domain\Solicitacoes\Actions;
 
+use App\Models\Paciente;
 use App\Models\Solicitacao;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AtualizarSolicitacao
 {
@@ -27,7 +29,10 @@ class AtualizarSolicitacao
                 );
             }
 
+            $paciente = $this->localizarOuCriarPaciente($data);
+
             $solicitacao->update([
+                'paciente_id' => $paciente->id,
                 'nome_solicitante' => $data['nome_solicitante'],
                 'cpf_solicitante' => $data['cpf_solicitante'],
                 'data_nascimento' => $data['data_nascimento'],
@@ -37,8 +42,27 @@ class AtualizarSolicitacao
                 'justificativa_prioridade' => $data['justificativa_prioridade'] ?? null,
             ]);
 
-            return $solicitacao->fresh();
+            return $solicitacao->fresh()->load('paciente');
         });
+    }
+
+    /** Mantém o vínculo por CPF normalizado sem alterar o cadastro histórico do paciente. */
+    private function localizarOuCriarPaciente(array $data): Paciente
+    {
+        $cpf = preg_replace('/\\D+/', '', $data['cpf_solicitante']);
+        $paciente = Paciente::query()->where('cpf', $cpf)->lockForUpdate()->first();
+
+        if ($paciente !== null && $paciente->data_nascimento->toDateString() !== $data['data_nascimento']) {
+            throw ValidationException::withMessages([
+                'cpf_solicitante' => ['CPF já cadastrado com outra data de nascimento.'],
+            ]);
+        }
+
+        return $paciente ?? Paciente::query()->create([
+            'nome' => $data['nome_solicitante'],
+            'cpf' => $cpf,
+            'data_nascimento' => $data['data_nascimento'],
+        ]);
     }
 
     private function conflito(string $mensagem): never

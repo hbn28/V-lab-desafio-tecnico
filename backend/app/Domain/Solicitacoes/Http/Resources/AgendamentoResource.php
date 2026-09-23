@@ -11,7 +11,7 @@ class AgendamentoResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'data_agendada' => $this->data_agendada,
+            'data_agendada' => $this->data_agendada?->toDateString(),
             'modalidade' => $this->modalidade,
             'hora_agendada' => $this->hora_agendada !== null ? substr($this->hora_agendada, 0, 5) : null,
             'turno' => $this->turno,

@@ -2,6 +2,7 @@
 
 namespace Tests;
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
@@ -19,10 +20,17 @@ abstract class TestCase extends BaseTestCase
      */
     protected function setUp(): void
     {
+        foreach (['APP_ENV' => 'testing', 'CACHE_STORE' => 'array', 'SESSION_DRIVER' => 'array'] as $name => $value) {
+            putenv("{$name}={$value}");
+            $_ENV[$name] = $value;
+            $_SERVER[$name] = $value;
+        }
         putenv('DB_CONNECTION=pgsql_test');
         $_ENV['DB_CONNECTION'] = 'pgsql_test';
         $_SERVER['DB_CONNECTION'] = 'pgsql_test';
 
         parent::setUp();
+
+        $this->actingAs(User::factory()->create(['role' => 'ADMINISTRADOR']));
     }
 }

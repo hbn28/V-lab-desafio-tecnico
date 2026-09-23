@@ -1,19 +1,22 @@
 import { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { useSolicitacoes, useResumoSolicitacoes, useProximaSolicitacao, useFaltas } from '../hooks/useSolicitacoes';
+import { Link, useLocation, useSearchParams } from 'react-router-dom';
+import { useSolicitacoes, useResumoSolicitacoes, useFaltas } from '../hooks/useSolicitacoes';
 import { solicitacoesApi } from '../api/client';
 import { StatusBadge, PrioridadeBadge } from '../../../components/Badge';
 import { DrilldownModal } from '../components/DrilldownModal';
 import { FaltaCard } from '../components/FaltaCard';
 import { ContatoFaltaDialog } from '../components/ContatoFaltaDialog';
+import { DialogOverlay } from '../components/DialogOverlay';
 import { AgendamentoForm } from '../components/AgendamentoForm';
 import { dataHojeNoFuso, dataIsoValida, formatarAgendamento } from '../config/agendamento';
-import type { Status, Categoria, Prioridade, Solicitacao } from '../types';
+import { SolicitacoesToolbar } from '../components/SolicitacoesToolbar';
+import { useSolicitacoesQuery } from '../hooks/useSolicitacoesQuery';
+import { deslocarDataIso, useAgendaSemanal } from '../hooks/useAgendaSemanal';
+import type { Status, Categoria, Prioridade } from '../types';
 import type { AgendamentoPayload, FaltaListItem, FiltrosSolicitacoes, ResultadoContato } from '../types';
-import { LABEL_STATUS, LABEL_CATEGORIA, LABEL_PRIORIDADE, LABEL_TURNO } from '../types';
+import { LABEL_CATEGORIA, LABEL_PRIORIDADE, LABEL_TURNO } from '../types';
 
 const STATUS_LIST: Status[] = ['RECEBIDA', 'EM_ANALISE', 'AGENDADA', 'CONCLUIDA', 'CANCELADA'];
-const CATEGORIA_LIST: Categoria[] = ['CONSULTA', 'EXAME', 'VACINACAO', 'OUTRO'];
 const PRIORIDADE_LIST: Prioridade[] = ['URGENTE', 'ALTA', 'MEDIA', 'BAIXA'];
 
 const STATUS_ARIA: Record<Status, [string, string]> = {
@@ -41,7 +44,6 @@ const LABEL_STATUS_PLURAL: Record<Status, string> = {
 
 const STATUS_ENCERRADO = ['CONCLUIDA', 'CANCELADA'] as const satisfies readonly Status[];
 type VisaoPrincipal = 'fila' | 'agenda' | 'historico' | 'faltas';
-type ModoFila = 'prioridade' | 'categoria';
 
 function visaoPelosParametros(searchParams: URLSearchParams): VisaoPrincipal {
   const parametro = searchParams.get('visao');
@@ -62,14 +64,9 @@ function formatDate(value: string) {
   return new Intl.DateTimeFormat('pt-BR').format(new Date(value));
 }
 
-function formatAging(iso: string): string {
-  const minutos = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (minutos < 1) return 'há poucos segundos';
-  if (minutos < 60) return `há ${minutos} min`;
-  const horas = Math.floor(minutos / 60);
-  if (horas < 24) return `há ${horas}h`;
-  const dias = Math.floor(horas / 24);
-  return `há ${dias} dia${dias === 1 ? '' : 's'}`;
+function formatDiaAgenda(value: string) {
+  return new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
+    .format(new Date(`${value}T12:00:00Z`));
 }
 
 interface Drilldown {
@@ -79,68 +76,75 @@ interface Drilldown {
   filtros: FiltrosSolicitacoes;
 }
 
-/** "25/09/2026" a partir de "2026-09-25", sem passar por Date (evita o fuso do navegador
- * empurrar a data um dia para trás/frente). */
-function formatDataLocal(dataIso: string): string {
-  const [ano, mes, dia] = dataIso.split('-');
-  return `${dia}/${mes}/${ano}`;
-}
-
-/**
- * Frase de status temporal da "próxima solicitação por prioridade". "Esperando há N dias"
- * só faz sentido enquanto a solicitação ainda não tem agendamento (o tempo é medido desde a
- * criação, na fila); depois de AGENDADA, mostrar essa mesma frase é enganoso — dá a entender
- * que ainda está em espera/atrasada mesmo quando o agendamento é para uma data futura.
- */
-function statusTemporal(item: Solicitacao): { texto: string; atrasado: boolean } {
-  const ativo = item.agendamento_ativo;
-
-  if (ativo?.modalidade === 'HORARIO' && item.agendado_para) {
-    return {
-      texto: `agendado para ${formatarAgendamento(item.agendado_para)}`,
-      atrasado: new Date(item.agendado_para).getTime() < Date.now(),
-    };
-  }
-
-  if (ativo?.modalidade === 'TURNO' && ativo.turno) {
-    return {
-      texto: `agendado para ${formatDataLocal(ativo.data_agendada)} · turno da ${LABEL_TURNO[ativo.turno].toLowerCase()}`,
-      atrasado: ativo.data_agendada < dataHojeNoFuso(),
-    };
-  }
-
-  return { texto: `esperando ${formatAging(item.data_criacao)}`, atrasado: false };
-}
-
 export function SolicitacoesPage() {
-  const [status, setStatus] = useState<Status | ''>('');
-  const [categoria, setCategoria] = useState<Categoria | ''>('');
-  const [prioridade, setPrioridade] = useState<Prioridade | ''>('');
+  const location = useLocation();
+  const returnContext = { state: { from: `${location.pathname}${location.search}` } };
   const [searchParams, setSearchParams] = useSearchParams();
+  const { consulta, aplicar, limpar: limparConsulta, setPagina: setPaginaUrl } = useSolicitacoesQuery();
+  const status: Status | '' = consulta.status ?? '';
+  const categoria: Categoria | '' = consulta.categoria ?? '';
+  const prioridade: Prioridade | '' = consulta.prioridade ?? '';
   const visao = visaoPelosParametros(searchParams);
   // O fallback é calculado uma única vez: passar da meia-noite com a tela aberta não troca o dia consultado.
   const [dataAgendaPadrao] = useState(dataHojeNoFuso);
-  const dataDaUrl = searchParams.get('data');
+  const dataDaUrl = consulta.inicio ?? searchParams.get('inicio') ?? searchParams.get('data');
   const dataAgenda = dataIsoValida(dataDaUrl) ? dataDaUrl : dataAgendaPadrao;
-  const [modo, setModo] = useState<ModoFila>('prioridade');
-  const [page, setPage] = useState(1);
+  const page = consulta.page ?? 1;
+  const setPage = (proxima: number | ((atual: number) => number)) => {
+    const valor = typeof proxima === 'function' ? proxima(page) : proxima;
+    setPaginaUrl(valor);
+  };
   const [drilldown, setDrilldown] = useState<Drilldown | null>(null);
   // Filtro de dia dentro da própria fila (ADR 003): só faz sentido com status=AGENDADA,
   // que é quando a ordenação passa a ser por horário em vez de prioridade.
-  const [dataFilaAgendada, setDataFilaAgendada] = useState('');
+  const dataFilaAgendada = consulta.data_agendada ?? '';
+  const setDataFilaAgendada = (data: string) => aplicar({ data_agendada: data || undefined, ...(data && consulta.ordenar_por === 'data' ? { ordenar_por: 'horario' as const } : {}) });
+  const aplicarFiltros = (patch: Partial<typeof consulta>) => aplicar({
+    ...patch,
+    ...(patch.status !== undefined && patch.ordenar_por === undefined ? { ordenar_por: patch.status === 'AGENDADA' ? 'horario' as const : patch.status === 'CONCLUIDA' || patch.status === 'CANCELADA' ? 'data' as const : 'prioridade' as const } : {}),
+    ...(patch.status === 'CONCLUIDA' || patch.status === 'CANCELADA' ? { direcao: patch.direcao ?? 'desc' as const } : {}),
+    ...(patch.status && patch.status !== 'AGENDADA' ? { data_agendada: undefined } : {}),
+  });
 
   const emAgenda = visao === 'agenda';
   const emFaltas = visao === 'faltas';
   const escopo = visao === 'historico' ? 'encerrado' : 'aberto';
   const filaFiltradaPorAgendada = !emAgenda && status === 'AGENDADA';
 
-  const { data: faltas, loading: faltasLoading, error: faltasError, reload: reloadFaltas } = useFaltas({ enabled: emFaltas });
+  const filtrosFaltas = {
+    q: consulta.q,
+    prioridade: consulta.prioridade,
+    data_de: consulta.data_de,
+    data_ate: consulta.data_ate,
+    resultado_contato: consulta.resultado_contato,
+    ordenar_por: consulta.ordenar_por,
+    direcao: consulta.direcao,
+    page,
+    per_page: 10,
+  };
+  const { data: faltas, loading: faltasLoading, error: faltasError, reload: reloadFaltas } = useFaltas({ enabled: emFaltas, filtros: filtrosFaltas });
+  const { datas: diasDaAgenda, grupos: gruposAgenda, reload: reloadAgenda } = useAgendaSemanal({
+    inicio: dataAgenda,
+    filtros: {
+      q: consulta.q,
+      categoria: consulta.categoria,
+      prioridade: consulta.prioridade,
+      ordenar_por: consulta.ordenar_por ?? 'horario',
+      direcao: consulta.direcao,
+      data_de: consulta.data_de,
+      data_ate: consulta.data_ate,
+      per_page: 10,
+    },
+    paginas: consulta.agendaPages ?? {},
+    enabled: emAgenda,
+  });
   const [faltaContato, setFaltaContato] = useState<FaltaListItem | null>(null);
   const [enviandoContato, setEnviandoContato] = useState(false);
   const [erroContato, setErroContato] = useState<string | null>(null);
   const [faltaReagendando, setFaltaReagendando] = useState<FaltaListItem | null>(null);
   const [salvandoReagendamento, setSalvandoReagendamento] = useState(false);
   const [errosReagendamento, setErrosReagendamento] = useState<Record<string, string[]>>({});
+  const [erroReagendamento, setErroReagendamento] = useState<string | null>(null);
 
   const abrirContato = (falta: FaltaListItem) => { setErroContato(null); setFaltaContato(falta); };
   const fecharContato = () => setFaltaContato(null);
@@ -159,11 +163,12 @@ export function SolicitacoesPage() {
     }
   };
 
-  const abrirReagendamento = (falta: FaltaListItem) => { setErrosReagendamento({}); setFaltaReagendando(falta); };
-  const fecharReagendamento = () => setFaltaReagendando(null);
+  const abrirReagendamento = (falta: FaltaListItem) => { setErroReagendamento(null); setErrosReagendamento({}); setFaltaReagendando(falta); };
+  const fecharReagendamento = () => { setErroReagendamento(null); setFaltaReagendando(null); };
   const salvarReagendamento = async (payload: AgendamentoPayload) => {
     if (!faltaReagendando) return;
     setSalvandoReagendamento(true);
+    setErroReagendamento(null);
     setErrosReagendamento({});
     try {
       await solicitacoesApi.reagendarAposFalta(faltaReagendando.id, payload);
@@ -173,24 +178,40 @@ export function SolicitacoesPage() {
       const erros = caught instanceof Error && 'errors' in caught
         ? ((caught as Error & { errors?: Record<string, string[]> }).errors ?? {})
         : {};
-      if (Object.keys(erros).length > 0) setErrosReagendamento(erros);
+      if (Object.keys(erros).length > 0) {
+        setErrosReagendamento(erros);
+      } else {
+        setErroReagendamento(caught instanceof Error ? caught.message : 'Não foi possível reagendar após a falta. Tente novamente.');
+        if (caught instanceof Error && 'status' in caught && (caught as Error & { status?: number }).status === 409) {
+          await reloadFaltas();
+        }
+      }
     } finally {
       setSalvandoReagendamento(false);
     }
   };
 
-  // Data ausente ou inválida na URL da agenda é normalizada para o dia efetivamente consultado.
+  // Links antigos com data exata passam a usar essa data como início da janela semanal.
   useEffect(() => {
-    if (visao === 'agenda' && searchParams.get('data') !== dataAgenda) {
-      setSearchParams({ visao: 'agenda', data: dataAgenda }, { replace: true });
+    if (visao === 'agenda' && (!consulta.inicio || searchParams.has('data'))) {
+      const preservados = new URLSearchParams(searchParams);
+      preservados.set('visao', 'agenda');
+      preservados.set('inicio', dataAgenda);
+      preservados.delete('data');
+      setSearchParams(preservados, { replace: true });
     }
-  }, [dataAgenda, searchParams, setSearchParams, visao]);
+  }, [consulta.inicio, dataAgenda, searchParams, setSearchParams, visao]);
 
   const { data, loading, error, reload } = useSolicitacoes(
     emAgenda
       ? {
           status: 'AGENDADA',
           data_agendada: dataAgenda,
+          q: consulta.q,
+          ordenar_por: consulta.ordenar_por,
+          direcao: consulta.direcao,
+          data_de: consulta.data_de,
+          data_ate: consulta.data_ate,
           categoria: categoria || undefined,
           prioridade: prioridade || undefined,
           page,
@@ -198,6 +219,11 @@ export function SolicitacoesPage() {
         }
       : {
           status: status || undefined,
+          q: consulta.q,
+          ordenar_por: consulta.ordenar_por,
+          direcao: consulta.direcao,
+          data_de: consulta.data_de,
+          data_ate: consulta.data_ate,
           categoria: categoria || undefined,
           prioridade: prioridade || undefined,
           status_grupo: escopo,
@@ -205,7 +231,7 @@ export function SolicitacoesPage() {
           page,
           per_page: 10,
         }
-  );
+  , !emAgenda);
 
   const resumoFiltros = { categoria: categoria || undefined, prioridade: prioridade || undefined };
   const isDrilldownAberto = Boolean(drilldown);
@@ -213,43 +239,30 @@ export function SolicitacoesPage() {
   const { data: resumo, loading: resumoLoading, error: resumoError } = useResumoSolicitacoes(resumoFiltros, { paused: isDrilldownAberto || emAgenda });
   // "Próxima solicitação por prioridade" é um fato operacional fixo (a #1 na ordem da fila, ADR 001) —
   // não muda com os filtros da listagem, que são só uma forma de explorar o resto da fila.
-  const { data: proximo, loading: proximoLoading, error: proximoError } = useProximaSolicitacao({ paused: isDrilldownAberto || emAgenda });
-
-  const hasFilters = Boolean(status || categoria || prioridade || dataFilaAgendada);
-  const statusDisponiveis = escopo === 'aberto'
+  const hasFilters = Boolean(status || categoria || prioridade || dataFilaAgendada || consulta.q || consulta.data_de || consulta.data_ate);
+  const statusDisponiveis: Status[] = escopo === 'aberto'
     ? STATUS_LIST.filter(item => !(STATUS_ENCERRADO as readonly Status[]).includes(item))
-    : STATUS_ENCERRADO;
+    : [...STATUS_ENCERRADO];
 
   const clearFilters = () => {
-    setStatus('');
-    setCategoria('');
-    setPrioridade('');
-    setDataFilaAgendada('');
-    setPage(1);
-  };
-
-  const alterarStatus = (novoStatus: Status | '') => {
-    setStatus(novoStatus);
-    // A data só se aplica com status=AGENDADA (a API rejeita a combinação com outro status).
-    if (novoStatus !== 'AGENDADA') setDataFilaAgendada('');
-    setPage(1);
+    limparConsulta();
   };
 
   const mudarVisao = (novaVisao: VisaoPrincipal) => {
-    setStatus('');
-    setDataFilaAgendada('');
-    setPage(1);
-    if (novaVisao === 'agenda') setSearchParams({ visao: 'agenda', data: dataAgenda });
-    else if (novaVisao === 'historico') setSearchParams({ visao: 'historico' });
-    else if (novaVisao === 'faltas') setSearchParams({ visao: 'faltas' });
-    else setSearchParams({});
+    aplicar({
+      visao: novaVisao,
+      status: undefined,
+      status_grupo: novaVisao === 'historico' ? 'encerrado' : 'aberto',
+      data_agendada: undefined,
+      data: undefined,
+      inicio: novaVisao === 'agenda' ? dataAgenda : undefined,
+      agendaPages: novaVisao === 'agenda' ? consulta.agendaPages : {},
+      ordenar_por: novaVisao === 'agenda' ? 'horario' : undefined,
+    });
   };
 
-  const trocarDia = (novaData: string) => {
-    if (!dataIsoValida(novaData)) return;
-    setPage(1);
-    setSearchParams({ visao: 'agenda', data: novaData });
-  };
+  const mudarSemana = (dias: number) => aplicar({ visao: 'agenda', inicio: deslocarDataIso(dataAgenda, dias), data: undefined, agendaPages: {} });
+  const mudarPaginaDia = (dia: string, pagina: number) => aplicar({ agendaPages: { ...(consulta.agendaPages ?? {}), [dia]: pagina } });
 
   const abrirPorPrioridade = (item: Prioridade) => {
     const count = resumo?.prioridade_aberta[item] ?? 0;
@@ -281,22 +294,30 @@ export function SolicitacoesPage() {
           <div>
             <p className="eyebrow">Ausências</p>
             <h1>Faltas</h1>
-            <p className="page-heading__description">
-              Pacientes que faltaram ao atendimento agendado — registre o contato ou reagende.
-            </p>
           </div>
         </header>
 
         <div className="view-switcher" aria-label="Visão da fila">
           <div className="view-switcher__group" role="group" aria-label="Escopo da listagem">
-            <button type="button" className="button button--outline" onClick={() => mudarVisao('fila')}>Fila atual</button>
-            <button type="button" className="button button--outline" onClick={() => mudarVisao('agenda')}>Agenda</button>
-            <button type="button" className="button button--outline" onClick={() => mudarVisao('historico')}>Histórico encerrado</button>
+            <button type="button" className="button button--outline" onClick={() => mudarVisao('fila')}>Fila</button>
+            <button type="button" className="button button--outline" onClick={() => mudarVisao('agenda')}>Solicitações agendadas</button>
+            <button type="button" className="button button--outline" onClick={() => mudarVisao('historico')}>Histórico</button>
             <button type="button" className="button button--outline is-active" aria-pressed="true" onClick={() => mudarVisao('faltas')}>Faltas</button>
           </div>
         </div>
 
-        {erroContato && <div className="alert alert--error alert--compact" role="alert"><p>{erroContato}</p></div>}
+        <SolicitacoesToolbar
+          consulta={consulta}
+          opcoesOrdenacao={['prioridade', ...(consulta.data ? [] : ['data' as const]), 'horario']}
+          ordenacaoPadrao="prioridade"
+          total={faltas?.total ?? 0}
+          mostrarPrioridade
+          mostrarPeriodo={!consulta.data}
+          mostrarResultadoContato
+          onApply={aplicarFiltros}
+          onClear={limparConsulta}
+        />
+
 
         {faltasLoading && (
           <div className="state-view" role="status" aria-live="polite">
@@ -320,20 +341,30 @@ export function SolicitacoesPage() {
         )}
 
         {!faltasLoading && !faltasError && faltas && faltas.data.length > 0 && (
-          <div className="faltas-list">
-            {faltas.data.map(falta => (
-              <FaltaCard key={falta.id} falta={falta} onRegistrarContato={abrirContato} onReagendar={abrirReagendamento} />
-            ))}
-          </div>
+          <>
+            <div className="faltas-list">
+              {faltas.data.map(falta => (
+                <FaltaCard key={falta.id} falta={falta} onRegistrarContato={abrirContato} onReagendar={abrirReagendamento} />
+              ))}
+            </div>
+            <nav className="pagination" aria-label="Paginação das faltas">
+              <p>Página <strong>{faltas.current_page}</strong> de <strong>{faltas.last_page}</strong></p>
+              <div className="pagination__actions">
+                <button className="button button--outline" disabled={faltas.current_page === 1} onClick={() => setPage(faltas.current_page - 1)} type="button">Anterior</button>
+                <button className="button button--outline" disabled={faltas.current_page === faltas.last_page} onClick={() => setPage(faltas.current_page + 1)} type="button">Próxima</button>
+              </div>
+            </nav>
+          </>
         )}
 
         {faltaContato && (
-          <ContatoFaltaDialog submitting={enviandoContato} onSalvar={salvarContato} onCancelar={fecharContato} />
+          <ContatoFaltaDialog submitting={enviandoContato} error={erroContato} onSalvar={salvarContato} onCancelar={fecharContato} />
         )}
 
         {faltaReagendando && (
-          <div className="dialog" role="dialog" aria-labelledby="reagendar-falta-heading">
+          <DialogOverlay labelledBy="reagendar-falta-heading" onClose={fecharReagendamento}>
             <h2 id="reagendar-falta-heading">Reagendar após falta</h2>
+            {erroReagendamento && <div className="alert alert--error" role="alert">{erroReagendamento}</div>}
             <AgendamentoForm
               submitting={salvandoReagendamento}
               serverErrors={errosReagendamento}
@@ -341,7 +372,7 @@ export function SolicitacoesPage() {
               onSubmit={salvarReagendamento}
               onCancel={fecharReagendamento}
             />
-          </div>
+          </DialogOverlay>
         )}
       </div>
     );
@@ -353,9 +384,6 @@ export function SolicitacoesPage() {
         <div>
           <p className="eyebrow">Painel de atendimento</p>
           <h1>Solicitações de Atendimento</h1>
-          <p className="page-heading__description">
-            Acompanhe a fila, priorize demandas e mantenha cada atendimento no fluxo correto.
-          </p>
         </div>
         <Link to="/solicitacoes/nova" className="button button--primary">
           <span aria-hidden="true">＋</span>
@@ -363,143 +391,64 @@ export function SolicitacoesPage() {
         </Link>
       </header>
 
-      {!emAgenda && !proximoLoading && !proximoError && (
-        <section className="next-up" aria-labelledby="next-up-heading">
-          <p className="eyebrow" id="next-up-heading">Próxima solicitação por prioridade</p>
-          {proximo ? (
-            <div className="next-up__content">
-              <div className="next-up__info">
-                <div className="next-up__badges">
-                  <PrioridadeBadge prioridade={proximo.prioridade} />
-                  <StatusBadge status={proximo.status} />
-                </div>
-                <p className="next-up__title">
-                  <span className="protocol-link">{proximo.protocolo}</span>
-                  <span className="requester-name">{proximo.nome_solicitante}</span>
-                </p>
-                {(() => {
-                  const { texto, atrasado } = statusTemporal(proximo);
-                  return (
-                    <p className={`next-up__meta${atrasado ? ' next-up__meta--atrasado' : ''}`}>
-                      {LABEL_CATEGORIA[proximo.categoria]} · {texto}
-                      {atrasado && ' · em atraso'}
-                    </p>
-                  );
-                })()}
-              </div>
-              <Link to={`/solicitacoes/${proximo.id}`} className="button button--primary next-up__action">
-                Abrir solicitação ›
-              </Link>
-            </div>
-          ) : (
-            <p className="next-up__empty">Fila vazia — nada aguardando atendimento no momento.</p>
-          )}
-        </section>
-      )}
-
       <section className="panel queue-panel" aria-labelledby="list-heading">
         <div className="panel__header">
           <div>
-            <p className="eyebrow">{emAgenda ? 'Agenda operacional' : 'Ordem operacional'}</p>
-            <h2 id="list-heading">{emAgenda ? 'Agenda do dia' : escopo === 'aberto' ? 'Fila de atendimento' : 'Histórico encerrado'}</h2>
-            <p className="list-order-hint">
-              {emAgenda
-                ? 'Atendimentos ordenados por horário e, no empate, por prioridade.'
-                : filaFiltradaPorAgendada
-                  ? 'Já têm horário marcado: ordenadas por horário e, no empate, por prioridade.'
-                  : escopo === 'aberto'
-                    ? 'Registros ordenados pela prioridade e pelo tempo de espera.'
-                    : 'Solicitações concluídas e canceladas, do encerramento mais recente ao mais antigo.'}
-            </p>
+            <p className="eyebrow">{emAgenda ? 'Agenda operacional' : escopo === 'aberto' ? 'Fila operacional' : 'Registros concluídos ou cancelados'}</p>
+            <h2 id="list-heading">{emAgenda ? 'Solicitações agendadas' : escopo === 'aberto' ? 'Fila de atendimento' : 'Histórico'}</h2>
           </div>
-          {data && !loading && !error && <span className="record-count">{data.total} no total</span>}
+          {emAgenda
+            ? <span className="record-count">{diasDaAgenda.reduce((total, dia) => total + (gruposAgenda[dia]?.total ?? 0), 0)} no total</span>
+            : data && !loading && !error && <span className="record-count">{data.total} no total</span>}
         </div>
 
         <div className="view-switcher" aria-label="Visão da fila">
           <div className="view-switcher__group" role="group" aria-label="Escopo da listagem">
             <button type="button" className={`button button--outline ${visao === 'fila' ? 'is-active' : ''}`} aria-pressed={visao === 'fila'} onClick={() => mudarVisao('fila')}>Fila atual</button>
-            <button type="button" className={`button button--outline ${emAgenda ? 'is-active' : ''}`} aria-pressed={emAgenda} onClick={() => mudarVisao('agenda')}>Agenda</button>
-            <button type="button" className={`button button--outline ${visao === 'historico' ? 'is-active' : ''}`} aria-pressed={visao === 'historico'} onClick={() => mudarVisao('historico')}>Histórico encerrado</button>
+            <button type="button" className={`button button--outline ${emAgenda ? 'is-active' : ''}`} aria-pressed={emAgenda} onClick={() => mudarVisao('agenda')}>Solicitações agendadas</button>
+            <button type="button" className={`button button--outline ${visao === 'historico' ? 'is-active' : ''}`} aria-pressed={visao === 'historico'} onClick={() => mudarVisao('historico')}>Histórico</button>
             <button type="button" className="button button--outline" aria-pressed={false} onClick={() => mudarVisao('faltas')}>Faltas</button>
           </div>
-          {visao === 'fila' && (
-            <div className="view-switcher__group" role="group" aria-label="Organização da fila">
-              <button type="button" className={`button button--ghost ${modo === 'prioridade' ? 'is-active' : ''}`} aria-pressed={modo === 'prioridade'} onClick={() => setModo('prioridade')}>Por prioridade</button>
-              <button type="button" className={`button button--ghost ${modo === 'categoria' ? 'is-active' : ''}`} aria-pressed={modo === 'categoria'} onClick={() => setModo('categoria')}>Explorar por categoria</button>
-            </div>
-          )}
         </div>
-
-        {visao === 'fila' && modo === 'categoria' && (
-          <div className="category-explorer" aria-label="Categorias de atendimento">
-            <p><strong>{resumo?.prioridade_aberta.URGENTE ?? 0}</strong> urgentes na fila total. Escolher uma categoria não altera a ordem de prioridade.</p>
-            <div className="category-explorer__actions">
-              <button type="button" className={`button button--outline ${!categoria ? 'is-active' : ''}`} onClick={() => { setCategoria(''); setPage(1); }}>Todas</button>
-              {CATEGORIA_LIST.map(item => <button type="button" key={item} className={`button button--outline ${categoria === item ? 'is-active' : ''}`} onClick={() => { setCategoria(item); setPage(1); }}>{LABEL_CATEGORIA[item]}</button>)}
-            </div>
-          </div>
-        )}
 
         {emAgenda && (
-          <div className="agenda-toolbar">
-            <div className="filter-field agenda-date-field">
-              <label htmlFor="filtro-data-agenda">Data da agenda</label>
-              <input id="filtro-data-agenda" type="date" value={dataAgenda} onChange={event => trocarDia(event.target.value)} />
-            </div>
+          <div className="agenda-week-nav" aria-label="Navegar pelas semanas">
+            <button type="button" className="button button--outline" onClick={() => mudarSemana(-7)}>Semana anterior</button>
+            <p><strong>{formatDate(`${dataAgenda}T12:00:00Z`)}</strong> – <strong>{formatDate(`${deslocarDataIso(dataAgenda, 6)}T12:00:00Z`)}</strong></p>
+            <button type="button" className="button button--outline" onClick={() => mudarSemana(7)}>Próxima semana</button>
           </div>
         )}
 
-        <div className="filter-bar" aria-label="Filtros da listagem">
-          {!emAgenda && (
-            <div className="filter-field">
-              <label htmlFor="filtro-status">Status</label>
-              <select id="filtro-status" value={status} onChange={event => alterarStatus(event.target.value as Status | '')}>
-                <option value="">Todos</option>
-                {statusDisponiveis.map(item => <option key={item} value={item}>{LABEL_STATUS[item]}</option>)}
-              </select>
-            </div>
-          )}
-          {filaFiltradaPorAgendada && (
-            <div className="filter-field agenda-date-field">
-              <label htmlFor="filtro-data-fila">Data agendada (opcional)</label>
-              <input
-                id="filtro-data-fila"
-                type="date"
-                value={dataFilaAgendada}
-                onChange={event => { setDataFilaAgendada(event.target.value); setPage(1); }}
-              />
-            </div>
-          )}
-          <div className="filter-field">
-            <label htmlFor="filtro-categoria">Categoria</label>
-            <select id="filtro-categoria" value={categoria} onChange={event => { setCategoria(event.target.value as Categoria | ''); setPage(1); }}>
-              <option value="">Todas</option>
-              {CATEGORIA_LIST.map(item => <option key={item} value={item}>{LABEL_CATEGORIA[item]}</option>)}
-            </select>
-          </div>
-          <div className="filter-field">
-            <label htmlFor="filtro-prioridade">Prioridade</label>
-            <select id="filtro-prioridade" value={prioridade} onChange={event => { setPrioridade(event.target.value as Prioridade | ''); setPage(1); }}>
-              <option value="">Todas</option>
-              {PRIORIDADE_LIST.map(item => <option key={item} value={item}>{LABEL_PRIORIDADE[item]}</option>)}
-            </select>
-          </div>
-          {hasFilters && (
-            <button className="button button--ghost filter-bar__clear" type="button" onClick={clearFilters}>
-              Limpar filtros
-            </button>
-          )}
-        </div>
+        <SolicitacoesToolbar
+          consulta={consulta}
+          opcoesOrdenacao={emAgenda ? ['horario', 'prioridade'] : filaFiltradaPorAgendada ? (dataFilaAgendada ? ['horario', 'prioridade'] : ['horario', 'prioridade', 'data']) : ['prioridade', 'data']}
+          ordenacaoPadrao={emAgenda || filaFiltradaPorAgendada ? 'horario' : escopo === 'aberto' ? 'prioridade' : 'data'}
+          direcaoPadrao={escopo === 'encerrado' ? 'desc' : 'asc'}
+          total={emAgenda ? diasDaAgenda.reduce((total, dia) => total + (gruposAgenda[dia]?.total ?? 0), 0) : data?.total ?? 0}
+          mostrarStatus={!emAgenda}
+          statusDisponiveis={statusDisponiveis}
+          mostrarCategoria
+          mostrarPrioridade
+          mostrarPeriodo
+          onApply={aplicarFiltros}
+          onClear={clearFilters}
+        />
 
-        {loading && (
+        {filaFiltradaPorAgendada && (
+          <div className="filter-field agenda-date-field">
+            <label htmlFor="filtro-data-fila">Data agendada</label>
+            <input id="filtro-data-fila" type="date" value={dataFilaAgendada} onChange={event => setDataFilaAgendada(event.target.value)} />
+          </div>
+        )}
+
+        {!emAgenda && loading && (
           <div className="state-view" role="status" aria-live="polite">
             <span className="spinner" aria-hidden="true" />
             <strong>Carregando solicitações</strong>
-            <p>Buscando os registros mais recentes.</p>
           </div>
         )}
 
-        {error && (
+        {!emAgenda && error && (
           <div className="alert alert--error" role="alert">
             <div>
               <strong>Não foi possível carregar a listagem</strong>
@@ -509,22 +458,22 @@ export function SolicitacoesPage() {
           </div>
         )}
 
-        {!loading && !error && (data?.data?.length ?? -1) === 0 && (
+        {!emAgenda && !loading && !error && (data?.data?.length ?? -1) === 0 && (
           <div className="state-view">
             <span className="state-view__icon" aria-hidden="true">○</span>
-            <strong>{hasFilters ? 'Nenhum resultado para estes filtros' : emAgenda ? 'Nenhum atendimento agendado para este dia' : 'Nenhuma solicitação cadastrada'}</strong>
-            <p>{hasFilters ? 'Revise ou limpe os filtros para ampliar a busca.' : emAgenda ? 'Escolha outra data ou agende uma solicitação em análise.' : 'Crie a primeira solicitação para iniciar o acompanhamento.'}</p>
+            <strong>{hasFilters ? 'Nenhum resultado para estes filtros' : 'Nenhuma solicitação cadastrada'}</strong>
+            <p>{hasFilters ? 'Revise ou limpe os filtros para ampliar a busca.' : 'Crie a primeira solicitação para iniciar o acompanhamento.'}</p>
             {hasFilters ? (
               <button className="button button--outline" type="button" onClick={clearFilters}>Limpar filtros</button>
-            ) : emAgenda ? null : (
+            ) : (
               <Link to="/solicitacoes/nova" className="button button--outline">Criar solicitação</Link>
             )}
           </div>
         )}
 
-        {!loading && !error && data && (data.data?.length ?? 0) > 0 && (
+        {!emAgenda && !loading && !error && data && (data.data?.length ?? 0) > 0 && (
           <>
-            <div className="table-wrap">
+            <div className="table-wrap" tabIndex={0} role="region" aria-label="Tabela de solicitações; use as setas para rolar horizontalmente">
               <table className="requests-table">
                 <caption className="sr-only">Solicitações de atendimento encontradas</caption>
                 <thead>
@@ -542,7 +491,7 @@ export function SolicitacoesPage() {
                     <tr key={request.id}>
                       <td data-label="Prioridade"><PrioridadeBadge prioridade={request.prioridade} /></td>
                       <td data-label="Solicitação">
-                        <Link to={`/solicitacoes/${request.id}`} className="protocol-link">{request.protocolo}</Link>
+                        <Link to={`/solicitacoes/${request.id}`} {...returnContext} className="protocol-link">{request.protocolo}</Link>
                         <span className="requester-name">{request.nome_solicitante}</span>
                       </td>
                       <td data-label="Categoria">{LABEL_CATEGORIA[request.categoria]}</td>
@@ -555,7 +504,7 @@ export function SolicitacoesPage() {
                         <td data-label="Registrada em"><time dateTime={request.data_criacao}>{formatDate(request.data_criacao)}</time></td>
                       )}
                       <td data-label="Ações">
-                        <Link to={`/solicitacoes/${request.id}`} className="button button--outline button--small" aria-label={`Ver detalhes da solicitação ${request.protocolo}`}>
+                        <Link to={`/solicitacoes/${request.id}`} {...returnContext} className="button button--outline button--small" aria-label={`Ver detalhes da solicitação ${request.protocolo}`}>
                           Ver detalhes
                         </Link>
                       </td>
@@ -578,25 +527,47 @@ export function SolicitacoesPage() {
             </nav>
           </>
         )}
-      </section>
 
-      {!emAgenda && !resumoLoading && !resumoError && resumo && (
-        <p className="dashboard-context" role="status">
-          {resumoFiltros.categoria || resumoFiltros.prioridade ? (
-            <>
-              Painel considerando <strong>
-                {[
-                  resumoFiltros.categoria && `categoria ${LABEL_CATEGORIA[resumoFiltros.categoria]}`,
-                  resumoFiltros.prioridade && `prioridade ${LABEL_PRIORIDADE[resumoFiltros.prioridade]}`,
-                ].filter(Boolean).join(' e ')}
-              </strong>, como na listagem abaixo.
-            </>
-          ) : (
-            <>Painel considerando <strong>todas as solicitações</strong> — não apenas as desta página.</>
-          )}
-          {status && ` O bloco "${LABEL_STATUS_PLURAL[status]}" abaixo está destacado — é o que corresponde ao filtro de status escolhido.`}
-        </p>
-      )}
+        {emAgenda && <div className="agenda-week" aria-label="Filas de solicitações por dia">
+          {diasDaAgenda.map(dia => {
+            const grupo = gruposAgenda[dia];
+            const paginaDia = consulta.agendaPages?.[dia] ?? 1;
+            return (
+              <section className="agenda-day" key={dia} aria-labelledby={`agenda-dia-${dia}`}>
+                <header className="agenda-day__header">
+                  <h3 id={`agenda-dia-${dia}`}>{formatDiaAgenda(dia)}</h3>
+                  {!grupo?.loading && !grupo?.error && <span className="record-count">{grupo?.total ?? 0} solicitações</span>}
+                </header>
+                {grupo?.loading && <p className="state-view state-view--compact" role="status">Carregando este dia</p>}
+                {grupo?.error && <div className="alert alert--error" role="alert"><p>{grupo.error}</p><button type="button" className="button button--outline" onClick={reloadAgenda}>Tentar novamente</button></div>}
+                {!grupo?.loading && !grupo?.error && grupo?.data.length === 0 && <p className="agenda-day__empty">Nenhuma solicitação agendada.</p>}
+                {!grupo?.loading && !grupo?.error && grupo && grupo.data.length > 0 && <>
+                  <ul className="agenda-day__list">
+                    {grupo.data.map(item => (
+                      <li key={item.id}>
+                        <Link to={`/solicitacoes/${item.id}`} {...returnContext} className="agenda-day__item">
+                          <span className="agenda-day__time">{item.agendado_para ? formatarAgendamento(item.agendado_para) : item.agendamento_ativo?.turno ? LABEL_TURNO[item.agendamento_ativo.turno] : 'Horário não informado'}</span>
+                          <span className="agenda-day__request"><strong>{item.protocolo}</strong><span>{item.nome_solicitante}</span></span>
+                          <PrioridadeBadge prioridade={item.prioridade} />
+                          <StatusBadge status={item.status} />
+                          <span>{LABEL_CATEGORIA[item.categoria]}</span>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                  {grupo.last_page > 1 && <nav className="pagination" aria-label={`Paginação de ${formatDiaAgenda(dia)}`}>
+                    <p>Página <strong>{paginaDia}</strong> de <strong>{grupo.last_page}</strong></p>
+                    <div className="pagination__actions">
+                      <button className="button button--outline" disabled={paginaDia <= 1} onClick={() => mudarPaginaDia(dia, paginaDia - 1)} type="button">Anterior</button>
+                      <button className="button button--outline" disabled={paginaDia >= grupo.last_page} onClick={() => mudarPaginaDia(dia, paginaDia + 1)} type="button">Próxima</button>
+                    </div>
+                  </nav>}
+                </>}
+              </section>
+            );
+          })}
+        </div>}
+      </section>
 
       {!emAgenda && !resumoLoading && !resumoError && resumo && (
         <section className="dashboard-section" aria-labelledby="priority-heading">
@@ -605,7 +576,6 @@ export function SolicitacoesPage() {
               <p className="eyebrow">Atenção imediata</p>
               <h2 id="priority-heading">Prioridades em aberto</h2>
             </div>
-            <p>Toque em um bloco para ver as solicitações</p>
           </div>
           <div className="priority-grid">
             {PRIORIDADE_LIST.map(item => {
@@ -621,9 +591,6 @@ export function SolicitacoesPage() {
                 >
                   <span className="priority-card__label">{LABEL_PRIORIDADE[item]}</span>
                   <strong>{count}</strong>
-                  {resumo.mais_antiga_aberta[item] && (
-                    <span className="priority-card__aging">mais antiga: {formatAging(resumo.mais_antiga_aberta[item]!)}</span>
-                  )}
                   <span className="priority-card__action">Em aberto ›</span>
                 </button>
               );

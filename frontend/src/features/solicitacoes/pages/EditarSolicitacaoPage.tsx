@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useSolicitacao } from '../hooks/useSolicitacoes';
 import { solicitacoesApi } from '../api/client';
 import { SolicitacaoForm } from '../components/SolicitacaoForm';
@@ -10,6 +10,11 @@ const ESTADOS_ENCERRADOS = ['CONCLUIDA', 'CANCELADA'];
 export function EditarSolicitacaoPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: unknown } | null)?.from;
+  const returnTo = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') && !from.includes('\\')
+    ? from
+    : '/';
   const { data, loading, error, reload } = useSolicitacao(id ?? '');
 
   if (loading) {
@@ -37,9 +42,9 @@ export function EditarSolicitacaoPage() {
     return (
       <div className="page-stack page-stack--narrow">
         <nav className="breadcrumb" aria-label="Navegação estrutural">
-          <Link to="/">Solicitações</Link>
+          <Link to={returnTo}>Solicitações</Link>
           <span aria-hidden="true">/</span>
-          <Link to={`/solicitacoes/${id}`}>{data.protocolo}</Link>
+          <Link to={`/solicitacoes/${id}`} state={{ from: returnTo }}>{data.protocolo}</Link>
           <span aria-hidden="true">/</span>
           <span aria-current="page">Editar</span>
         </nav>
@@ -48,7 +53,7 @@ export function EditarSolicitacaoPage() {
             <strong>Esta solicitação não pode ser editada</strong>
             <p>O status atual é <strong>{LABEL_STATUS[data.status]}</strong>. Solicitações em estado final não têm mais os dados cadastrais alterados.</p>
           </div>
-          <Link to={`/solicitacoes/${id}`} className="button button--outline">Voltar aos detalhes</Link>
+          <Link to={`/solicitacoes/${id}`} state={{ from: returnTo }} className="button button--outline">Voltar aos detalhes</Link>
         </div>
       </div>
     );
@@ -57,9 +62,9 @@ export function EditarSolicitacaoPage() {
   return (
     <div className="page-stack page-stack--narrow">
       <nav className="breadcrumb" aria-label="Navegação estrutural">
-        <Link to="/">Solicitações</Link>
+        <Link to={returnTo}>Solicitações</Link>
         <span aria-hidden="true">/</span>
-        <Link to={`/solicitacoes/${id}`}>{data.protocolo}</Link>
+        <Link to={`/solicitacoes/${id}`} state={{ from: returnTo }}>{data.protocolo}</Link>
         <span aria-hidden="true">/</span>
         <span aria-current="page">Editar</span>
       </nav>
@@ -79,7 +84,7 @@ export function EditarSolicitacaoPage() {
           descricao: data.descricao,
           justificativa_prioridade: data.justificativa_prioridade ?? '',
         }}
-        onCancel={() => navigate(`/solicitacoes/${id}`)}
+        onCancel={() => navigate(`/solicitacoes/${id}`, { state: { from: returnTo } })}
         onSubmit={async values => {
           await solicitacoesApi.atualizar(id ?? '', {
             nome_solicitante: values.nome_solicitante,
@@ -90,7 +95,7 @@ export function EditarSolicitacaoPage() {
             descricao: values.descricao,
             justificativa_prioridade: values.prioridade === 'URGENTE' ? values.justificativa_prioridade : undefined,
           });
-          navigate(`/solicitacoes/${id}`);
+          navigate(`/solicitacoes/${id}`, { state: { from: returnTo } });
         }}
       />
     </div>

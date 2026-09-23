@@ -26,7 +26,31 @@ test('reagendar apos falta cria novo ativo e preserva falta antiga', function ()
         ->assertJsonPath('data.turno', 'TARDE');
 
     expect($falta->fresh()->status)->toBe('FALTA')
+        ->and($falta->fresh()->resultado_em)->not->toBeNull()
         ->and(Agendamento::where('solicitacao_id', $solicitacao->id)->where('status', 'AGENDADO')->count())->toBe(1);
+});
+
+test('falta antiga nao pode ser reagendada novamente depois de nova ausencia', function () {
+    $solicitacao = Solicitacao::factory()->create(['status' => 'AGENDADA']);
+    $falta = Agendamento::factory()->create([
+        'solicitacao_id' => $solicitacao->id,
+        'status' => 'FALTA',
+        'falta_registrada_em' => now()->subDay(),
+    ]);
+    $primeiraData = now(config('agendamento.timezone'))->addDays(3)->format('Y-m-d');
+    $segundaData = now(config('agendamento.timezone'))->addDays(4)->format('Y-m-d');
+
+    $this->postJson("/api/v1/agendamentos/{$falta->id}/reagendar-apos-falta", [
+        'data_agendada' => $primeiraData, 'turno' => 'TARDE',
+    ])->assertCreated();
+    $novo = Agendamento::where('solicitacao_id', $solicitacao->id)->where('status', 'AGENDADO')->firstOrFail();
+    $novo->update(['status' => 'FALTA', 'falta_registrada_em' => now()]);
+    // Simula uma falta histórica criada antes do marcador de resolução existir.
+    $falta->update(['resultado_em' => null]);
+
+    $this->postJson("/api/v1/agendamentos/{$falta->id}/reagendar-apos-falta", [
+        'data_agendada' => $segundaData, 'turno' => 'TARDE',
+    ])->assertStatus(409);
 });
 
 test('nao reagenda agendamento que nao esta em falta', function () {

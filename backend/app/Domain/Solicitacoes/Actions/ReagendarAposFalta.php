@@ -27,10 +27,18 @@ class ReagendarAposFalta
                 $this->conflito('Somente faltas podem ser reagendadas por esta rota.');
             }
 
+            if ($falta->resultado_em !== null) {
+                $this->conflito('Esta falta já foi reagendada.');
+            }
+
             $solicitacao = Solicitacao::query()->whereKey($falta->solicitacao_id)->lockForUpdate()->firstOrFail();
 
             if ($solicitacao->status !== 'AGENDADA') {
                 $this->conflito('A solicitação precisa permanecer agendada para receber novo agendamento.');
+            }
+
+            if (Agendamento::query()->where('solicitacao_id', $solicitacao->id)->where('id', '>', $falta->id)->exists()) {
+                $this->conflito('Esta falta já possui um agendamento posterior.');
             }
 
             $existeAtivo = Agendamento::query()
@@ -53,6 +61,7 @@ class ReagendarAposFalta
             ]);
 
             $solicitacao->update(['agendado_para' => $dadosAgendamento['agendado_para']]);
+            $falta->update(['resultado_em' => now()]);
 
             return $novo;
         });

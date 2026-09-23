@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Paciente;
 use App\Models\Solicitacao;
 use Illuminate\Support\Facades\DB;
 
@@ -33,6 +34,45 @@ test('edita solicitação em estado RECEBIDA', function () {
         ->assertJsonPath('data.nome_solicitante', 'Maria Silva Atualizada')
         ->assertJsonPath('data.categoria', 'EXAME')
         ->assertJsonPath('data.status', 'RECEBIDA');
+});
+
+test('edição religa a solicitação ao paciente correspondente ao novo CPF', function () {
+    $solicitacao = Solicitacao::factory()->create(['status' => 'RECEBIDA']);
+    $pacienteDestino = Paciente::factory()->create([
+        'cpf' => '98765432100',
+        'data_nascimento' => '1990-01-20',
+        'celular' => '81987654321',
+    ]);
+
+    $payload = payloadEdicaoValido();
+    $payload['cpf_solicitante'] = '987.654.321-00';
+    $payload['data_nascimento'] = '1990-01-20';
+
+    $this->putJson("/api/v1/solicitacoes/{$solicitacao->id}", $payload)
+        ->assertOk()
+        ->assertJsonPath('data.paciente.id', $pacienteDestino->id)
+        ->assertJsonPath('data.paciente.celular_mascarado', '(81) *****-4321');
+
+    expect($solicitacao->fresh()->paciente_id)->toBe($pacienteDestino->id);
+});
+
+test('edição rejeita CPF existente com nascimento divergente sem mudar a relação', function () {
+    $solicitacao = Solicitacao::factory()->create(['status' => 'RECEBIDA']);
+    $pacienteOriginal = $solicitacao->paciente;
+    Paciente::factory()->create([
+        'cpf' => '98765432100',
+        'data_nascimento' => '1990-01-20',
+    ]);
+
+    $payload = payloadEdicaoValido();
+    $payload['cpf_solicitante'] = '987.654.321-00';
+    $payload['data_nascimento'] = '1991-01-20';
+
+    $this->putJson("/api/v1/solicitacoes/{$solicitacao->id}", $payload)
+        ->assertStatus(422)
+        ->assertJsonStructure(['message', 'errors' => ['cpf_solicitante']]);
+
+    expect($solicitacao->fresh()->paciente_id)->toBe($pacienteOriginal->id);
 });
 
 test('rejeita edição de solicitação CONCLUIDA', function () {

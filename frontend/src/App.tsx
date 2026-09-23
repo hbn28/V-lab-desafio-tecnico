@@ -4,10 +4,14 @@ import { SolicitacoesPage } from './features/solicitacoes/pages/SolicitacoesPage
 import { NovaSolicitacaoPage } from './features/solicitacoes/pages/NovaSolicitacaoPage';
 import { EditarSolicitacaoPage } from './features/solicitacoes/pages/EditarSolicitacaoPage';
 import { SolicitacaoDetailPage } from './features/solicitacoes/pages/SolicitacaoDetailPage';
+import { AuthProvider } from './features/auth/AuthProvider';
+import { ProtectedRoute } from './features/auth/ProtectedRoute';
 
 export default function App() {
   return (
     <BrowserRouter>
+      <AuthProvider>
+      <ProtectedRoute>
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<SolicitacoesPage />} />
@@ -17,6 +21,8 @@ export default function App() {
           <Route path="solicitacoes/:id/editar" element={<EditarSolicitacaoPage />} />
         </Route>
       </Routes>
+      </ProtectedRoute>
+      </AuthProvider>
     </BrowserRouter>
   );
 }
