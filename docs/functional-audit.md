@@ -36,3 +36,9 @@ After rebooking an absence, the old record still displayed Reagendar and some re
 ## Graph follow-up
 
 The initial CLI check ran without elevated access and did not find Graphify. With the authorized worktree access, `graphify . --update --code-only` completed: 1072 nodes, 2028 edges and 70 communities. `docs/codebase-map.md` now records these counts. `GRAPH_REPORT.md` was not regenerated because `--code-only` skips documents.
+
+## CI failure follow-up (2026-09-23)
+
+A GitHub Actions run failed only in `UsuariosDemoSeederTest` because the test expected a demo user that the seeder had skipped. The backend CI copies `.env.example`, which preloads empty demo credential entries into `$_SERVER`. The test originally changed `putenv()` and `$_ENV` only; Laravel `env()` kept reading the higher-priority empty server value. I reproduced this with a sanitized `.env.example` overlay: the test failed before the adjustment and passed after setting and restoring `$_SERVER` as well. The seeder behavior did not need a production change.
+
+The full CI-shaped local backend sequence then passed: `php artisan migrate --database=pgsql_test --force`, Pest 138 tests / 453 assertions, and Pint 102 files. The remote failure is confirmed; a rerun after this commit is still needed before calling remote CI green.
