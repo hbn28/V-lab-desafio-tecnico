@@ -2,6 +2,8 @@
 
 ## Fluxo principal
 
+No Railway, `frontend/Dockerfile` usa a etapa `production` com `frontend/Caddyfile`: o build estático atende na porta 5173 e encaminha `/api/*` e `/sanctum/*` ao backend. O Compose local seleciona a etapa `dev` para manter o Vite. Veja `docs/railway-deployment.md`.
+
 ```text
 frontend/src/features/solicitacoes/pages
   -> hooks/useSolicitacoes.ts (listagem, resumo e próximo atendimento)

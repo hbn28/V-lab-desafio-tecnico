@@ -1,0 +1,16 @@
+:5173 {
+    encode gzip
+
+    @backend path /api/* /sanctum/*
+    handle @backend {
+        reverse_proxy {$BACKEND_URL:https://v-lab-desafio-tecnico-production.up.railway.app} {
+            header_up Host {upstream_hostport}
+        }
+    }
+
+    handle {
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}
