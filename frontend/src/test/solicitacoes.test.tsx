@@ -298,12 +298,12 @@ describe('SolicitacoesPage', () => {
     });
   });
 
-  it('mostra todas as etapas na tira compacta, incluindo as encerradas, e destaca a etapa filtrada', async () => {
+  it('mostra todas as etapas na tira compacta, incluindo as encerradas, e abre o drill-down de uma etapa encerrada', async () => {
     vi.mocked(solicitacoesApi.resumo).mockResolvedValue({
-      status: { RECEBIDA: 1, EM_ANALISE: 0, AGENDADA: 1, CONCLUIDA: 0, CANCELADA: 0 },
+      status: { RECEBIDA: 1, EM_ANALISE: 0, AGENDADA: 1, CONCLUIDA: 2, CANCELADA: 1 },
       prioridade_aberta: { URGENTE: 0, ALTA: 2, MEDIA: 0, BAIXA: 0 },
       mais_antiga_aberta: { URGENTE: null, ALTA: '2026-09-16T08:00:00Z', MEDIA: null, BAIXA: null },
-      total: 2,
+      total: 4,
       filtros_aplicados: { categoria: null, prioridade: 'ALTA' },
     });
     vi.mocked(solicitacoesApi.listar).mockResolvedValue({ data: [], total: 0, last_page: 1 });
@@ -314,14 +314,24 @@ describe('SolicitacoesPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Histórico encerrado' }));
-    fireEvent.change(await screen.findByLabelText('Status'), { target: { value: 'CONCLUIDA' } });
-
-    const concluidas = await screen.findByRole('button', { name: /0 solicitações concluídas/ });
+    // A tira de etapas continua mostrando as encerradas (Concluídas/Canceladas) mesmo na
+    // página principal, que agora só lista solicitações em aberto — "Por etapa" é um resumo
+    // do funil completo, não da lista abaixo.
+    const concluidas = await screen.findByRole('button', { name: /2 solicitações concluídas/ });
     expect(concluidas).toHaveTextContent('Concluídas');
-    expect(concluidas).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: /0 solicitações canceladas/ })).toBeInTheDocument();
+    expect(concluidas).toHaveAttribute('aria-pressed', 'false');
+    const canceladas = screen.getByRole('button', { name: /1 solicitação cancelada/ });
+    expect(canceladas).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /1 solicitação recebida/ })).toHaveAttribute('aria-pressed', 'false');
+
+    // Clicar numa etapa encerrada abre o drill-down normalmente, igual a uma etapa em aberto.
+    fireEvent.click(concluidas);
+    expect(await screen.findByRole('heading', { name: 'Concluídas' })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(solicitacoesApi.listar).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'CONCLUIDA', per_page: 50 })
+      );
+    });
   });
 
   it('informa no painel qual filtro está sendo considerado e propaga para o resumo e o drill-down', async () => {

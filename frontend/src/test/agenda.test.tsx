@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
 import { SolicitacoesPage } from '../features/solicitacoes/pages/SolicitacoesPage';
+import { HistoricoSolicitacoesPage } from '../features/solicitacoes/pages/HistoricoSolicitacoesPage';
 import { solicitacoesApi } from '../features/solicitacoes/api/client';
 import { dataHojeNoFuso } from '../features/solicitacoes/config/agendamento';
 import type { Solicitacao } from '../features/solicitacoes/types';
@@ -57,7 +58,10 @@ afterEach(() => {
 function renderPagina(entrada: string) {
   return render(
     <MemoryRouter initialEntries={[entrada]}>
-      <Routes><Route path="/" element={<SolicitacoesPage />} /></Routes>
+      <Routes>
+        <Route path="/" element={<SolicitacoesPage />} />
+        <Route path="/solicitacoes/historico" element={<HistoricoSolicitacoesPage />} />
+      </Routes>
     </MemoryRouter>
   );
 }
@@ -77,7 +81,10 @@ function renderPaginaComHistorico(entrada: string) {
   return render(
     <MemoryRouter initialEntries={[entrada]}>
       <NavegacaoDoTeste />
-      <Routes><Route path="/" element={<SolicitacoesPage />} /></Routes>
+      <Routes>
+        <Route path="/" element={<SolicitacoesPage />} />
+        <Route path="/solicitacoes/historico" element={<HistoricoSolicitacoesPage />} />
+      </Routes>
     </MemoryRouter>
   );
 }
@@ -146,12 +153,20 @@ describe('Agenda diária', () => {
     expect(screen.queryByLabelText('Status')).not.toBeInTheDocument();
   });
 
-  it('preserva fila, histórico e renomeia o destaque operacional', async () => {
+  it('Histórico encerrado é uma página própria, sem o destaque operacional da fila', async () => {
     renderPagina('/');
     expect(await screen.findByText('Próxima solicitação por prioridade')).toBeInTheDocument();
+
     await userEvent.click(screen.getByRole('button', { name: 'Histórico encerrado' }));
+    expect(await screen.findByRole('heading', { name: 'Histórico encerrado' })).toBeInTheDocument();
     expect(solicitacoesApi.listar).toHaveBeenCalledWith(expect.objectContaining({ status_grupo: 'encerrado' }));
+    // A página de histórico não repete "Prioridades em aberto" nem "Próxima solicitação por
+    // prioridade" — são cartões sobre a fila em aberto, não sobre o que já foi encerrado.
+    expect(screen.queryByText('Próxima solicitação por prioridade')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Prioridades em aberto' })).not.toBeInTheDocument();
+
     await userEvent.click(screen.getByRole('button', { name: 'Fila atual' }));
+    expect(await screen.findByText('Próxima solicitação por prioridade')).toBeInTheDocument();
     expect(solicitacoesApi.listar).toHaveBeenCalledWith(expect.objectContaining({ status_grupo: 'aberto' }));
   });
 
