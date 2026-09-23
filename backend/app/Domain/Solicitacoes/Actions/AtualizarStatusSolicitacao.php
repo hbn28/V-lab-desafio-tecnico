@@ -2,12 +2,14 @@
 
 namespace App\Domain\Solicitacoes\Actions;
 
+use App\Domain\Solicitacoes\Events\SolicitacaoStatusAtualizado;
 use App\Models\Agendamento;
 use App\Models\EntradaFila;
 use App\Models\Solicitacao;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class AtualizarStatusSolicitacao
 {
@@ -33,6 +35,7 @@ class AtualizarStatusSolicitacao
             $solicitacao = Solicitacao::lockForUpdate()->findOrFail($solicitacao->id);
 
             $permitidos = self::TRANSICOES[$solicitacao->status] ?? [];
+            $statusAnterior = $solicitacao->status;
 
             if (! in_array($novoStatus, $permitidos, true)) {
                 $this->conflito(
@@ -80,6 +83,15 @@ class AtualizarStatusSolicitacao
                 $this->encerrarFilaAberta($solicitacao, 'CANCELAMENTO');
                 $this->cancelarAgendamentoAtivo($solicitacao);
             }
+
+            event(new SolicitacaoStatusAtualizado(
+                eventId: (string) Str::uuid(),
+                requestId: request()->attributes->get('request_id'),
+                solicitacaoId: $solicitacao->id,
+                protocolo: $solicitacao->protocolo,
+                statusAnterior: $statusAnterior,
+                statusNovo: $novoStatus,
+            ));
 
             return $solicitacao->fresh();
         });

@@ -21,12 +21,24 @@ class ListarSolicitacoesRequest extends FormRequest
             'page' => ['nullable', 'integer', 'min:1'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
             'data_agendada' => ['nullable', 'date_format:Y-m-d'],
+            'data_de' => ['nullable', 'date_format:Y-m-d'],
+            'data_ate' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:data_de'],
+            'q' => ['nullable', 'string', 'max:100'],
+            'ordenar_por' => ['nullable', 'in:prioridade,data,horario'],
+            'direcao' => ['nullable', 'in:asc,desc'],
         ];
     }
 
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
+            if ($this->filled('ordenar_por') && $this->input('ordenar_por') === 'horario'
+                && $this->input('status') !== 'AGENDADA' && ! $this->filled('data_agendada')) {
+                $validator->errors()->add('ordenar_por', 'A ordenação por horário exige solicitações agendadas.');
+            }
+            if ($this->filled('data_agendada') && $this->input('ordenar_por') === 'data') {
+                $validator->errors()->add('ordenar_por', 'A ordenação por data não se aplica a um único dia.');
+            }
             if (! $this->filled('data_agendada')) {
                 return;
             }

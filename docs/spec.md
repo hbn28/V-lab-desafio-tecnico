@@ -128,12 +128,16 @@ Resposta 201: `{ "data": Solicitacao }`.
 
 ### GET `/api/v1/solicitacoes`
 
-Query: `status`, `status_grupo`, `categoria`, `prioridade`, `data_agendada`, `page`, `per_page`.
+Query: `q`, `status`, `status_grupo`, `categoria`, `prioridade`, `data_agendada`, `data_de`, `data_ate`, `ordenar_por`, `direcao`, `page`, `per_page`.
 
 - filtros vazios são tratados como ausentes;
 - enums desconhecidos retornam 422;
 - `page` deve ser inteiro >= 1;
 - `per_page` deve ser inteiro entre 1 e 100, padrão 15;
+- `q` busca por protocolo ou nome do solicitante (máximo 100 caracteres; curingas são tratados como texto);
+- `data_de` e `data_ate` filtram o período inclusivo no fuso operacional. Na fila usam a criação, em agendadas o compromisso e no histórico a atualização/encerramento;
+- `ordenar_por` aceita `prioridade`, `data` ou `horario`; `direcao` aceita `asc` ou `desc` para data/horário. A prioridade continua da mais urgente para a mais baixa;
+- data/horário e prioridade têm desempates determinísticos; ordenação incompatível com o conjunto (por exemplo, `horario` sem agendamentos) retorna 422;
 - `status_grupo=aberto` retorna apenas `RECEBIDA`, `EM_ANALISE` e `AGENDADA`; a ordenação é `URGENTE`, `ALTA`, `MEDIA`, `BAIXA`, depois `created_at ASC` (mais antiga primeiro), com `id ASC` como desempate.
 - `status_grupo=encerrado` retorna apenas `CONCLUIDA` e `CANCELADA`, por `updated_at DESC` (encerramento mais recente primeiro), com `id DESC` como desempate.
 - sem `status_grupo`, a listagem preserva a ordenação legada: abertas primeiro, depois encerradas.
@@ -242,14 +246,15 @@ Uma falta é um **estado do agendamento**, não da solicitação:
   ```
 
   `resultado` é um de `SEM_RESPOSTA`, `RECADO`, `CONFIRMOU_RETORNO`, `NUMERO_INVALIDO` (CHECK). Agendamento fora de `FALTA` retorna 409.
-- `POST /api/v1/agendamentos/{id}/reagendar-apos-falta` cria um **novo** `Agendamento` (`status = AGENDADO`) para a mesma solicitação, com o mesmo payload de horário/turno de "Agendamento por horário ou por turno" acima, **preservando** a linha `FALTA` original como histórico. Exige que a solicitação esteja `AGENDADA` e que não exista outro `Agendamento` já `AGENDADO`.
+- `POST /api/v1/agendamentos/{id}/reagendar-apos-falta` cria um **novo** `Agendamento` (`status = AGENDADO`) para a mesma solicitação, com o mesmo payload de horário/turno de "Agendamento por horário ou por turno" acima, **preservando** a linha `FALTA` original como histórico. Exige que a solicitação esteja `AGENDADA` e que não exista outro `Agendamento` já `AGENDADO` ou posterior à falta escolhida. Ao reagendar, preenche `resultado_em` na falta original para indicar que ela foi resolvida; uma repetição da mesma ação retorna 409. A falta permanece visível no histórico, marcada como reagendada, sem oferecer outro reagendamento.
 - Concluir (`CONCLUIDA`) uma solicitação cujo agendamento ativo está em `FALTA` corrige o registro: marca `REALIZADO` e preenche `falta_corrigida_em`, sem apagar `falta_registrada_em` — o histórico da ausência original não é perdido.
 - Cancelar (`CANCELADA`) uma solicitação com agendamento `AGENDADO` marca esse agendamento como `CANCELADO`.
 
 ### Novos endpoints de leitura
 
 - `GET /api/v1/fila`: fila operacional contínua (uma linha por `EntradaFila` aberta, join com `solicitacoes`), ordenada por prioridade (`URGENTE`, `ALTA`, `MEDIA`, `BAIXA`) e, no empate, por `entrou_em ASC`.
-- `GET /api/v1/faltas`: lista agendamentos em `FALTA`, com paciente (nome, telefone mascarado), protocolo, data/horário ou turno original e última tentativa de contato (`ultima_tentativa_contato`, se houver).
+- `GET /api/v1/faltas`: lista agendamentos em `FALTA`, com paciente (nome, telefone mascarado), protocolo, data/horário ou turno original, `resultado_em`, última tentativa de contato (`ultima_tentativa_contato`, se houver) e, quando existir, o agendamento ativo da solicitação (`solicitacao.agendamento_ativo`). Essa relação permite distinguir uma falta histórica já reagendada de uma falta ainda disponível para reagendamento.
+  Aceita `q`, `prioridade`, `data_de`, `data_ate`, `resultado_contato`, `ordenar_por`, `direcao`, `page` e `per_page`, com a mesma busca por protocolo/nome e ordenação validada no servidor.
 
 ## Contrato de erros
 

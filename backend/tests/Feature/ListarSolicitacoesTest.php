@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Agendamento;
 use App\Models\Paciente;
 use App\Models\Solicitacao;
 use Illuminate\Support\Carbon;
@@ -139,6 +140,77 @@ test('filtra o dia operacional e ordena horário prioridade protocolo', function
     ]);
 });
 
+test('horários exatos aparecem antes dos itens ordenados por turno na agenda', function () {
+    $turno = Solicitacao::factory()->create(['status' => 'AGENDADA', 'agendado_para' => null]);
+    Agendamento::factory()->create([
+        'solicitacao_id' => $turno->id,
+        'data_agendada' => '2026-09-25',
+        'modalidade' => 'TURNO',
+        'turno' => 'MANHA',
+    ]);
+    $horario = Solicitacao::factory()->create([
+        'status' => 'AGENDADA',
+        'agendado_para' => '2026-09-25T12:00:00Z',
+    ]);
+
+    $response = $this->getJson('/api/v1/solicitacoes?data_agendada=2026-09-25')->assertOk();
+
+    expect($response->json('data.*.id'))->toBe([$horario->id, $turno->id]);
+});
+
+test('ordenação de data da agenda usa a data local também nos itens por turno', function () {
+    $turno = Solicitacao::factory()->create(['status' => 'AGENDADA', 'agendado_para' => null]);
+    Agendamento::factory()->create(['solicitacao_id' => $turno->id, 'data_agendada' => '2026-09-22', 'turno' => 'TARDE']);
+    $horario = Solicitacao::factory()->create(['status' => 'AGENDADA', 'agendado_para' => '2026-09-30T12:00:00Z']);
+    Agendamento::factory()->create(['solicitacao_id' => $horario->id, 'modalidade' => 'HORARIO', 'data_agendada' => '2026-09-30', 'hora_agendada' => '09:00']);
+
+    $this->getJson('/api/v1/solicitacoes?status=AGENDADA&ordenar_por=data&direcao=asc')->assertOk()
+        ->assertJsonPath('data.*.id', [$turno->id, $horario->id]);
+});
+
+test('ordenação explícita por prioridade mantém prioridade como chave antes da data da agenda', function () {
+    $urgente = Solicitacao::factory()->create(['status' => 'AGENDADA', 'prioridade' => 'URGENTE', 'justificativa_prioridade' => 'Teste fictício.', 'agendado_para' => null]);
+    Agendamento::factory()->create(['solicitacao_id' => $urgente->id, 'data_agendada' => '2026-09-30', 'turno' => 'TARDE']);
+    $baixa = Solicitacao::factory()->create(['status' => 'AGENDADA', 'prioridade' => 'BAIXA', 'agendado_para' => null]);
+    Agendamento::factory()->create(['solicitacao_id' => $baixa->id, 'data_agendada' => '2026-09-22', 'turno' => 'MANHA']);
+
+    $this->getJson('/api/v1/solicitacoes?status=AGENDADA&ordenar_por=prioridade')->assertOk()
+        ->assertJsonPath('data.*.id', [$urgente->id, $baixa->id]);
+});
+
+test('status explícito restringe corretamente o grupo de histórico', function () {
+    $concluida = Solicitacao::factory()->create(['status' => 'CONCLUIDA']);
+    Solicitacao::factory()->create(['status' => 'CANCELADA']);
+
+    $this->getJson('/api/v1/solicitacoes?status_grupo=encerrado&status=CONCLUIDA')->assertOk()
+        ->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $concluida->id);
+});
+
+test('grupo aberto continua excluindo estados encerrados junto com status explícito', function () {
+    Solicitacao::factory()->create(['status' => 'CONCLUIDA']);
+
+    $this->getJson('/api/v1/solicitacoes?status_grupo=aberto&status=CONCLUIDA')->assertOk()
+        ->assertJsonPath('meta.total', 0);
+});
+
+test('agenda diária exclui solicitações cujo agendamento já virou falta', function () {
+    $solicitacao = Solicitacao::factory()->create([
+        'status' => 'AGENDADA',
+        'agendado_para' => '2026-09-25T17:30:00Z',
+    ]);
+    Agendamento::factory()->create([
+        'solicitacao_id' => $solicitacao->id,
+        'data_agendada' => '2026-09-25',
+        'modalidade' => 'HORARIO',
+        'hora_agendada' => '14:30',
+        'turno' => 'TARDE',
+        'status' => 'FALTA',
+    ]);
+
+    $this->getJson('/api/v1/solicitacoes?data_agendada=2026-09-25')->assertOk()
+        ->assertJsonPath('meta.total', 0);
+});
+
 test('rejeita combinações incompatíveis da agenda', function (string $query, string $campo) {
     $this->getJson("/api/v1/solicitacoes?$query")
         ->assertStatus(422)->assertJsonStructure(['errors' => [$campo]]);
@@ -179,4 +251,42 @@ test('filtra a fila por status AGENDADA e ordena por agendado_para, não por pri
         'SOL-2026-0303', 'SOL-2026-0301', 'SOL-2026-0302',
     ]);
     expect($response->json('data.*.status'))->each->toBe('AGENDADA');
+});
+
+test('busca por nome acentuado e protocolo, sem tratar curingas como padrão SQL', function () {
+    Solicitacao::factory()->create(['nome_solicitante' => 'João da Silva', 'protocolo' => 'SOL-2026-0401']);
+    Solicitacao::factory()->create(['nome_solicitante' => 'Maria Santos', 'protocolo' => 'SOL-2026-0402']);
+
+    $this->getJson('/api/v1/solicitacoes?q=Jo%C3%A3o&per_page=1')
+        ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.protocolo', 'SOL-2026-0401');
+
+    $this->getJson('/api/v1/solicitacoes?q=SOL-2026-0402')
+        ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.protocolo', 'SOL-2026-0402');
+});
+
+test('valida os parâmetros de busca e ordenação', function (string $query, string $campo) {
+    $this->getJson("/api/v1/solicitacoes?$query")
+        ->assertUnprocessable()->assertJsonStructure(['message', 'errors' => [$campo]]);
+})->with([
+    ['ordenar_por=campo_sql', 'ordenar_por'],
+    ['direcao=ascendente', 'direcao'],
+    ['q='.str_repeat('x', 101), 'q'],
+]);
+
+test('aplica período inclusivo no fuso operacional e ordenação de data nos resultados completos', function () {
+    $dentroMaisNovo = Solicitacao::factory()->create(['protocolo' => 'SOL-2026-0502']);
+    $dentroMaisAntigo = Solicitacao::factory()->create(['protocolo' => 'SOL-2026-0501']);
+    $fora = Solicitacao::factory()->create(['protocolo' => 'SOL-2026-0500']);
+
+    $dentroMaisNovo->forceFill(['created_at' => '2026-09-11T02:59:59Z'])->save();
+    $dentroMaisAntigo->forceFill(['created_at' => '2026-09-10T03:00:00Z'])->save();
+    $fora->forceFill(['created_at' => '2026-09-10T02:59:59Z'])->save();
+
+    $this->getJson('/api/v1/solicitacoes?data_de=2026-09-10&data_ate=2026-09-10&ordenar_por=data&direcao=asc')
+        ->assertOk()->assertJsonPath('meta.total', 2)
+        ->assertJsonPath('data.0.protocolo', 'SOL-2026-0501')
+        ->assertJsonPath('data.1.protocolo', 'SOL-2026-0502');
+
+    $this->getJson('/api/v1/solicitacoes?ordenar_por=data&direcao=desc')
+        ->assertOk()->assertJsonPath('data.0.protocolo', 'SOL-2026-0502');
 });

@@ -14,6 +14,7 @@ vi.mock('../features/solicitacoes/api/client', () => ({
     buscar: vi.fn(),
     atualizarStatus: vi.fn(),
     reagendar: vi.fn(),
+    registrarFalta: vi.fn(),
     atualizar: vi.fn(),
     apagar: vi.fn(),
   },
@@ -97,6 +98,63 @@ describe('Agendamento no detalhe da solicitação', () => {
     renderDetalhe({ ...solicitacaoBase, status: 'CONCLUIDA', agendado_para: '2026-09-25T17:30:00Z' });
     expect((await screen.findAllByText(/25\/09\/2026/)).length).toBeGreaterThan(0);
     expect(screen.queryByRole('button', { name: 'Alterar agendamento' })).not.toBeInTheDocument();
+  });
+
+  it('exibe e preenche agendamento por turno no detalhe', async () => {
+    renderDetalhe({
+      ...solicitacaoBase,
+      status: 'AGENDADA',
+      agendamento_ativo: {
+        id: 42,
+        modalidade: 'TURNO',
+        data_agendada: '2026-09-29',
+        hora_agendada: null,
+        turno: 'TARDE',
+        status: 'AGENDADO',
+        falta_registrada_em: null,
+        falta_corrigida_em: null,
+        resultado_em: null,
+      },
+    });
+
+    expect((await screen.findAllByText(/29\/09\/2026.*Tarde/)).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Alterar agendamento' }));
+    expect(screen.getByLabelText('Data do atendimento')).toHaveValue('2026-09-29');
+    expect(screen.getByLabelText('Turno do atendimento')).toHaveValue('TARDE');
+  });
+
+  it('permite registrar falta pela tela do agendamento ativo', async () => {
+    vi.mocked(solicitacoesApi.registrarFalta).mockResolvedValue({
+      id: 42,
+      modalidade: 'HORARIO',
+      data_agendada: '2026-09-25',
+      hora_agendada: '14:30',
+      turno: 'TARDE',
+      status: 'FALTA',
+      falta_registrada_em: '2026-09-25T18:00:00Z',
+      falta_corrigida_em: null,
+      resultado_em: null,
+    });
+    renderDetalhe({
+      ...solicitacaoBase,
+      status: 'AGENDADA',
+      agendado_para: '2026-09-25T17:30:00Z',
+      agendamento_ativo: {
+        id: 42,
+        modalidade: 'HORARIO',
+        data_agendada: '2026-09-25',
+        hora_agendada: '14:30',
+        turno: 'TARDE',
+        status: 'AGENDADO',
+        falta_registrada_em: null,
+        falta_corrigida_em: null,
+        resultado_em: null,
+      },
+    });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Registrar falta' }));
+    expect(solicitacoesApi.registrarFalta).toHaveBeenCalledWith(42);
+    expect(await screen.findByRole('status')).toHaveTextContent('Falta registrada');
   });
 
   it('preserva valores no 422 e associa o erro ao campo', async () => {

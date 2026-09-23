@@ -8,9 +8,16 @@ servers:
   - url: http://localhost:8000/api/v1
     description: Servidor local de desenvolvimento
 
+security:
+  - operatorSession: []
+
 tags:
   - name: health
     description: Saúde da API
+  - name: auth
+    description: Authentication and operator session
+  - name: notificacoes
+    description: Operational notifications
   - name: solicitacoes
     description: Solicitações de atendimento
   - name: fila
@@ -24,6 +31,7 @@ paths:
       tags: [health]
       summary: Health check
       operationId: health
+      security: []
       responses:
         '200':
           description: API e banco saudáveis
@@ -37,6 +45,114 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthDegraded'
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: Start operator session
+      operationId: login
+      security: []
+      parameters:
+        - name: X-XSRF-TOKEN
+          in: header
+          required: true
+          schema: { type: string }
+          description: Value of the XSRF-TOKEN cookie returned by /sanctum/csrf-cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginBody'
+      responses:
+        '200':
+          description: Authenticated operator; session cookie is set
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorResponse'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: Return the current operator
+      operationId: currentOperator
+      responses:
+        '200':
+          description: Current operator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      summary: End operator session
+      operationId: logout
+      parameters:
+        - name: X-XSRF-TOKEN
+          in: header
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Session ended
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /notificacoes:
+    get:
+      tags: [notificacoes]
+      summary: List current operator notifications
+      operationId: listarNotificacoes
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+      responses:
+        '200':
+          description: Paginated notifications and unread count for the current operator
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificacoesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /notificacoes/{id}/lida:
+    patch:
+      tags: [notificacoes]
+      summary: Mark one own notification as read
+      operationId: marcarNotificacaoLida
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, minimum: 1 }
+        - name: X-XSRF-TOKEN
+          in: header
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificacaoResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /solicitacoes:
     get:
@@ -67,6 +183,26 @@ paths:
           schema:
             $ref: '#/components/schemas/Prioridade'
           description: Filtrar por prioridade
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 100 }
+          description: Busca por protocolo ou nome do solicitante.
+        - name: data_de
+          in: query
+          schema: { type: string, format: date }
+          description: Limite inicial inclusivo no fuso operacional.
+        - name: data_ate
+          in: query
+          schema: { type: string, format: date }
+          description: Limite final inclusivo no fuso operacional.
+        - name: ordenar_por
+          in: query
+          schema: { type: string, enum: [prioridade, data, horario] }
+          description: Ordenação no servidor; horario exige resultados agendados.
+        - name: direcao
+          in: query
+          schema: { type: string, enum: [asc, desc] }
+          description: Direção aplicável a data e horario.
         - name: status_grupo
           in: query
           schema:
@@ -162,6 +298,9 @@ paths:
             Restringe apenas a quebra por status. Não afeta a quebra por
             prioridade, que é a própria dimensão detalhada nesse bloco.
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
         '200':
           description: Contagens agregadas
           content:
@@ -305,7 +444,8 @@ paths:
                     Exclusiva com turno. Obrigatória somente quando status=AGENDADA e a
                     modalidade escolhida é HORARIO; proibida nos demais casos.
                 turno:
-                  $ref: '#/components/schemas/Turno'
+                  allOf:
+                    - $ref: '#/components/schemas/Turno'
                   description: >-
                     Exclusiva com hora_agendada. Obrigatória somente quando status=AGENDADA e
                     a modalidade escolhida é TURNO; proibida nos demais casos.
@@ -375,6 +515,9 @@ paths:
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 15 }
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
         '200':
           description: Fila paginada
           content:
@@ -403,6 +546,29 @@ paths:
         data/hora ou turno original e a última tentativa de contato, se houver.
       operationId: listarFaltas
       parameters:
+        - name: q
+          in: query
+          schema: { type: string, maxLength: 100 }
+          description: Busca por protocolo ou nome do solicitante.
+        - name: prioridade
+          in: query
+          schema: { $ref: '#/components/schemas/Prioridade' }
+        - name: data_de
+          in: query
+          schema: { type: string, format: date }
+        - name: data_ate
+          in: query
+          schema: { type: string, format: date }
+        - name: resultado_contato
+          in: query
+          schema:
+            $ref: '#/components/schemas/ResultadoContato'
+        - name: ordenar_por
+          in: query
+          schema: { type: string, enum: [prioridade, data, horario] }
+        - name: direcao
+          in: query
+          schema: { type: string, enum: [asc, desc] }
         - name: page
           in: query
           schema: { type: integer, minimum: 1, default: 1 }
@@ -410,6 +576,9 @@ paths:
           in: query
           schema: { type: integer, minimum: 1, maximum: 100, default: 15 }
       responses:
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
         '200':
           description: Faltas paginadas
           content:
@@ -487,7 +656,7 @@ paths:
                 type: object
                 properties:
                   data:
-                    $ref: '#/components/schemas/Agendamento'
+                    $ref: '#/components/schemas/TentativaContato'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -504,9 +673,9 @@ paths:
       tags: [faltas]
       summary: Reagendar após falta
       description: >-
-        Cria um novo Agendamento AGENDADO para a mesma solicitação, preservando o
-        registro FALTA original como histórico. Exige solicitação AGENDADA e nenhum
-        outro agendamento já AGENDADO.
+        Cria um novo Agendamento AGENDADO para a mesma solicitação. Preserva a falta
+        anterior como histórico e registra resultado_em nela para impedir novo uso
+        dessa falta. Exige solicitação AGENDADA sem agendamento ativo ou posterior.
       operationId: reagendarAposFalta
       parameters:
         - $ref: '#/components/parameters/AgendamentoId'
@@ -538,6 +707,13 @@ paths:
           $ref: '#/components/responses/ValidationError'
 
 components:
+  securitySchemes:
+    operatorSession:
+      type: apiKey
+      in: cookie
+      name: vlab_session
+      description: Laravel session cookie; default name for APP_NAME=VLab. Mutating requests also require the X-XSRF-TOKEN header.
+
   parameters:
     AgendamentoId:
       name: id
@@ -558,6 +734,71 @@ components:
       description: ID da solicitação
 
   schemas:
+    LoginBody:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+
+    Operator:
+      type: object
+      required: [id, name, email, role]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { type: string, enum: [ADMINISTRADOR, ATENDENTE] }
+
+    OperatorResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Operator'
+
+    LogoutResponse:
+      type: object
+      required: [data]
+      properties:
+        data: { type: string, nullable: true, example: null }
+
+    Notificacao:
+      type: object
+      required: [id, solicitacao_id, protocolo, status_anterior, status_novo, created_at, read_at]
+      properties:
+        id: { type: integer }
+        solicitacao_id: { type: integer }
+        protocolo: { type: string }
+        status_anterior: { $ref: '#/components/schemas/Status' }
+        status_novo: { $ref: '#/components/schemas/Status' }
+        created_at: { type: string, format: date-time }
+        read_at: { type: string, format: date-time, nullable: true }
+
+    NotificacaoResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Notificacao'
+
+    NotificacoesResponse:
+      type: object
+      properties:
+        data:
+          type: array
+          maxItems: 20
+          items:
+            $ref: '#/components/schemas/Notificacao'
+        unread_count: { type: integer, minimum: 0 }
+        meta:
+          type: object
+          required: [current_page, last_page, per_page, total]
+          properties:
+            current_page: { type: integer }
+            last_page: { type: integer }
+            per_page: { type: integer }
+            total: { type: integer }
+
     Status:
       type: string
       enum: [RECEBIDA, EM_ANALISE, AGENDADA, CONCLUIDA, CANCELADA]
@@ -612,10 +853,14 @@ components:
           type: string
           format: date-time
         paciente:
-          $ref: '#/components/schemas/PacienteResumo'
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/PacienteResumo'
           nullable: true
         agendamento_ativo:
-          $ref: '#/components/schemas/Agendamento'
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/Agendamento'
           nullable: true
 
     Turno:
@@ -698,7 +943,9 @@ components:
           nullable: true
           example: '14:30'
         turno:
-          $ref: '#/components/schemas/Turno'
+          type: string
+          allOf:
+            - $ref: '#/components/schemas/Turno'
           nullable: true
           description: >-
             Sempre preenchido pelo backend nas duas modalidades (derivado automaticamente
@@ -706,6 +953,13 @@ components:
             contrato de API, não reflete um caso real em que o valor fica nulo no banco.
         status:
           $ref: '#/components/schemas/StatusAgendamento'
+        resultado_em:
+          type: string
+          format: date-time
+          nullable: true
+          description: >-
+            Momento em que o agendamento foi encerrado ou em que a falta histórica
+            foi resolvida por reagendamento.
         falta_registrada_em:
           type: string
           format: date-time
@@ -722,10 +976,21 @@ components:
             id: { type: integer }
             protocolo: { type: string }
             nome_solicitante: { type: string }
+            prioridade:
+              $ref: '#/components/schemas/Prioridade'
+            status:
+              $ref: '#/components/schemas/Status'
+            agendamento_ativo:
+              type: object
+              allOf:
+                - $ref: '#/components/schemas/Agendamento'
+              nullable: true
             paciente:
               $ref: '#/components/schemas/PacienteResumo'
         ultima_tentativa_contato:
-          $ref: '#/components/schemas/TentativaContato'
+          type: object
+          allOf:
+            - $ref: '#/components/schemas/TentativaContato'
           nullable: true
 
     RegistrarContatoBody:
@@ -739,16 +1004,14 @@ components:
 
     EntradaFila:
       type: object
+      required: [id, entrou_em, solicitacao]
       properties:
         id: { type: integer }
-        solicitacao_id: { type: integer }
         entrou_em:
           type: string
           format: date-time
-        protocolo: { type: string }
-        nome_solicitante: { type: string }
-        prioridade:
-          $ref: '#/components/schemas/Prioridade'
+        solicitacao:
+          $ref: '#/components/schemas/Solicitacao'
 
     SolicitacaoResponse:
       type: object
@@ -768,7 +1031,7 @@ components:
           properties:
             total:       { type: integer }
             per_page:    { type: integer }
-            current_page:{ type: integer }
+            current_page: { type: integer }
             last_page:   { type: integer }
         links:
           type: object
@@ -828,6 +1091,12 @@ components:
             items: { type: string }
 
   responses:
+    Unauthorized:
+      description: Authentication required or session expired
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
     ValidationError:
       description: Erro de validação
       content:

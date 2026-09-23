@@ -194,13 +194,19 @@ Uma falta acontece em um **compromisso específico** (`Agendamento`), não na so
 - reagendar após falta cria um **novo** `Agendamento` (preservando o antigo, agora histórico) em vez de mutar o registro `FALTA`;
 - concluir um atendimento cujo agendamento ativo está em `FALTA` corrige esse mesmo registro (`REALIZADO` + `falta_corrigida_em`), sem apagar `falta_registrada_em`.
 
-## Evolução Futura
+## Estado implementado e evolução futura
 
-- **Autenticação:** Laravel Sanctum com tokens API para operadores
-- **Fila de notificações:** Job `NotificarSolicitante` via `database` driver → SQS em produção
-- **Eventos de domínio:** `SolicitacaoStatusAtualizado` → listeners desacoplados
-- **Microsserviços:** Health + Solicitações já estão em namespaces separados — isolamento trivial
+- **Autenticação:** Laravel Sanctum com sessão/cookie para operadores; a API valida operador ativo e aplica políticas por papel.
+- **Notificações:** `SolicitacaoStatusAtualizado` é despachado após commit; `CriarNotificacoesOperacionais` roda na fila `database` pelo serviço `worker` do Compose. O registro operacional guarda somente metadados de protocolo/status e destinatário.
+- **Eventos:** a transição confirmada não depende da execução do worker. Se o worker parar, os jobs aguardam na tabela `jobs`; falha ao inserir na fila depois do commit pode deixar a chamada HTTP com erro embora o status já esteja persistido.
+- **Microsserviços:** Health e Solicitações estão em namespaces separados. Uma extração futura pode começar por um domínio de Agenda, notificações assíncronas via SQS e um API Gateway, sem antecipar essas camadas no monólito.
 
-## Operação da fila
+## Operação da fila de notificações
 
-A listagem é ordenada no backend: solicitações ativas aparecem antes das encerradas; dentro de cada grupo, a prioridade é `URGENTE`, `ALTA`, `MEDIA`, `BAIXA`; empates usam a data de criação mais antiga e o `id` como desempate. O frontend apenas comunica essa regra e não reordena a resposta.
+O serviço `worker` executa `php artisan queue:work database --tries=3 --backoff=5 --timeout=30`. O listener também declara três tentativas e intervalo de cinco segundos. A restrição única `(event_id, user_id)` com `insertOrIgnore` torna o processamento idempotente por evento e operador. Exceções são relançadas para acionar o mecanismo de retry; o log de falha inclui somente `event_id` e `request_id`.
+
+Para operação local, confira `docker compose ps worker` e os logs com `docker compose logs -f worker`. Jobs que esgotarem as tentativas devem ser inspecionados com `php artisan queue:failed`; após corrigir a causa, reexecute pelo identificador com `php artisan queue:retry <id>`. A tabela `failed_jobs` precisa ser acompanhada junto com a fila `jobs`.
+
+A prova automatizada verifica despacho após commit, descarte no rollback, transição persistida antes do worker, processamento real com `queue:work --once`, isolamento entre operador ativo/inativo, idempotência e ausência de dados pessoais no payload/log. A falha do listener e os parâmetros de retry são cobertos. Um job transitório de prova passa pelo worker real: a primeira execução incrementa `attempts` e permanece em `jobs`; a segunda conclui e remove o job. Essa prova exercita o mecanismo do Laravel, enquanto a falha real do listener é coberta separadamente. O esgotamento das três tentativas e a gravação terminal em `failed_jobs` ainda não foram exercitados de ponta a ponta. Sem worker, a transição permanece confirmada e o job pendente pode ser processado quando o worker voltar.
+
+A listagem operacional é ordenada no backend: solicitações ativas antes das encerradas; dentro de cada grupo, prioridade `URGENTE`, `ALTA`, `MEDIA`, `BAIXA`; empates pela criação mais antiga e `id`.

@@ -1,13 +1,14 @@
 import { useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useLocation } from 'react-router-dom';
 import { useSolicitacao } from '../hooks/useSolicitacoes';
 import { solicitacoesApi } from '../api/client';
 import { StatusBadge, PrioridadeBadge } from '../../../components/Badge';
 import { AgendamentoForm } from '../components/AgendamentoForm';
 import { camposDoAgendamento, formatarAgendamento } from '../config/agendamento';
-import { TRANSICOES_PERMITIDAS, LABEL_STATUS, LABEL_CATEGORIA } from '../types';
+import { TRANSICOES_PERMITIDAS, LABEL_STATUS, LABEL_CATEGORIA, LABEL_TURNO } from '../types';
 import type { AgendamentoPayload, Status } from '../types';
+import { useOptionalAuth } from '../../auth/context';
 
 const MENSAGEM_CONFLITO = 'A solicitação mudou enquanto você editava. Revise o estado atual e tente novamente.';
 
@@ -29,8 +30,14 @@ function formatDate(value: string, includeTime = false) {
 }
 
 export function SolicitacaoDetailPage() {
+  const auth = useOptionalAuth();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: unknown } | null)?.from;
+  const returnTo = typeof from === 'string' && from.startsWith('/') && !from.startsWith('//') && !from.includes('\\')
+    ? from
+    : '/';
   const { data, loading, error, reload, refresh } = useSolicitacao(id ?? '');
   const [updating, setUpdating] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
@@ -49,7 +56,7 @@ export function SolicitacaoDetailPage() {
     setDeleteError(null);
     try {
       await solicitacoesApi.apagar(data.id.toString());
-      navigate('/');
+      navigate(returnTo);
     } catch (caught: unknown) {
       setDeleteError(caught instanceof Error ? caught.message : 'Erro ao apagar solicitação');
       setDeleting(false);
@@ -69,6 +76,22 @@ export function SolicitacaoDetailPage() {
       setUpdateSuccess(`Status atualizado para ${LABEL_STATUS[novoStatus]}.`);
     } catch (caught: unknown) {
       setUpdateError(caught instanceof Error ? caught.message : 'Erro ao atualizar status');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const registrarFalta = async () => {
+    if (!data?.agendamento_ativo) return;
+    setUpdating(true);
+    setUpdateError(null);
+    setUpdateSuccess(null);
+    try {
+      await solicitacoesApi.registrarFalta(data.agendamento_ativo.id);
+      await reload();
+      setUpdateSuccess('Falta registrada. O agendamento saiu da agenda e está disponível em Faltas.');
+    } catch (caught: unknown) {
+      setUpdateError(caught instanceof Error ? caught.message : 'Erro ao registrar falta');
     } finally {
       setUpdating(false);
     }
@@ -101,9 +124,13 @@ export function SolicitacaoDetailPage() {
       } else {
         await solicitacoesApi.atualizarStatus(data.id.toString(), { status: 'AGENDADA', ...payload });
       }
-      await refresh();
+      const atualizado = await refresh();
       setEditandoAgenda(false);
-      setUpdateSuccess(reagendando ? 'Agendamento atualizado.' : 'Agendamento confirmado.');
+      if (atualizado) {
+        setUpdateSuccess(reagendando ? 'Agendamento atualizado.' : 'Agendamento confirmado.');
+      } else {
+        setUpdateError('Agendamento salvo, mas o detalhe não pôde ser atualizado. Recarregue a página para ver os dados atuais.');
+      }
     } catch (caught: unknown) {
       const http = statusHttp(caught);
       const erros = errosDaApi(caught);
@@ -155,15 +182,18 @@ export function SolicitacaoDetailPage() {
   if (data.paciente?.celular_mascarado) {
     details.push(['Celular', data.paciente.celular_mascarado]);
   }
-  // Também em estados terminais: preserva o horário histórico.
-  if (data.agendado_para) {
+  const agendamentoAtivo = data.agendamento_ativo?.status === 'AGENDADO' ? data.agendamento_ativo : null;
+  if (agendamentoAtivo?.modalidade === 'TURNO' && agendamentoAtivo.turno) {
+    details.push(['Agendado para', <span key="agendado">{formatDate(`${agendamentoAtivo.data_agendada}T12:00:00`)} · {LABEL_TURNO[agendamentoAtivo.turno]}</span>]);
+  } else if (data.agendado_para) {
+    // Também em estados terminais: preserva o horário histórico.
     details.push(['Agendado para', <time key="agendado" dateTime={data.agendado_para}>{formatarAgendamento(data.agendado_para)}</time>]);
   }
 
   return (
     <div className="page-stack">
       <nav className="breadcrumb" aria-label="Navegação estrutural">
-        <Link to="/">Solicitações</Link>
+        <Link to={returnTo}>Solicitações</Link>
         <span aria-hidden="true">/</span>
         <span aria-current="page">{data.protocolo}</span>
       </nav>
@@ -177,11 +207,11 @@ export function SolicitacaoDetailPage() {
         <div className="detail-header-actions">
           <StatusBadge status={data.status} />
           {transicoes.length > 0 && (
-            <Link to={`/solicitacoes/${id}/editar`} className="button button--outline button--small">Editar</Link>
+            <Link to={`/solicitacoes/${id}/editar`} state={{ from: returnTo }} className="button button--outline button--small">Editar</Link>
           )}
-          <button onClick={handleDelete} disabled={deleting} className="button button--outline button--small button--danger-outline" type="button">
+          {(auth?.user?.role !== 'ATENDENTE') && <button onClick={handleDelete} disabled={deleting} className="button button--outline button--small button--danger-outline" type="button">
             {deleting ? 'Apagando...' : 'Apagar'}
-          </button>
+          </button>}
         </div>
       </header>
 
@@ -237,11 +267,13 @@ export function SolicitacaoDetailPage() {
             <div className="status-actions">
               <p>Próximas ações permitidas</p>
 
-              {data.status === 'AGENDADA' && data.agendado_para && (
+              {data.status === 'AGENDADA' && (data.agendado_para || agendamentoAtivo?.modalidade === 'TURNO') && (
                 <div className="schedule-summary">
                   <p className="schedule-summary__label">Agendado para</p>
                   <p className="schedule-summary__value">
-                    <time dateTime={data.agendado_para}>{formatarAgendamento(data.agendado_para)}</time>
+                    {agendamentoAtivo?.modalidade === 'TURNO' && agendamentoAtivo.turno
+                      ? <time dateTime={agendamentoAtivo.data_agendada}>{formatDate(`${agendamentoAtivo.data_agendada}T12:00:00`)} · {LABEL_TURNO[agendamentoAtivo.turno]}</time>
+                      : data.agendado_para && <time dateTime={data.agendado_para}>{formatarAgendamento(data.agendado_para)}</time>}
                   </p>
                 </div>
               )}
@@ -266,7 +298,9 @@ export function SolicitacaoDetailPage() {
                   <AgendamentoForm
                     key="agendamento-form"
                     mode={data.status === 'AGENDADA' ? 'reagendar' : 'agendar'}
-                    initialValue={data.status === 'AGENDADA' && data.agendado_para ? camposDoAgendamento(data.agendado_para) : undefined}
+                    initialValue={data.status === 'AGENDADA' && agendamentoAtivo?.modalidade === 'TURNO' && agendamentoAtivo.turno
+                      ? { data_agendada: agendamentoAtivo.data_agendada, turno: agendamentoAtivo.turno }
+                      : data.status === 'AGENDADA' && data.agendado_para ? camposDoAgendamento(data.agendado_para) : undefined}
                     submitting={salvandoAgenda}
                     serverErrors={errosAgenda}
                     context={
@@ -278,6 +312,12 @@ export function SolicitacaoDetailPage() {
                     onCancel={fecharAgenda}
                   />
                 </div>
+              )}
+
+              {data.status === 'AGENDADA' && agendamentoAtivo && (
+                <button type="button" className="button button--danger-outline" disabled={updating || salvandoAgenda} onClick={() => void registrarFalta()}>
+                  {updating ? 'Registrando...' : 'Registrar falta'}
+                </button>
               )}
 
               {transicoes.filter(status => status !== 'AGENDADA').map(status => (
@@ -295,7 +335,7 @@ export function SolicitacaoDetailPage() {
             </div>
           )}
 
-          <button onClick={() => navigate('/')} className="button button--ghost status-panel__back" type="button">Voltar à listagem</button>
+          <button onClick={() => navigate(returnTo)} className="button button--ghost status-panel__back" type="button">Voltar à listagem</button>
         </aside>
       </div>
     </div>

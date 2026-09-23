@@ -44,7 +44,7 @@ Tokens específicos de componente só devem ser criados quando houver reutiliza�
 
 - Botões: principal, contorno, fantasma, transição de status e perigo em contorno.
 - Campos: rótulo visível, ajuda persistente quando necessária, erro inline e foco perceptível.
-- Painel: o cartão “Próximo atendimento” abre a página. Em seguida vem a fila paginada, com filtros e registros na ordem operacional; o resumo global de prioridades e etapas fica abaixo como apoio à decisão. Urgentes e altas têm maior contraste.
+- Espaço operacional: a navegação persistente dá acesso à fila, solicitações agendadas, histórico e faltas. Coleções compartilham busca/filtros/ordenação e mantêm a consulta na URL; a agenda mostra sete filas independentes por dia. Remover mensagens de contexto que apenas repetem o que o título e os controles já deixam claro.
 - Badges: status com ponto + texto, em cores de etapa neutras/operacionais; prioridade com texto, em escala própria de atenção. Ambos possuem contraste e borda, mas nunca devem reutilizar a mesma convenção visual lado a lado.
 - Alertas: erro e sucesso com mensagem de recuperação; erros do formulário também aparecem em resumo focalizável e ligado aos campos.
 - Painéis e cartões: uma superfície por agrupamento funcional, sem aninhamento decorativo excessivo.
@@ -62,7 +62,10 @@ Não deve haver rolagem horizontal na página em 320 px. Controles interativos t
 
 ## Rotas e consistência de dados
 
-- `/`: dashboard, resumo, filtros, paginação e listagem.
+- `/`: espaço operacional compacto, com fila, resumo útil, busca/filtros e paginação.
+- `/?visao=agenda`: solicitações agendadas em sete grupos diários.
+- `/?visao=historico`: solicitações encerradas.
+- `/?visao=faltas`: agendamentos com ausência e ações de acompanhamento.
 - `/solicitacoes`: compatibilidade; redireciona para `/`.
 - `/solicitacoes/nova`: criação.
 - `/solicitacoes/:id`: detalhe e atualização de status.

@@ -10,10 +10,13 @@ import type {
   FiltrosSolicitacoes,
   ListaFaltas,
   ListaSolicitacoes,
+  PaginaMeta,
   RegistrarContatoPayload,
+  TentativaContato,
   ResumoSolicitacoes,
   Solicitacao,
 } from '../types';
+import { csrfHeader } from '../../auth/api/client';
 
 export type ListarParams = FiltrosSolicitacoes;
 
@@ -25,9 +28,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   try {
     response = await fetch(`${BASE_URL}${path}`, {
       ...options,
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        ...(options.method && options.method !== 'GET' ? csrfHeader() : {}),
         ...options.headers,
       },
     });
@@ -51,6 +56,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
+    if (response.status === 401 || response.status === 419) window.dispatchEvent(new Event('auth:expired'));
     const parsedBody = (typeof body === 'object' && body !== null ? body : {}) as {
       message?: string;
       errors?: Record<string, string[]>;
@@ -76,13 +82,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const solicitacoesApi = {
-  async listar(filtros: ListarParams = {}): Promise<{ data: Solicitacao[]; total: number; last_page: number }> {
+  async listar(filtros: ListarParams = {}): Promise<{ data: Solicitacao[]; total: number; last_page: number; current_page?: number }> {
     const params = new URLSearchParams();
     if (filtros.status)     params.set('status', filtros.status);
+    if (filtros.q)          params.set('q', filtros.q);
     if (filtros.status_grupo) params.set('status_grupo', filtros.status_grupo);
     if (filtros.categoria)  params.set('categoria', filtros.categoria);
     if (filtros.prioridade) params.set('prioridade', filtros.prioridade);
     if (filtros.data_agendada) params.set('data_agendada', filtros.data_agendada);
+    if (filtros.data_de)    params.set('data_de', filtros.data_de);
+    if (filtros.data_ate)   params.set('data_ate', filtros.data_ate);
+    if (filtros.ordenar_por) params.set('ordenar_por', filtros.ordenar_por);
+    if (filtros.direcao)    params.set('direcao', filtros.direcao);
     if (filtros.page)       params.set('page', String(filtros.page));
     if (filtros.per_page)   params.set('per_page', String(filtros.per_page));
     const qs = params.toString() ? `?${params}` : '';
@@ -90,7 +101,7 @@ export const solicitacoesApi = {
     if (!res?.data || !res?.meta) {
       throw new Error('O servidor retornou uma resposta inesperada ao listar as solicitações.');
     }
-    return { data: res.data, total: res.meta.total, last_page: res.meta.last_page };
+    return { data: res.data, total: res.meta.total, last_page: res.meta.last_page, current_page: res.meta.current_page };
   },
 
   async resumo(filtros: Pick<FiltrosSolicitacoes, 'categoria' | 'prioridade'> = {}): Promise<ResumoSolicitacoes> {
@@ -168,7 +179,7 @@ export const solicitacoesApi = {
     if (filtros.page)     params.set('page', String(filtros.page));
     if (filtros.per_page) params.set('per_page', String(filtros.per_page));
     const qs = params.toString() ? `?${params}` : '';
-    const res = await request<ListaSolicitacoes & { data: EntradaFilaItem[] }>(`/api/v1/fila${qs}`);
+    const res = await request<{ data: EntradaFilaItem[]; meta: PaginaMeta }>(`/api/v1/fila${qs}`);
     if (!res?.data || !res?.meta) {
       throw new Error('O servidor retornou uma resposta inesperada ao listar a fila.');
     }
@@ -177,6 +188,14 @@ export const solicitacoesApi = {
 
   async listarFaltas(filtros: FiltrosFaltas = {}): Promise<ListaFaltas> {
     const params = new URLSearchParams();
+    if (filtros.q)          params.set('q', filtros.q);
+    if (filtros.prioridade) params.set('prioridade', filtros.prioridade);
+    if (filtros.data)       params.set('data', filtros.data);
+    if (filtros.data_de)    params.set('data_de', filtros.data_de);
+    if (filtros.data_ate)   params.set('data_ate', filtros.data_ate);
+    if (filtros.resultado_contato) params.set('resultado_contato', filtros.resultado_contato);
+    if (filtros.ordenar_por) params.set('ordenar_por', filtros.ordenar_por);
+    if (filtros.direcao)    params.set('direcao', filtros.direcao);
     if (filtros.page)     params.set('page', String(filtros.page));
     if (filtros.per_page) params.set('per_page', String(filtros.per_page));
     const qs = params.toString() ? `?${params}` : '';
@@ -197,8 +216,8 @@ export const solicitacoesApi = {
     return res.data;
   },
 
-  async registrarContato(agendamentoId: number, payload: RegistrarContatoPayload): Promise<Agendamento> {
-    const res = await request<{ data: Agendamento }>(`/api/v1/agendamentos/${agendamentoId}/tentativas-contato`, {
+  async registrarContato(agendamentoId: number, payload: RegistrarContatoPayload): Promise<TentativaContato> {
+    const res = await request<{ data: TentativaContato }>(`/api/v1/agendamentos/${agendamentoId}/tentativas-contato`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });

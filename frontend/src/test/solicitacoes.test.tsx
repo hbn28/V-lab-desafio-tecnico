@@ -8,6 +8,15 @@ import { SolicitacaoDetailPage } from '../features/solicitacoes/pages/Solicitaca
 import { solicitacoesApi } from '../features/solicitacoes/api/client';
 import type { Solicitacao } from '../features/solicitacoes/types';
 
+vi.mock('../features/auth/api/client', () => ({
+  authApi: {
+    me: vi.fn().mockResolvedValue({ id: 1, name: 'Operador de teste', email: 'operador@example.test', role: 'ADMINISTRADOR' }),
+    login: vi.fn(),
+    logout: vi.fn(),
+  },
+  csrfHeader: () => ({}),
+}));
+
 vi.mock('../features/solicitacoes/api/client', () => ({
   solicitacoesApi: {
     criar: vi.fn(),
@@ -186,7 +195,7 @@ describe('SolicitacoesPage', () => {
     const prioridades = screen.getByRole('heading', { name: 'Prioridades em aberto' });
 
     expect(fila.compareDocumentPosition(prioridades) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByText('Registros ordenados pela prioridade e pelo tempo de espera.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Ordenar por')).toHaveValue('prioridade');
   });
 
   it('carrega a tabela inicial apenas com solicitações em aberto', async () => {
@@ -211,11 +220,11 @@ describe('SolicitacoesPage', () => {
     );
 
     await screen.findByRole('heading', { name: 'Fila de atendimento' });
-    expect(screen.queryByLabelText('Data agendada (opcional)')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Data agendada')).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'AGENDADA' } });
-
-    expect(screen.getByText('Já têm horário marcado: ordenadas por horário e, no empate, por prioridade.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
+    expect(screen.getByLabelText('Ordenar por')).toHaveValue('horario');
     await waitFor(() => {
       expect(solicitacoesApi.listar).toHaveBeenLastCalledWith(expect.objectContaining({
         status: 'AGENDADA',
@@ -224,7 +233,7 @@ describe('SolicitacoesPage', () => {
       }));
     });
 
-    const campoData = screen.getByLabelText('Data agendada (opcional)');
+    const campoData = screen.getByLabelText('Data agendada');
     fireEvent.change(campoData, { target: { value: '2026-09-25' } });
     await waitFor(() => {
       expect(solicitacoesApi.listar).toHaveBeenLastCalledWith(expect.objectContaining({
@@ -235,7 +244,8 @@ describe('SolicitacoesPage', () => {
 
     // Trocar para outro status descarta o filtro de dia (só faz sentido com AGENDADA).
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'RECEBIDA' } });
-    expect(screen.queryByLabelText('Data agendada (opcional)')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
+    expect(screen.queryByLabelText('Data agendada')).not.toBeInTheDocument();
     await waitFor(() => {
       expect(solicitacoesApi.listar).toHaveBeenLastCalledWith(expect.objectContaining({
         status: 'RECEBIDA',
@@ -263,7 +273,7 @@ describe('SolicitacoesPage', () => {
     expect(await screen.findByRole('heading', { name: '1 solicitação urgente em aberto' })).toBeInTheDocument();
     await waitFor(() => {
       expect(solicitacoesApi.listar).toHaveBeenCalledWith(
-        expect.objectContaining({ prioridade: 'URGENTE', status_grupo: 'aberto', per_page: 50 })
+        expect.objectContaining({ prioridade: 'URGENTE', status_grupo: 'aberto', per_page: 10, ordenar_por: 'data' })
       );
     });
     const dialog = await screen.findByRole('dialog');
@@ -293,7 +303,7 @@ describe('SolicitacoesPage', () => {
     expect(await screen.findByRole('heading', { name: 'Recebidas' })).toBeInTheDocument();
     await waitFor(() => {
       expect(solicitacoesApi.listar).toHaveBeenCalledWith(
-        expect.objectContaining({ status: 'RECEBIDA', per_page: 50 })
+        expect.objectContaining({ status: 'RECEBIDA', per_page: 10, ordenar_por: 'prioridade' })
       );
     });
   });
@@ -314,8 +324,9 @@ describe('SolicitacoesPage', () => {
       </MemoryRouter>
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Histórico encerrado' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Histórico$/ }));
     fireEvent.change(await screen.findByLabelText('Status'), { target: { value: 'CONCLUIDA' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
     const concluidas = await screen.findByRole('button', { name: /0 solicitações concluídas/ });
     expect(concluidas).toHaveTextContent('Concluídas');
@@ -337,16 +348,17 @@ describe('SolicitacoesPage', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText(/todas as solicitações/)).toBeInTheDocument();
+    expect(screen.queryByText(/todas as solicitações/)).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Categoria'), { target: { value: 'EXAME' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Aplicar filtros' }));
 
     await waitFor(() => {
       expect(solicitacoesApi.resumo).toHaveBeenCalledWith(
         expect.objectContaining({ categoria: 'EXAME' })
       );
     });
-    expect(await screen.findByText(/categoria Exame/)).toBeInTheDocument();
+    expect(screen.queryByText(/categoria Exame/)).not.toBeInTheDocument();
 
     fireEvent.click(await screen.findByRole('button', { name: /solicitação urgente em aberto/ }));
     await waitFor(() => {
@@ -356,9 +368,9 @@ describe('SolicitacoesPage', () => {
     });
   });
 
-  it('mostra a próxima solicitação da fila no cartão de destaque, com atalho para atender', async () => {
-    vi.mocked(solicitacoesApi.listar).mockImplementation(async (filtros) => {
-      if (filtros?.per_page === 1) {
+  it('usa o primeiro item da fila como próxima ação sem repetir um cartão', async () => {
+    vi.mocked(solicitacoesApi.listar).mockImplementation(async filtros => {
+      if (filtros?.per_page === 10) {
         return { data: [{ ...solicitacaoBase, prioridade: 'URGENTE' }], total: 1, last_page: 1 };
       }
       return { data: [], total: 0, last_page: 1 };
@@ -370,54 +382,27 @@ describe('SolicitacoesPage', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText('Próxima solicitação por prioridade')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Abrir solicitação/ })).toHaveAttribute('href', '/solicitacoes/1');
+    expect(await screen.findByRole('link', { name: 'Ver detalhes da solicitação SOL-2026-0001' })).toHaveAttribute('href', '/solicitacoes/1');
+    expect(screen.queryByText('Próxima solicitação por prioridade')).not.toBeInTheDocument();
     expect(screen.queryByText(/Fila vazia/)).not.toBeInTheDocument();
   });
 
-  it('mostra a data agendada (não "esperando") quando a próxima solicitação já está AGENDADA', async () => {
+  it('mostra o horário agendado na primeira linha da fila, sem cartão duplicado', async () => {
     const ontem = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    vi.mocked(solicitacoesApi.listar).mockImplementation(async (filtros) => {
-      if (filtros?.per_page === 1) {
-        return {
-          data: [{
-            ...solicitacaoBase,
-            prioridade: 'URGENTE',
-            status: 'AGENDADA',
-            agendado_para: ontem,
-            agendamento_ativo: {
-              id: 1,
-              modalidade: 'HORARIO',
-              data_agendada: ontem.slice(0, 10),
-              hora_agendada: '08:00',
-              turno: 'MANHA',
-              status: 'AGENDADO',
-              falta_registrada_em: null,
-              falta_corrigida_em: null,
-              resultado_em: null,
-            },
-          }],
-          total: 1,
-          last_page: 1,
-        };
-      }
+    vi.mocked(solicitacoesApi.listar).mockImplementation(async filtros => {
+      if (filtros?.status === 'AGENDADA') return { data: [{ ...solicitacaoBase, status: 'AGENDADA', agendado_para: ontem }], total: 1, last_page: 1 };
       return { data: [], total: 0, last_page: 1 };
     });
 
     render(
-      <MemoryRouter>
+      <MemoryRouter initialEntries={['/?visao=fila&status=AGENDADA']}>
         <SolicitacoesPage />
       </MemoryRouter>
     );
 
-    expect(await screen.findByText('Próxima solicitação por prioridade')).toBeInTheDocument();
-    // Já tem agendamento: a frase de "esperando há N dias" (tempo desde a criação) some,
-    // porque a solicitação não está mais só esperando — já foi marcada.
-    expect(screen.queryByText(/esperando há/)).not.toBeInTheDocument();
-    expect(screen.getByText(/agendado para/)).toBeInTheDocument();
-    // O horário agendado já passou (mock é de ontem): sinaliza atraso, em vez de sugerir
-    // que a solicitação está normalmente "em espera".
-    expect(screen.getByText(/em atraso/)).toBeInTheDocument();
+    expect(await screen.findByText('SOL-2026-0001')).toBeInTheDocument();
+    expect(screen.queryByText(/Próxima solicitação por prioridade/)).not.toBeInTheDocument();
+    expect(document.querySelector('time')).toHaveAttribute('dateTime', ontem);
   });
 
   it('mostra mensagem de fila vazia quando não há solicitações em aberto', async () => {
@@ -429,8 +414,8 @@ describe('SolicitacoesPage', () => {
       </MemoryRouter>
     );
 
-    expect(await screen.findByText(/Fila vazia/)).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Abrir solicitação/ })).not.toBeInTheDocument();
+    expect(await screen.findByText('Nenhuma solicitação cadastrada')).toBeInTheDocument();
+    expect(screen.queryByText('Próxima solicitação por prioridade')).not.toBeInTheDocument();
   });
 });
 

@@ -68,6 +68,7 @@ jobs:
       DB_PASSWORD: test-only
       SESSION_DRIVER: array
       CACHE_DRIVER: array
+      CACHE_STORE: array
       QUEUE_CONNECTION: sync
     defaults:
       run:

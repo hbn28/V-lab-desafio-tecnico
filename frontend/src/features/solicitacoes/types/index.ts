@@ -33,6 +33,9 @@ export interface Agendamento {
     id: number;
     protocolo: string;
     nome_solicitante: string;
+    prioridade?: Prioridade;
+    status?: Status;
+    agendamento_ativo?: Agendamento | null;
     paciente?: PacienteResumo | null;
   };
   ultima_tentativa_contato?: TentativaContato | null;
@@ -42,10 +45,8 @@ export type FaltaListItem = Agendamento;
 
 export interface EntradaFilaItem {
   id: number;
-  solicitacao_id: number;
   entrou_em: string;
-  encerrada_em: string | null;
-  motivo_encerramento: 'AGENDAMENTO' | 'CANCELAMENTO' | null;
+  solicitacao: Solicitacao;
 }
 
 export interface Solicitacao {
@@ -123,6 +124,7 @@ export type AtualizarStatusPayload =
 export type AtualizarSolicitacaoPayload = CriarSolicitacaoPayload;
 
 export interface FiltrosSolicitacoes {
+  q?: string;
   status?: Status;
   /** Agrupamento operacional: aberto ou histórico encerrado. */
   status_grupo?: 'aberto' | 'encerrado';
@@ -130,6 +132,10 @@ export interface FiltrosSolicitacoes {
   prioridade?: Prioridade;
   /** Dia operacional (YYYY-MM-DD) da agenda; implica status AGENDADA. */
   data_agendada?: string;
+  data_de?: string;
+  data_ate?: string;
+  ordenar_por?: OrdenarPor;
+  direcao?: Direcao;
   page?: number;
   per_page?: number;
 }
@@ -140,9 +146,27 @@ export interface FiltrosFila {
 }
 
 export interface FiltrosFaltas {
+  q?: string;
+  prioridade?: Prioridade;
+  data?: string;
+  data_de?: string;
+  data_ate?: string;
+  resultado_contato?: ResultadoContato;
+  ordenar_por?: OrdenarPor;
+  direcao?: Direcao;
   page?: number;
   per_page?: number;
 }
+
+export type OrdenarPor = 'prioridade' | 'data' | 'horario';
+export type Direcao = 'asc' | 'desc';
+export type SolicitacoesConsulta = FiltrosSolicitacoes & {
+  visao?: 'fila' | 'agenda' | 'historico' | 'faltas';
+  data?: string;
+  inicio?: string;
+  agendaPages?: Record<string, number>;
+  resultado_contato?: ResultadoContato;
+};
 
 export interface RegistrarContatoPayload {
   resultado: ResultadoContato;

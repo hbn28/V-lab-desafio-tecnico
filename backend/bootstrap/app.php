@@ -1,27 +1,50 @@
 <?php
 
 use App\Http\Middleware\RequestId;
+use App\Providers\AppServiceProvider;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
+    ->withProviders([AppServiceProvider::class])
     ->withRouting(
         api: __DIR__.'/../routes/api.php',
         apiPrefix: '',
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        $middleware->statefulApi();
         $middleware->appendToGroup('api', [
             RequestId::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        $exceptions->render(function (AuthenticationException $e, Request $request) {
+            return response()->json(['message' => 'Autenticação necessária.', 'errors' => []], 401);
+        });
+
+        $exceptions->render(function (AuthorizationException $e, Request $request) {
+            return response()->json(['message' => 'Acesso não permitido.', 'errors' => []], 403);
+        });
+
+        $exceptions->render(function (AccessDeniedHttpException $e, Request $request) {
+            return response()->json(['message' => 'Acesso não permitido.', 'errors' => []], 403);
+        });
+
+        $exceptions->render(function (TokenMismatchException $e, Request $request) {
+            return response()->json(['message' => 'Sessão expirada. Entre novamente.', 'errors' => []], 419);
+        });
+
         $exceptions->render(function (NotFoundHttpException $e, Request $request) {
             return response()->json([
                 'message' => 'Recurso não encontrado.',
