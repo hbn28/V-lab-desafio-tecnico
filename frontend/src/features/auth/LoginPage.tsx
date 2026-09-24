@@ -4,7 +4,7 @@ import { useAuth } from './context';
 
 export function LoginPage() {
   const { login, error } = useAuth();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -12,7 +12,7 @@ export function LoginPage() {
     event.preventDefault();
     setSubmitting(true);
     try {
-      await login(email, password);
+      await login(identifier, password);
     } catch {
       // O provedor apresenta o erro sem expor detalhes de credenciais.
     } finally {
@@ -27,8 +27,8 @@ export function LoginPage() {
         <h1>Entrar no sistema</h1>
         <p>Use sua conta de operador para acessar os atendimentos.</p>
         {error && <p className="alert alert--error" role="alert">{error}</p>}
-        <label htmlFor="login-email">E-mail</label>
-        <input id="login-email" type="email" autoComplete="email" value={email} onChange={event => setEmail(event.target.value)} required />
+        <label htmlFor="login-identifier">Usuário ou e-mail</label>
+        <input id="login-identifier" type="text" autoComplete="username" value={identifier} onChange={event => setIdentifier(event.target.value)} required />
         <label htmlFor="login-password">Senha</label>
         <input id="login-password" type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} required />
         <button className="button button--primary" type="submit" disabled={submitting}>

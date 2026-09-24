@@ -1,7 +1,8 @@
 export interface Operator {
   id: number;
   name: string;
-  email: string;
+  username: string | null;
+  email: string | null;
   role: 'ADMINISTRADOR' | 'ATENDENTE';
 }
 

@@ -11,6 +11,6 @@ test('entrada anônima mostra formulário de login', async () => {
 
   render(<App />);
   expect(await screen.findByRole('heading', { name: /entrar/i })).toBeInTheDocument();
-  expect(screen.getByLabelText(/e-mail/i)).toBeInTheDocument();
+  expect(screen.getByLabelText(/usuário ou e-mail/i)).toHaveAttribute('type', 'text');
   expect(screen.getByLabelText(/senha/i)).toBeInTheDocument();
 });

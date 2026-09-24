@@ -7,7 +7,6 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 class CriarOperador extends Command
 {
@@ -17,31 +16,38 @@ class CriarOperador extends Command
 
     public function handle(): int
     {
-        $name = $this->ask('Nome');
-        $email = $this->ask('E-mail');
+        $username = $this->ask('Usuário');
+        $email = $this->ask('E-mail (opcional)');
         $password = $this->secret('Senha', false);
         $confirmation = $this->secret('Confirme a senha', false);
 
         $validator = Validator::make([
-            'name' => $name,
-            'email' => $email,
+            'username' => $username,
+            'email' => $email ?: null,
             'password' => $password,
             'password_confirmation' => $confirmation,
         ], [
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'password' => ['required', 'confirmed', Password::min(12)->mixedCase()->numbers()->symbols()],
+            'username' => ['required', 'string', 'min:3', 'max:255', 'regex:/^[a-zA-Z0-9._-]+$/', Rule::unique('users', 'username')],
+            'email' => ['nullable', 'email', 'max:255', Rule::unique('users', 'email')],
+            'password' => ['required', 'string', 'confirmed'],
         ]);
 
         if ($validator->fails()) {
-            $this->error('Dados inválidos. Verifique nome, e-mail único e senha de pelo menos 12 caracteres com maiúscula, minúscula, número e símbolo.');
+            foreach ($validator->errors()->keys() as $field) {
+                $this->error(match ($field) {
+                    'username' => 'Usuário inválido ou já cadastrado (mínimo de 3 caracteres; use letras, números, ponto, hífen ou sublinhado).',
+                    'email' => 'E-mail inválido ou já cadastrado.',
+                    default => 'Senha vazia ou confirmação diferente.',
+                });
+            }
 
             return self::FAILURE;
         }
 
         User::create([
-            'name' => $name,
-            'email' => $email,
+            'name' => $username,
+            'username' => $username,
+            'email' => $email ?: null,
             'password' => Hash::make($password),
             'role' => 'ADMINISTRADOR',
             'is_active' => true,

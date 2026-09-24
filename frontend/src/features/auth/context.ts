@@ -5,7 +5,7 @@ export interface AuthState {
   user: Operator | null;
   loading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (identifier: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 

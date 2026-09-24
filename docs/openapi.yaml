@@ -736,9 +736,9 @@ components:
   schemas:
     LoginBody:
       type: object
-      required: [email, password]
+      required: [login, password]
       properties:
-        email: { type: string, format: email }
+        login: { type: string, description: Usuário ou e-mail de conta existente }
         password: { type: string, format: password }
 
     Operator:
@@ -747,7 +747,8 @@ components:
       properties:
         id: { type: integer }
         name: { type: string }
-        email: { type: string, format: email }
+        username: { type: string, nullable: true }
+        email: { type: string, format: email, nullable: true }
         role: { type: string, enum: [ADMINISTRADOR, ATENDENTE] }
 
     OperatorResponse:
