@@ -34,3 +34,9 @@ No ambiente atual, o domínio frontend exibido no Railway é `beneficial-curiosi
 5. Veja os logs de deploy de cada serviço se algum passo falhar. O healthcheck de frontend em `/` prova que os arquivos estão sendo servidos; não substitui o healthcheck do banco nem o teste de login.
 
 O worker de notificações precisa ser implantado como serviço separado usando a imagem do backend e a mesma conexão com o banco. A ausência dele não deve desfazer transições já gravadas, mas deixa os jobs pendentes; consulte `docs/architecture.md` para operação e retry.
+
+## Carga fictícia de 500 solicitações
+
+O comando `php artisan solicitacoes:popular-demonstracao` insere uma carga única de 500 solicitações no PostgreSQL conectado ao backend. Cada uma recebe `id` numérico e protocolo textual com oito dígitos aleatórios e únicos. Os nomes e descrições são marcados como `[DEMO]`/`[DEMO-500]`; os CPFs são gerados com dígito verificador deliberadamente inválido. A carga distribui categorias, prioridades, estados, fila, agenda, histórico e faltas. A inserção é transacional e uma segunda execução não duplica a carga.
+
+Para executar no Railway sem SSH, defina **somente no serviço backend** `APP_DEMO_500=true` depois que o commit com o comando estiver implantado. O próximo deploy executará a carga após as migrations. Confirme nos logs a mensagem de 500 solicitações inseridas e remova `APP_DEMO_500` em seguida; a remoção provoca outro deploy, mas não apaga os registros. A geração normal de novos protocolos continua seguindo `SOL-ano-sequência` conforme a especificação do sistema; o formato numérico de oito dígitos vale apenas para esta carga fictícia.

@@ -38,6 +38,11 @@ if [ "${APP_SEED:-false}" = "true" ]; then
     php artisan db:seed --force
 fi
 
+if [ "${APP_DEMO_500:-false}" = "true" ]; then
+    echo "Conferindo carga fictícia de 500 solicitações..."
+    php artisan solicitacoes:popular-demonstracao
+fi
+
 php artisan config:clear
 
 echo "Application ready — http://0.0.0.0:8000"
