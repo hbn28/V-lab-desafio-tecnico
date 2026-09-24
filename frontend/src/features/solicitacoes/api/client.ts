@@ -15,6 +15,7 @@ import type {
   TentativaContato,
   ResumoSolicitacoes,
   Solicitacao,
+  SolicitacaoListItem,
 } from '../types';
 import { csrfHeader } from '../../auth/api/client';
 
@@ -82,7 +83,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const solicitacoesApi = {
-  async listar(filtros: ListarParams = {}): Promise<{ data: Solicitacao[]; total: number; last_page: number; current_page?: number }> {
+  async listar(filtros: ListarParams = {}): Promise<{ data: SolicitacaoListItem[]; total: number; last_page: number; current_page?: number }> {
     const params = new URLSearchParams();
     if (filtros.status)     params.set('status', filtros.status);
     if (filtros.q)          params.set('q', filtros.q);
@@ -124,8 +125,8 @@ export const solicitacoesApi = {
     return res.data;
   },
 
-  async criar(payload: CriarSolicitacaoPayload): Promise<Solicitacao> {
-    const res = await request<{ data: Solicitacao }>('/api/v1/solicitacoes', {
+  async criar(payload: CriarSolicitacaoPayload): Promise<SolicitacaoListItem> {
+    const res = await request<{ data: SolicitacaoListItem }>('/api/v1/solicitacoes', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -135,8 +136,8 @@ export const solicitacoesApi = {
     return res.data;
   },
 
-  async atualizarStatus(id: string, payload: AtualizarStatusPayload): Promise<Solicitacao> {
-    const res = await request<{ data: Solicitacao }>(`/api/v1/solicitacoes/${id}/status`, {
+  async atualizarStatus(id: string, payload: AtualizarStatusPayload): Promise<SolicitacaoListItem> {
+    const res = await request<{ data: SolicitacaoListItem }>(`/api/v1/solicitacoes/${id}/status`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
     });
@@ -146,8 +147,8 @@ export const solicitacoesApi = {
     return res.data;
   },
 
-  async reagendar(id: string, payload: AgendamentoPayload): Promise<Solicitacao> {
-    const res = await request<{ data: Solicitacao }>(`/api/v1/solicitacoes/${id}/agendamento`, {
+  async reagendar(id: string, payload: AgendamentoPayload): Promise<SolicitacaoListItem> {
+    const res = await request<{ data: SolicitacaoListItem }>(`/api/v1/solicitacoes/${id}/agendamento`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
     });
@@ -157,8 +158,8 @@ export const solicitacoesApi = {
     return res.data;
   },
 
-  async atualizar(id: string, payload: AtualizarSolicitacaoPayload): Promise<Solicitacao> {
-    const res = await request<{ data: Solicitacao }>(`/api/v1/solicitacoes/${id}`, {
+  async atualizar(id: string, payload: AtualizarSolicitacaoPayload): Promise<SolicitacaoListItem> {
+    const res = await request<{ data: SolicitacaoListItem }>(`/api/v1/solicitacoes/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     });

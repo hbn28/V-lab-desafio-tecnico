@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { solicitacoesApi } from '../api/client';
-import type { FiltrosSolicitacoes, Solicitacao } from '../types';
+import type { FiltrosSolicitacoes, SolicitacaoListItem } from '../types';
 
 export interface AgendaDiaEstado {
-  data: Solicitacao[];
+  data: SolicitacaoListItem[];
   total: number;
   last_page: number;
   loading: boolean;

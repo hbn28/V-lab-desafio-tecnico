@@ -7,6 +7,7 @@ use App\Domain\Solicitacoes\Actions\AtualizarSolicitacao;
 use App\Domain\Solicitacoes\Actions\AtualizarStatusSolicitacao;
 use App\Domain\Solicitacoes\Actions\CriarSolicitacao;
 use App\Domain\Solicitacoes\Actions\ListarFaltas;
+use App\Domain\Solicitacoes\Actions\ListarFilaOperacional;
 use App\Domain\Solicitacoes\Actions\ListarSolicitacoes;
 use App\Domain\Solicitacoes\Actions\ObterResumoSolicitacoes;
 use App\Domain\Solicitacoes\Actions\ReagendarAposFalta;
@@ -28,7 +29,6 @@ use App\Domain\Solicitacoes\Http\Resources\EntradaFilaResource;
 use App\Domain\Solicitacoes\Http\Resources\SolicitacaoResource;
 use App\Domain\Solicitacoes\Http\Resources\TentativaContatoResource;
 use App\Models\Agendamento;
-use App\Models\EntradaFila;
 use App\Models\Solicitacao;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\ResourceCollection;
@@ -49,6 +49,7 @@ class SolicitacaoController
         private readonly ReagendarAposFalta $reagendarAposFalta,
         private readonly ListarSolicitacoes $listarSolicitacoes,
         private readonly ListarFaltas $listarFaltas,
+        private readonly ListarFilaOperacional $listarFilaOperacional,
     ) {}
 
     public function store(CriarSolicitacaoRequest $request): JsonResponse
@@ -83,20 +84,8 @@ class SolicitacaoController
     public function fila(ListarFilaRequest $request): ResourceCollection
     {
         Gate::authorize('viewAny', Solicitacao::class);
-        $query = EntradaFila::query()
-            ->whereNull('encerrada_em')
-            ->with(['solicitacao.paciente'])
-            ->join('solicitacoes', 'solicitacoes.id', '=', 'entradas_fila.solicitacao_id')
-            ->when($request->validated('prioridade'), fn ($q, $p) => $q->where('solicitacoes.prioridade', $p))
-            ->when($request->validated('categoria'), fn ($q, $c) => $q->where('solicitacoes.categoria', $c))
-            ->orderByRaw("CASE solicitacoes.prioridade WHEN 'URGENTE' THEN 4 WHEN 'ALTA' THEN 3 WHEN 'MEDIA' THEN 2 ELSE 1 END DESC")
-            ->orderBy('entradas_fila.entrou_em')
-            ->orderBy('entradas_fila.id')
-            ->select('entradas_fila.*');
 
-        $perPage = (int) ($request->validated('per_page') ?? 15);
-
-        return EntradaFilaResource::collection($query->paginate($perPage));
+        return EntradaFilaResource::collection($this->listarFilaOperacional->execute($request->validated()));
     }
 
     public function show(int $id): JsonResponse
@@ -104,7 +93,7 @@ class SolicitacaoController
         $solicitacao = Solicitacao::with(['paciente', 'agendamentoAtivo'])->findOrFail($id);
         Gate::authorize('view', $solicitacao);
 
-        return (new SolicitacaoResource($solicitacao))->response();
+        return SolicitacaoResource::detalhe($solicitacao)->response();
     }
 
     public function update(AtualizarSolicitacaoRequest $request, int $id): JsonResponse

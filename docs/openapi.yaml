@@ -353,7 +353,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SolicitacaoResponse'
+                $ref: '#/components/schemas/SolicitacaoDetalheResponse'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -812,7 +812,7 @@ components:
       type: string
       enum: [BAIXA, MEDIA, ALTA, URGENTE]
 
-    Solicitacao:
+    SolicitacaoLista:
       type: object
       properties:
         id:
@@ -824,10 +824,8 @@ components:
           type: string
         cpf_solicitante:
           type: string
-          example: '123.456.789-00'
-        data_nascimento:
-          type: string
-          format: date
+          description: CPF mascarado em listagens, fila e respostas de escrita.
+          example: '***.456.789-**'
         categoria:
           $ref: '#/components/schemas/Categoria'
         prioridade:
@@ -1012,9 +1010,29 @@ components:
           type: string
           format: date-time
         solicitacao:
-          $ref: '#/components/schemas/Solicitacao'
+          $ref: '#/components/schemas/SolicitacaoLista'
+
+    Solicitacao:
+      allOf:
+        - $ref: '#/components/schemas/SolicitacaoLista'
+        - type: object
+          required: [cpf_solicitante, data_nascimento]
+          properties:
+            cpf_solicitante:
+              type: string
+              description: CPF completo disponível somente no detalhe.
+              example: '123.456.789-00'
+            data_nascimento:
+              type: string
+              format: date
 
     SolicitacaoResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/SolicitacaoLista'
+
+    SolicitacaoDetalheResponse:
       type: object
       properties:
         data:
@@ -1026,7 +1044,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/Solicitacao'
+            $ref: '#/components/schemas/SolicitacaoLista'
         meta:
           type: object
           properties:

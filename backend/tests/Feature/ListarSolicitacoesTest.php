@@ -290,3 +290,20 @@ test('aplica período inclusivo no fuso operacional e ordenação de data nos re
     $this->getJson('/api/v1/solicitacoes?ordenar_por=data&direcao=desc')
         ->assertOk()->assertJsonPath('data.0.protocolo', 'SOL-2026-0502');
 });
+
+test('listagens omitem data de nascimento e mascaram CPF, detalhe mantém campos para edição', function () {
+    $solicitacao = Solicitacao::factory()->create([
+        'cpf_solicitante' => '123.456.789-00',
+        'data_nascimento' => '1985-06-15',
+    ]);
+
+    $this->getJson('/api/v1/solicitacoes')
+        ->assertOk()
+        ->assertJsonMissingPath('data.0.data_nascimento')
+        ->assertJsonPath('data.0.cpf_solicitante', '***.456.789-**');
+
+    $this->getJson("/api/v1/solicitacoes/{$solicitacao->id}")
+        ->assertOk()
+        ->assertJsonPath('data.data_nascimento', '1985-06-15')
+        ->assertJsonPath('data.cpf_solicitante', '123.456.789-00');
+});

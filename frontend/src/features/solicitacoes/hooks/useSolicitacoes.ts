@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { usePolling } from '../../../hooks/usePolling';
 import { solicitacoesApi, type ListarParams } from '../api/client';
-import type { FaltaListItem, FiltrosFaltas, ResumoSolicitacoes, Solicitacao } from '../types';
+import type { FaltaListItem, FiltrosFaltas, ResumoSolicitacoes, Solicitacao, SolicitacaoListItem } from '../types';
 
 const POLL_INTERVAL_MS = 30_000;
 
 export function useSolicitacoes(params: ListarParams = {}, enabled = true) {
-  const [data, setData] = useState<{ data: Solicitacao[]; total: number; last_page: number } | null>(null);
+  const [data, setData] = useState<{ data: SolicitacaoListItem[]; total: number; last_page: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const requestVersion = useRef(0);
@@ -105,7 +105,7 @@ export function useResumoSolicitacoes(filtros: Parameters<typeof solicitacoesApi
 }
 
 export function useProximaSolicitacao(options: ResumoOptions = {}) {
-  const [data, setData] = useState<Solicitacao | null>(null);
+  const [data, setData] = useState<SolicitacaoListItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

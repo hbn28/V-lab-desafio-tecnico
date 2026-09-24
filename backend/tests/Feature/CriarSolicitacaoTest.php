@@ -125,10 +125,10 @@ test('rejeita data de nascimento no futuro', function () {
         ->assertJsonStructure(['message', 'errors' => ['data_nascimento']]);
 });
 
-test('retorna cpf e data_nascimento na resposta', function () {
+test('resposta de criação não inclui dados pessoais completos', function () {
     $response = $this->postJson('/api/v1/solicitacoes', payloadValido());
 
     $response->assertStatus(201)
-        ->assertJsonPath('data.cpf_solicitante', '123.456.789-00')
-        ->assertJsonPath('data.data_nascimento', '1985-06-15');
+        ->assertJsonPath('data.cpf_solicitante', '***.456.789-**')
+        ->assertJsonMissingPath('data.data_nascimento');
 });

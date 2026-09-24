@@ -42,3 +42,32 @@ test('GET fila lista apenas entradas abertas por prioridade e entrada mais antig
         ->assertJsonPath('data.1.solicitacao.id', $urgenteNova->id)
         ->assertJsonPath('data.2.solicitacao.id', $baixa->id);
 });
+
+test('GET fila aplica filtros de prioridade e categoria', function () {
+    $urgente = Solicitacao::factory()->create([
+        'status' => 'EM_ANALISE', 'prioridade' => 'URGENTE', 'categoria' => 'EXAME',
+    ]);
+    $urgenteOutraCategoria = Solicitacao::factory()->create([
+        'status' => 'EM_ANALISE', 'prioridade' => 'URGENTE', 'categoria' => 'CONSULTA',
+    ]);
+    foreach ([$urgente, $urgenteOutraCategoria] as $solicitacao) {
+        EntradaFila::factory()->create(['solicitacao_id' => $solicitacao->id]);
+    }
+
+    $this->getJson('/api/v1/fila?prioridade=URGENTE&categoria=EXAME')
+        ->assertOk()
+        ->assertJsonCount(1, 'data')
+        ->assertJsonPath('data.0.solicitacao.id', $urgente->id);
+});
+
+test('GET fila não expõe dados pessoais completos nas entradas', function () {
+    $solicitacao = Solicitacao::factory()->create([
+        'status' => 'EM_ANALISE', 'cpf_solicitante' => '123.456.789-00',
+    ]);
+    EntradaFila::factory()->create(['solicitacao_id' => $solicitacao->id]);
+
+    $this->getJson('/api/v1/fila')
+        ->assertOk()
+        ->assertJsonMissingPath('data.0.solicitacao.data_nascimento')
+        ->assertJsonPath('data.0.solicitacao.cpf_solicitante', '***.456.789-**');
+});

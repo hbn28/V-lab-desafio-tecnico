@@ -23,4 +23,19 @@ final class MascararContato
 
         return sprintf('(%s) %s-%s', $ddd, $prefixo, $sufixo);
     }
+
+    /**
+     * Mascara os dígitos identificadores do CPF e preserva o formato brasileiro.
+     * Exemplo: 123.456.789-00 -> ***.456.789-**.
+     */
+    public static function cpf(?string $cpf): string
+    {
+        $digitos = $cpf === null ? '' : preg_replace('/\D+/', '', $cpf);
+
+        if ($digitos === '' || strlen($digitos) !== 11) {
+            return '***.***.***-**';
+        }
+
+        return sprintf('***.%s.%s-**', substr($digitos, 3, 3), substr($digitos, 6, 3));
+    }
 }

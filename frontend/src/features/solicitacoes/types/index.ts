@@ -46,15 +46,14 @@ export type FaltaListItem = Agendamento;
 export interface EntradaFilaItem {
   id: number;
   entrou_em: string;
-  solicitacao: Solicitacao;
+  solicitacao: SolicitacaoListItem;
 }
 
-export interface Solicitacao {
+export interface SolicitacaoListItem {
   id: number;
   protocolo: string;
   nome_solicitante: string;
   cpf_solicitante: string;
-  data_nascimento: string;
   categoria: Categoria;
   prioridade: Prioridade;
   status: Status;
@@ -66,6 +65,10 @@ export interface Solicitacao {
   data_atualizacao: string;
   paciente?: PacienteResumo | null;
   agendamento_ativo?: Agendamento | null;
+}
+
+export interface Solicitacao extends SolicitacaoListItem {
+  data_nascimento: string;
 }
 
 export interface PaginaMeta {
@@ -83,7 +86,7 @@ export interface PaginaLinks {
 }
 
 export interface ListaSolicitacoes {
-  data: Solicitacao[];
+  data: SolicitacaoListItem[];
   meta: PaginaMeta;
   links: PaginaLinks;
 }

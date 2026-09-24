@@ -13,12 +13,11 @@ export type Categoria = 'CONSULTA' | 'EXAME' | 'VACINACAO' | 'OUTRO';
 export type Prioridade = 'BAIXA' | 'MEDIA' | 'ALTA' | 'URGENTE';
 export type Status = 'RECEBIDA' | 'EM_ANALISE' | 'AGENDADA' | 'CONCLUIDA' | 'CANCELADA';
 
-export interface Solicitacao {
+export interface SolicitacaoListItem {
   id: number;
   protocolo: string;
   nome_solicitante: string;
-  cpf_solicitante: string;
-  data_nascimento: string;
+  cpf_solicitante: string; // CPF mascarado em listagens e respostas de escrita
   categoria: Categoria;
   prioridade: Prioridade;
   status: Status;
@@ -28,9 +27,14 @@ export interface Solicitacao {
   data_criacao: string;
   data_atualizacao: string;
 }
+
+export interface Solicitacao extends SolicitacaoListItem {
+  cpf_solicitante: string; // CPF completo só no detalhe GET /solicitacoes/{id}
+  data_nascimento: string; // Campo exclusivo do detalhe
+}
 ```
 
-Datas são retornadas em UTC, no formato ISO 8601. No banco, os campos são `created_at` e `updated_at`; apenas o Resource os expõe como `data_criacao` e `data_atualizacao`.
+Datas são retornadas em UTC, no formato ISO 8601. No banco, os campos são `created_at` e `updated_at`; apenas o Resource os expõe como `data_criacao` e `data_atualizacao`. Listagens, fila contínua e respostas de escrita omitem `data_nascimento` e mascaram o CPF; o CPF completo e a data de nascimento só aparecem no detalhe `GET /solicitacoes/{id}`.
 
 ## Máquina de estados
 
