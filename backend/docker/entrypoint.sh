@@ -30,6 +30,10 @@ if ! grep -q '^APP_KEY=base64:' .env 2>/dev/null; then
     php artisan key:generate --force
 fi
 
+# O bind mount pode trazer manifestos do host com pacotes de desenvolvimento ausentes nesta imagem.
+echo "Limpando manifestos de pacotes gerados fora do container..."
+rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
+
 echo "Banco disponível. Executando migrations..."
 php artisan migrate --force
 

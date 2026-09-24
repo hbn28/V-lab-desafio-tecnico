@@ -34,6 +34,8 @@ Aguarde até ver `Application ready` nos logs do backend (~30s na primeira vez).
 
 > Os seeders rodam automaticamente na primeira inicialização (`APP_SEED=true` no docker-compose.yml), populando 10 solicitações fictícias que cobrem todos os status e prioridades.
 
+Para entrar na interface local, crie um operador com `docker compose exec backend php artisan operadores:criar` e informe usuário e senha nos prompts. A conta fica apenas no banco local. O backend limpa manifestos de pacotes gerados no host ao iniciar, pois a imagem de execução instala somente dependências de produção.
+
 **Se o banco já existir de uma execução anterior** e você alterou as migrations, recomece com:
 
 ```bash
