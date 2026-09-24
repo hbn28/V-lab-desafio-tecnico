@@ -179,9 +179,9 @@ docker compose exec frontend npm test -- --run
 docker compose exec frontend npx tsc --noEmit
 ```
 
-- O banco de testes `vlab_test` é criado automaticamente pelo entrypoint do backend (também em volumes antigos). A suíte roda sempre na conexão `pgsql_test` (forçada em `tests/TestCase.php`) e **nunca toca o banco de desenvolvimento `vlab`** — `RefreshDatabase` só recria o `vlab_test`.
+- O banco de testes `vlab_test` é criado automaticamente pelo entrypoint do backend quando `APP_ENV` é `local` ou `testing` (também em volumes antigos); em produção nada é criado. A suíte roda sempre na conexão `pgsql_test` (forçada em `tests/TestCase.php`) e **nunca toca o banco de desenvolvimento `vlab`** — `RefreshDatabase` só recria o `vlab_test`.
 - Os testes são determinísticos: o relógio é congelado em `2026-09-21T15:00Z` (`tests/TestCase.php`), então as datas fixas usadas nos cenários de agendamento continuam "no futuro" em qualquer dia em que a suíte for executada.
-- A imagem do backend inclui as dependências de desenvolvimento (Pest e Pint). Num ambiente criado antes disso, o volume `backend_vendor` ainda guarda o vendor antigo: rode `docker compose exec backend composer install` uma vez (não mexe no banco).
+- No Docker Compose local, a imagem do backend é construída com as dependências de desenvolvimento (Pest e Pint, via `INSTALAR_DEPENDENCIAS_DEV=true`); a imagem de produção continua sem elas. Num ambiente local criado antes disso, o volume `backend_vendor` ainda guarda o vendor antigo: rode `docker compose exec backend composer install` uma vez (não mexe no banco).
 
 ## Variáveis de ambiente
 

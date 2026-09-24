@@ -13,11 +13,17 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /app
 
 COPY composer.json composer.lock* ./
-# Imagem de desenvolvimento/avaliação: inclui as dependências de dev (Pest, Pint)
-# para que `docker compose exec backend ./vendor/bin/pest` funcione como no README.
+# Produção (Railway) instala só as dependências de runtime, como antes. O
+# docker-compose local passa INSTALAR_DEPENDENCIAS_DEV=true para incluir Pest e
+# Pint, e `docker compose exec backend ./vendor/bin/pest` funcionar como no README.
+ARG INSTALAR_DEPENDENCIAS_DEV=false
 RUN composer config --global --no-interaction allow-plugins.pestphp/pest-plugin true \
     && composer config --global --no-interaction policy.advisories.block false \
-    && composer install --no-scripts --no-interaction --prefer-dist
+    && if [ "$INSTALAR_DEPENDENCIAS_DEV" = "true" ]; then \
+        composer install --no-scripts --no-interaction --prefer-dist; \
+    else \
+        composer install --no-dev --no-scripts --no-interaction --prefer-dist; \
+    fi
 
 COPY . .
 RUN mkdir -p bootstrap/cache

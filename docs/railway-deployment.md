@@ -18,6 +18,7 @@ Se o domínio público do backend mudar, atualize `BACKEND_URL` no serviço fron
 
 - Root Directory `/backend`, Dockerfile `/backend/Dockerfile`, porta interna `8000`.
 - Healthcheck Path `/api/v1/health`; o resultado esperado é `{"status":"ok","db":"ok"}`.
+- A imagem de produção instala só as dependências de runtime (`composer install --no-dev`); o build arg `INSTALAR_DEPENDENCIAS_DEV` fica no padrão `false`. Com `APP_ENV=production` o entrypoint não cria o banco de testes `vlab_test` e não altera o banco da aplicação além das migrations.
 - Mantenha `APP_KEY` estável e secreta, `APP_ENV=production`, `APP_DEBUG=false`, `APP_SEED=false`, `PORT=8000` e as referências `DB_*` do serviço Postgres.
 - Defina `APP_URL=https://DOMINIO-PUBLICO-DO-BACKEND` e `FRONTEND_URL=https://DOMINIO-PUBLICO-DO-FRONTEND`.
 - Defina `SANCTUM_STATEFUL_DOMAINS=DOMINIO-PUBLICO-DO-FRONTEND` **sem** `https://` e sem barra final. Não configure `SESSION_DOMAIN`, para que os cookies sejam vinculados à origem apresentada ao navegador. Use `SESSION_SECURE_COOKIE=true` com HTTPS.

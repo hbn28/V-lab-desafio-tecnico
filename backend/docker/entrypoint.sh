@@ -32,7 +32,13 @@ fi
 
 # Banco usado pela suíte Pest (conexão pgsql_test). Criado aqui, e não num script
 # de init do Postgres, para funcionar também com volumes já existentes.
-php /app/docker/criar-banco-testes.php
+# Só em ambiente local/testing: em produção (Railway, APP_ENV=production) nada é
+# criado, e uma falha aqui nunca impede a aplicação de subir.
+case "${APP_ENV:-production}" in
+    local|testing)
+        php /app/docker/criar-banco-testes.php || echo "Aviso: não foi possível criar o banco de testes; a aplicação segue normalmente."
+        ;;
+esac
 
 echo "Banco disponível. Executando migrations..."
 php artisan migrate --force
