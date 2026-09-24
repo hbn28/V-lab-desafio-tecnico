@@ -16,6 +16,7 @@ vi.mock('../features/solicitacoes/api/client', () => ({
     reagendar: vi.fn(),
     atualizar: vi.fn(),
     apagar: vi.fn(),
+    registrarFalta: vi.fn(),
   },
 }));
 
@@ -133,5 +134,47 @@ describe('Agendamento no detalhe da solicitação', () => {
     expect(abrir).toHaveFocus();
     expect(screen.getByRole('button', { name: /Mover para Concluída/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Mover para Cancelada/ })).toBeInTheDocument();
+  });
+
+  it('mostra o agendamento por turno e registra a falta pelo agendamento ativo', async () => {
+    const agendada: Solicitacao = {
+      ...solicitacaoBase,
+      status: 'AGENDADA',
+      agendamento_ativo: {
+        id: 42, modalidade: 'TURNO', data_agendada: '2026-09-25', hora_agendada: null, turno: 'MANHA',
+        status: 'AGENDADO', resultado_em: null, falta_registrada_em: null, falta_corrigida_em: null,
+      },
+    };
+    vi.mocked(solicitacoesApi.registrarFalta).mockResolvedValue({ ...agendada.agendamento_ativo!, status: 'FALTA' });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderDetalhe(agendada);
+
+    expect((await screen.findAllByText('25/09/2026 · turno da manhã')).length).toBeGreaterThan(0);
+    vi.mocked(solicitacoesApi.buscar).mockResolvedValue({ ...agendada, agendamento_ativo: null });
+    await userEvent.click(screen.getByRole('button', { name: 'Registrar falta' }));
+
+    expect(solicitacoesApi.registrarFalta).toHaveBeenCalledWith(42);
+    expect(await screen.findByRole('link', { name: 'aba Faltas' })).toHaveAttribute('href', '/?visao=faltas');
+    expect(screen.queryByRole('button', { name: 'Registrar falta' })).not.toBeInTheDocument();
+  });
+
+  it('explica quando a falta ainda não pode ser registrada', async () => {
+    vi.mocked(solicitacoesApi.registrarFalta).mockRejectedValue(Object.assign(new Error('The given data was invalid.'), {
+      status: 422,
+      errors: { agendamento: ['A falta só pode ser registrada após o horário ou fim do turno.'] },
+    }));
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    renderDetalhe({
+      ...solicitacaoBase,
+      status: 'AGENDADA',
+      agendado_para: '2026-09-25T13:00:00Z',
+      agendamento_ativo: {
+        id: 43, modalidade: 'HORARIO', data_agendada: '2026-09-25', hora_agendada: '10:00', turno: 'MANHA',
+        status: 'AGENDADO', resultado_em: null, falta_registrada_em: null, falta_corrigida_em: null,
+      },
+    });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Registrar falta' }));
+    expect(await screen.findByText('A falta só pode ser registrada após o horário ou fim do turno.')).toBeInTheDocument();
   });
 });

@@ -5,7 +5,7 @@ import { useSolicitacao } from '../hooks/useSolicitacoes';
 import { solicitacoesApi } from '../api/client';
 import { StatusBadge, PrioridadeBadge } from '../../../components/Badge';
 import { AgendamentoForm } from '../components/AgendamentoForm';
-import { camposDoAgendamento, formatarAgendamento } from '../config/agendamento';
+import { camposDoAgendamento, descreverAgendamento, formatarAgendamento, payloadDoAgendamento } from '../config/agendamento';
 import { TRANSICOES_PERMITIDAS, LABEL_STATUS, LABEL_CATEGORIA } from '../types';
 import type { AgendamentoPayload, Status } from '../types';
 
@@ -39,6 +39,8 @@ export function SolicitacaoDetailPage() {
   const [salvandoAgenda, setSalvandoAgenda] = useState(false);
   const [errosAgenda, setErrosAgenda] = useState<Record<string, string[]>>({});
   const abridorAgendaRef = useRef<HTMLButtonElement>(null);
+  const [registrandoFalta, setRegistrandoFalta] = useState(false);
+  const [faltaRegistrada, setFaltaRegistrada] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -74,10 +76,33 @@ export function SolicitacaoDetailPage() {
     }
   };
 
+  const handleRegistrarFalta = async () => {
+    const ativo = data?.agendamento_ativo;
+    if (!data || !ativo) return;
+    if (!window.confirm(`Registrar que o paciente faltou ao atendimento de ${descreverAgendamento(ativo)}?`)) return;
+    setRegistrandoFalta(true);
+    setUpdateError(null);
+    setUpdateSuccess(null);
+    setFaltaRegistrada(false);
+    try {
+      await solicitacoesApi.registrarFalta(ativo.id);
+      await refresh();
+      setFaltaRegistrada(true);
+    } catch (caught: unknown) {
+      // 422 antes do horário/fim do turno e 409 se outra sessão já tratou o agendamento.
+      const erros = Object.values(errosDaApi(caught)).flat();
+      setUpdateError(erros[0] ?? (caught instanceof Error ? caught.message : 'Erro ao registrar a falta'));
+      if (statusHttp(caught) === 409) await refresh();
+    } finally {
+      setRegistrandoFalta(false);
+    }
+  };
+
   const abrirAgenda = () => {
     setUpdateError(null);
     setUpdateSuccess(null);
     setErrosAgenda({});
+    setFaltaRegistrada(false);
     setEditandoAgenda(true);
   };
 
@@ -155,8 +180,11 @@ export function SolicitacaoDetailPage() {
   if (data.paciente?.celular_mascarado) {
     details.push(['Celular', data.paciente.celular_mascarado]);
   }
-  // Também em estados terminais: preserva o horário histórico.
-  if (data.agendado_para) {
+  const ativo = data.agendamento_ativo ?? null;
+  if (ativo) {
+    details.push(['Agendado para', descreverAgendamento(ativo)]);
+  } else if (data.agendado_para) {
+    // Estados terminais preservam o horário histórico.
     details.push(['Agendado para', <time key="agendado" dateTime={data.agendado_para}>{formatarAgendamento(data.agendado_para)}</time>]);
   }
 
@@ -227,6 +255,11 @@ export function SolicitacaoDetailPage() {
 
           {updateError && <div className="alert alert--error alert--compact" role="alert"><p>{updateError}</p></div>}
           {updateSuccess && <div className="alert alert--success alert--compact" role="status"><p>{updateSuccess}</p></div>}
+          {faltaRegistrada && (
+            <div className="alert alert--success alert--compact" role="status">
+              <p>Falta registrada. Registre o contato ou reagende pela <Link to="/?visao=faltas">aba Faltas</Link>.</p>
+            </div>
+          )}
 
           {transicoes.length === 0 ? (
             <div className="terminal-state">
@@ -237,12 +270,17 @@ export function SolicitacaoDetailPage() {
             <div className="status-actions">
               <p>Próximas ações permitidas</p>
 
-              {data.status === 'AGENDADA' && data.agendado_para && (
+              {data.status === 'AGENDADA' && ativo && (
                 <div className="schedule-summary">
                   <p className="schedule-summary__label">Agendado para</p>
-                  <p className="schedule-summary__value">
-                    <time dateTime={data.agendado_para}>{formatarAgendamento(data.agendado_para)}</time>
-                  </p>
+                  <p className="schedule-summary__value">{descreverAgendamento(ativo)}</p>
+                </div>
+              )}
+
+              {data.status === 'AGENDADA' && !ativo && !faltaRegistrada && (
+                <div className="schedule-summary">
+                  <p className="schedule-summary__label">Sem agendamento ativo</p>
+                  <p>Se o paciente faltou, defina uma nova data em "Alterar agendamento" ou pela <Link to="/?visao=faltas">aba Faltas</Link>.</p>
                 </div>
               )}
 
@@ -266,7 +304,11 @@ export function SolicitacaoDetailPage() {
                   <AgendamentoForm
                     key="agendamento-form"
                     mode={data.status === 'AGENDADA' ? 'reagendar' : 'agendar'}
-                    initialValue={data.status === 'AGENDADA' && data.agendado_para ? camposDoAgendamento(data.agendado_para) : undefined}
+                    initialValue={
+                      data.status !== 'AGENDADA' ? undefined
+                        : ativo ? payloadDoAgendamento(ativo)
+                          : data.agendado_para ? camposDoAgendamento(data.agendado_para) : undefined
+                    }
                     submitting={salvandoAgenda}
                     serverErrors={errosAgenda}
                     context={
@@ -278,6 +320,18 @@ export function SolicitacaoDetailPage() {
                     onCancel={fecharAgenda}
                   />
                 </div>
+              )}
+
+              {data.status === 'AGENDADA' && ativo && (
+                <button
+                  type="button"
+                  className="button button--status"
+                  disabled={updating || salvandoAgenda || registrandoFalta}
+                  onClick={handleRegistrarFalta}
+                >
+                  <span>{registrandoFalta ? 'Registrando...' : 'Registrar falta'}</span>
+                  <span aria-hidden="true">→</span>
+                </button>
               )}
 
               {transicoes.filter(status => status !== 'AGENDADA').map(status => (

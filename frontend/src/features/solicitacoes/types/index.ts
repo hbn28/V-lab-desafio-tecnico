@@ -22,9 +22,12 @@ export interface TentativaContato {
 export interface Agendamento {
   id: number;
   modalidade: ModalidadeAgendamento;
+  /** Data local no fuso operacional (YYYY-MM-DD). */
   data_agendada: string;
+  /** Horário local (HH:mm); null na modalidade TURNO. */
   hora_agendada: string | null;
-  turno: Turno | null;
+  /** Sempre presente: informado (TURNO) ou derivado do horário (HORARIO). */
+  turno: Turno;
   status: StatusAgendamento;
   falta_registrada_em: string | null;
   falta_corrigida_em: string | null;
@@ -40,18 +43,18 @@ export interface Agendamento {
 
 export type FaltaListItem = Agendamento;
 
+/** Item de GET /fila (EntradaFilaResource). */
 export interface EntradaFilaItem {
   id: number;
-  solicitacao_id: number;
   entrou_em: string;
-  encerrada_em: string | null;
-  motivo_encerramento: 'AGENDAMENTO' | 'CANCELAMENTO' | null;
+  solicitacao?: Solicitacao;
 }
 
 export interface Solicitacao {
   id: number;
   protocolo: string;
   nome_solicitante: string;
+  /** Completo no detalhe (GET /solicitacoes/{id}); mascarado ("***.456.789-**") nas listagens. */
   cpf_solicitante: string;
   data_nascimento: string;
   categoria: Categoria;

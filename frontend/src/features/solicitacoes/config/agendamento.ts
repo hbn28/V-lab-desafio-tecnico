@@ -1,3 +1,6 @@
+import type { Agendamento, AgendamentoPayload } from '../types';
+import { LABEL_TURNO } from '../types';
+
 /** Fuso operacional da agenda; deve coincidir com AGENDAMENTO_TIMEZONE no backend. */
 export const AGENDAMENTO_TIMEZONE: string = import.meta.env.VITE_AGENDAMENTO_TIMEZONE || 'America/Recife';
 
@@ -56,4 +59,35 @@ export function derivarTurnoDaHora(hora: string): 'MANHA' | 'TARDE' | 'NOITE' | 
   if (h >= 6 && h < 12) return 'MANHA';
   if (h >= 12 && h < 18) return 'TARDE';
   return 'NOITE';
+}
+
+/**
+ * "25/09/2026" a partir de uma data local "2026-09-25", sem passar por Date (o fuso do
+ * navegador poderia empurrar o dia). Tolera um instante ISO usando só a parte da data.
+ */
+export function formatarDataLocal(data: string): string {
+  const [ano, mes, dia] = data.slice(0, 10).split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+
+type DadosAgendamento = Pick<Agendamento, 'modalidade' | 'data_agendada' | 'hora_agendada' | 'turno'>;
+
+/**
+ * "25/09/2026 às 14:30" ou "25/09/2026 · turno da manhã". data_agendada e hora_agendada
+ * já estão no fuso operacional: são exibidas como vieram, sem conversão.
+ */
+export function descreverAgendamento(agendamento: DadosAgendamento): string {
+  const data = formatarDataLocal(agendamento.data_agendada);
+  if (agendamento.modalidade === 'HORARIO' && agendamento.hora_agendada) {
+    return `${data} às ${agendamento.hora_agendada}`;
+  }
+  return `${data} · turno da ${LABEL_TURNO[agendamento.turno].toLowerCase()}`;
+}
+
+/** Valores iniciais do formulário de reagendamento a partir do agendamento ativo. */
+export function payloadDoAgendamento(agendamento: DadosAgendamento): AgendamentoPayload {
+  if (agendamento.modalidade === 'HORARIO' && agendamento.hora_agendada) {
+    return { data_agendada: agendamento.data_agendada, hora_agendada: agendamento.hora_agendada };
+  }
+  return { data_agendada: agendamento.data_agendada, turno: agendamento.turno };
 }

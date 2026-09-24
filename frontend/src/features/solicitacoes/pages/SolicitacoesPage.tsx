@@ -1,17 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { useSolicitacoes, useResumoSolicitacoes, useProximaSolicitacao, useFaltas } from '../hooks/useSolicitacoes';
-import { solicitacoesApi } from '../api/client';
+import { useSolicitacoes, useResumoSolicitacoes, useProximaSolicitacao } from '../hooks/useSolicitacoes';
 import { StatusBadge, PrioridadeBadge } from '../../../components/Badge';
 import { DrilldownModal } from '../components/DrilldownModal';
 import { ViewSwitcher } from '../components/ViewSwitcher';
 import { SolicitacoesTable } from '../components/SolicitacoesTable';
-import { FaltaCard } from '../components/FaltaCard';
-import { ContatoFaltaDialog } from '../components/ContatoFaltaDialog';
-import { AgendamentoForm } from '../components/AgendamentoForm';
-import { dataHojeNoFuso, dataIsoValida, formatarAgendamento } from '../config/agendamento';
+import { FaltasView } from '../components/FaltasView';
+import { dataHojeNoFuso, dataIsoValida, formatarAgendamento, formatarDataLocal } from '../config/agendamento';
 import type { Status, Categoria, Prioridade, Solicitacao } from '../types';
-import type { AgendamentoPayload, FaltaListItem, FiltrosSolicitacoes, ResultadoContato } from '../types';
+import type { FiltrosSolicitacoes } from '../types';
 import { LABEL_STATUS, LABEL_CATEGORIA, LABEL_PRIORIDADE, LABEL_TURNO } from '../types';
 
 const STATUS_LIST: Status[] = ['RECEBIDA', 'EM_ANALISE', 'AGENDADA', 'CONCLUIDA', 'CANCELADA'];
@@ -79,13 +76,6 @@ interface Drilldown {
   filtros: FiltrosSolicitacoes;
 }
 
-/** "25/09/2026" a partir de "2026-09-25", sem passar por Date (evita o fuso do navegador
- * empurrar a data um dia para trás/frente). */
-function formatDataLocal(dataIso: string): string {
-  const [ano, mes, dia] = dataIso.split('-');
-  return `${dia}/${mes}/${ano}`;
-}
-
 /**
  * Frase de status temporal da "próxima solicitação por prioridade". "Esperando há N dias"
  * só faz sentido enquanto a solicitação ainda não tem agendamento (o tempo é medido desde a
@@ -104,7 +94,7 @@ function statusTemporal(item: Solicitacao): { texto: string; atrasado: boolean }
 
   if (ativo?.modalidade === 'TURNO' && ativo.turno) {
     return {
-      texto: `agendado para ${formatDataLocal(ativo.data_agendada)} · turno da ${LABEL_TURNO[ativo.turno].toLowerCase()}`,
+      texto: `agendado para ${formatarDataLocal(ativo.data_agendada)} · turno da ${LABEL_TURNO[ativo.turno].toLowerCase()}`,
       atrasado: ativo.data_agendada < dataHojeNoFuso(),
     };
   }
@@ -132,51 +122,6 @@ export function SolicitacoesPage() {
   const emAgenda = visao === 'agenda';
   const emFaltas = visao === 'faltas';
   const filaFiltradaPorAgendada = !emAgenda && status === 'AGENDADA';
-
-  const { data: faltas, loading: faltasLoading, error: faltasError, reload: reloadFaltas } = useFaltas({ enabled: emFaltas });
-  const [faltaContato, setFaltaContato] = useState<FaltaListItem | null>(null);
-  const [enviandoContato, setEnviandoContato] = useState(false);
-  const [erroContato, setErroContato] = useState<string | null>(null);
-  const [faltaReagendando, setFaltaReagendando] = useState<FaltaListItem | null>(null);
-  const [salvandoReagendamento, setSalvandoReagendamento] = useState(false);
-  const [errosReagendamento, setErrosReagendamento] = useState<Record<string, string[]>>({});
-
-  const abrirContato = (falta: FaltaListItem) => { setErroContato(null); setFaltaContato(falta); };
-  const fecharContato = () => setFaltaContato(null);
-  const salvarContato = async (resultado: ResultadoContato) => {
-    if (!faltaContato) return;
-    setEnviandoContato(true);
-    setErroContato(null);
-    try {
-      await solicitacoesApi.registrarContato(faltaContato.id, { resultado });
-      setFaltaContato(null);
-      await reloadFaltas();
-    } catch (caught: unknown) {
-      setErroContato(caught instanceof Error ? caught.message : 'Erro ao registrar contato');
-    } finally {
-      setEnviandoContato(false);
-    }
-  };
-
-  const abrirReagendamento = (falta: FaltaListItem) => { setErrosReagendamento({}); setFaltaReagendando(falta); };
-  const fecharReagendamento = () => setFaltaReagendando(null);
-  const salvarReagendamento = async (payload: AgendamentoPayload) => {
-    if (!faltaReagendando) return;
-    setSalvandoReagendamento(true);
-    setErrosReagendamento({});
-    try {
-      await solicitacoesApi.reagendarAposFalta(faltaReagendando.id, payload);
-      setFaltaReagendando(null);
-      await reloadFaltas();
-    } catch (caught: unknown) {
-      const erros = caught instanceof Error && 'errors' in caught
-        ? ((caught as Error & { errors?: Record<string, string[]> }).errors ?? {})
-        : {};
-      if (Object.keys(erros).length > 0) setErrosReagendamento(erros);
-    } finally {
-      setSalvandoReagendamento(false);
-    }
-  };
 
   // Data ausente ou inválida na URL da agenda é normalizada para o dia efetivamente consultado.
   useEffect(() => {
@@ -269,73 +214,7 @@ export function SolicitacoesPage() {
     });
   };
 
-  if (emFaltas) {
-    return (
-      <div className="page-stack">
-        <header className="page-heading">
-          <div>
-            <p className="eyebrow">Ausências</p>
-            <h1>Faltas</h1>
-            <p className="page-heading__description">
-              Pacientes que faltaram ao atendimento agendado — registre o contato ou reagende.
-            </p>
-          </div>
-        </header>
-
-        <div className="view-switcher" aria-label="Visão da fila">
-          <ViewSwitcher ativo="faltas" />
-        </div>
-
-        {erroContato && <div className="alert alert--error alert--compact" role="alert"><p>{erroContato}</p></div>}
-
-        {faltasLoading && (
-          <div className="state-view" role="status" aria-live="polite">
-            <span className="spinner" aria-hidden="true" />
-            <strong>Carregando faltas</strong>
-          </div>
-        )}
-
-        {faltasError && (
-          <div className="alert alert--error" role="alert">
-            <div><strong>Não foi possível carregar as faltas</strong><p>{faltasError}</p></div>
-            <button onClick={reloadFaltas} className="button button--outline" type="button">Tentar novamente</button>
-          </div>
-        )}
-
-        {!faltasLoading && !faltasError && (faltas?.data.length ?? 0) === 0 && (
-          <div className="state-view">
-            <span className="state-view__icon" aria-hidden="true">○</span>
-            <strong>Nenhuma falta pendente</strong>
-          </div>
-        )}
-
-        {!faltasLoading && !faltasError && faltas && faltas.data.length > 0 && (
-          <div className="faltas-list">
-            {faltas.data.map(falta => (
-              <FaltaCard key={falta.id} falta={falta} onRegistrarContato={abrirContato} onReagendar={abrirReagendamento} />
-            ))}
-          </div>
-        )}
-
-        {faltaContato && (
-          <ContatoFaltaDialog submitting={enviandoContato} onSalvar={salvarContato} onCancelar={fecharContato} />
-        )}
-
-        {faltaReagendando && (
-          <div className="dialog" role="dialog" aria-labelledby="reagendar-falta-heading">
-            <h2 id="reagendar-falta-heading">Reagendar após falta</h2>
-            <AgendamentoForm
-              submitting={salvandoReagendamento}
-              serverErrors={errosReagendamento}
-              submitLabel="Confirmar novo agendamento"
-              onSubmit={salvarReagendamento}
-              onCancel={fecharReagendamento}
-            />
-          </div>
-        )}
-      </div>
-    );
-  }
+  if (emFaltas) return <FaltasView />;
 
   return (
     <div className="page-stack">

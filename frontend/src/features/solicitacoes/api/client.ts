@@ -13,6 +13,7 @@ import type {
   RegistrarContatoPayload,
   ResumoSolicitacoes,
   Solicitacao,
+  TentativaContato,
 } from '../types';
 
 export type ListarParams = FiltrosSolicitacoes;
@@ -168,7 +169,7 @@ export const solicitacoesApi = {
     if (filtros.page)     params.set('page', String(filtros.page));
     if (filtros.per_page) params.set('per_page', String(filtros.per_page));
     const qs = params.toString() ? `?${params}` : '';
-    const res = await request<ListaSolicitacoes & { data: EntradaFilaItem[] }>(`/api/v1/fila${qs}`);
+    const res = await request<{ data: EntradaFilaItem[]; meta: ListaSolicitacoes['meta'] }>(`/api/v1/fila${qs}`);
     if (!res?.data || !res?.meta) {
       throw new Error('O servidor retornou uma resposta inesperada ao listar a fila.');
     }
@@ -197,8 +198,8 @@ export const solicitacoesApi = {
     return res.data;
   },
 
-  async registrarContato(agendamentoId: number, payload: RegistrarContatoPayload): Promise<Agendamento> {
-    const res = await request<{ data: Agendamento }>(`/api/v1/agendamentos/${agendamentoId}/tentativas-contato`, {
+  async registrarContato(agendamentoId: number, payload: RegistrarContatoPayload): Promise<TentativaContato> {
+    const res = await request<{ data: TentativaContato }>(`/api/v1/agendamentos/${agendamentoId}/tentativas-contato`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
