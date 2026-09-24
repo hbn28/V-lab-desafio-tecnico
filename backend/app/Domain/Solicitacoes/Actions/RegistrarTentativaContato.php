@@ -2,9 +2,9 @@
 
 namespace App\Domain\Solicitacoes\Actions;
 
+use App\Domain\Solicitacoes\Exceptions\ConflitoDeEstado;
 use App\Models\Agendamento;
 use App\Models\TentativaContato;
-use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 
 class RegistrarTentativaContato
@@ -15,7 +15,7 @@ class RegistrarTentativaContato
             $agendamento = Agendamento::query()->whereKey($agendamento->id)->lockForUpdate()->firstOrFail();
 
             if ($agendamento->status !== 'FALTA') {
-                $this->conflito('Tentativas de contato só podem ser registradas após falta.');
+                throw new ConflitoDeEstado('Tentativas de contato só podem ser registradas após falta.');
             }
 
             return $agendamento->tentativasContato()->create([
@@ -23,12 +23,5 @@ class RegistrarTentativaContato
                 'realizada_em' => now(),
             ]);
         });
-    }
-
-    private function conflito(string $mensagem): never
-    {
-        throw new HttpResponseException(
-            response()->json(['message' => $mensagem, 'errors' => []], 409)
-        );
     }
 }

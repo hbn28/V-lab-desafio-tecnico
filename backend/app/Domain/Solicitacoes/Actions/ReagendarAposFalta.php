@@ -2,10 +2,10 @@
 
 namespace App\Domain\Solicitacoes\Actions;
 
+use App\Domain\Solicitacoes\Exceptions\ConflitoDeEstado;
 use App\Models\Agendamento;
 use App\Models\Solicitacao;
 use Carbon\CarbonImmutable;
-use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -24,21 +24,21 @@ class ReagendarAposFalta
             $falta = Agendamento::query()->whereKey($agendamento->id)->lockForUpdate()->firstOrFail();
 
             if ($falta->status !== 'FALTA') {
-                $this->conflito('Somente faltas podem ser reagendadas por esta rota.');
+                throw new ConflitoDeEstado('Somente faltas podem ser reagendadas por esta rota.');
             }
 
             if ($falta->resultado_em !== null) {
-                $this->conflito('Esta falta já foi reagendada.');
+                throw new ConflitoDeEstado('Esta falta já foi reagendada.');
             }
 
             $solicitacao = Solicitacao::query()->whereKey($falta->solicitacao_id)->lockForUpdate()->firstOrFail();
 
             if ($solicitacao->status !== 'AGENDADA') {
-                $this->conflito('A solicitação precisa permanecer agendada para receber novo agendamento.');
+                throw new ConflitoDeEstado('A solicitação precisa permanecer agendada para receber novo agendamento.');
             }
 
             if (Agendamento::query()->where('solicitacao_id', $solicitacao->id)->where('id', '>', $falta->id)->exists()) {
-                $this->conflito('Esta falta já possui um agendamento posterior.');
+                throw new ConflitoDeEstado('Esta falta já possui um agendamento posterior.');
             }
 
             $existeAtivo = Agendamento::query()
@@ -48,7 +48,7 @@ class ReagendarAposFalta
                 ->exists();
 
             if ($existeAtivo) {
-                $this->conflito('Já existe um agendamento ativo para esta solicitação.');
+                throw new ConflitoDeEstado('Já existe um agendamento ativo para esta solicitação.');
             }
 
             $novo = Agendamento::query()->create([
@@ -65,12 +65,5 @@ class ReagendarAposFalta
 
             return $novo;
         });
-    }
-
-    private function conflito(string $mensagem): never
-    {
-        throw new HttpResponseException(
-            response()->json(['message' => $mensagem, 'errors' => []], 409)
-        );
     }
 }

@@ -1,9 +1,9 @@
 <?php
 
 use App\Domain\Solicitacoes\Actions\AtualizarStatusSolicitacao;
+use App\Domain\Solicitacoes\Exceptions\ConflitoDeEstado;
 use App\Models\Solicitacao;
 use Carbon\CarbonImmutable;
-use Illuminate\Http\Exceptions\HttpResponseException;
 
 afterEach(function () {
     CarbonImmutable::setTestNow();
@@ -125,9 +125,7 @@ test('instância obsoleta é relida sob lock e recebe 409 após outro agendament
         'hora_agendada' => '14:30',
         'turno' => 'TARDE',
         'agendado_para' => CarbonImmutable::parse('2026-09-26T17:30:00Z'),
-    ]))->toThrow(function (HttpResponseException $e) {
-        expect($e->getResponse()->getStatusCode())->toBe(409);
-    });
+    ]))->toThrow(ConflitoDeEstado::class, "Transição de 'AGENDADA' para 'AGENDADA' não é permitida.");
     expect($solicitacao->fresh()->agendado_para->toIso8601String())->toBe('2026-09-25T17:30:00+00:00');
 });
 

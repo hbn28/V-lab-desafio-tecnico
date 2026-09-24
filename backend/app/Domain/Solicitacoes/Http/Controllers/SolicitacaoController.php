@@ -56,7 +56,7 @@ class SolicitacaoController
         Gate::authorize('create', Solicitacao::class);
         $solicitacao = $this->criarSolicitacao->execute($request->validated());
 
-        return (new SolicitacaoResource($solicitacao))
+        return SolicitacaoResource::detalhe($solicitacao)
             ->response()
             ->setStatusCode(201);
     }
@@ -104,7 +104,7 @@ class SolicitacaoController
         $solicitacao = Solicitacao::with(['paciente', 'agendamentoAtivo'])->findOrFail($id);
         Gate::authorize('view', $solicitacao);
 
-        return (new SolicitacaoResource($solicitacao))->response();
+        return SolicitacaoResource::detalhe($solicitacao)->response();
     }
 
     public function update(AtualizarSolicitacaoRequest $request, int $id): JsonResponse
@@ -113,7 +113,7 @@ class SolicitacaoController
         Gate::authorize('update', $solicitacao);
         $atualizada = $this->atualizarSolicitacao->execute($solicitacao, $request->validated());
 
-        return (new SolicitacaoResource($atualizada))->response();
+        return SolicitacaoResource::detalhe($atualizada)->response();
     }
 
     public function updateStatus(AtualizarStatusRequest $request, int $id): JsonResponse
@@ -127,7 +127,7 @@ class SolicitacaoController
         );
         $atualizada->load(['paciente', 'agendamentoAtivo']);
 
-        return (new SolicitacaoResource($atualizada))->response();
+        return SolicitacaoResource::detalhe($atualizada)->response();
     }
 
     public function updateAgendamento(ReagendarSolicitacaoRequest $request, int $id): JsonResponse
@@ -137,7 +137,7 @@ class SolicitacaoController
         $atualizada = $this->reagendarSolicitacao->execute($solicitacao, $request->dadosAgendamento());
         $atualizada->load(['paciente', 'agendamentoAtivo']);
 
-        return (new SolicitacaoResource($atualizada))->response();
+        return SolicitacaoResource::detalhe($atualizada)->response();
     }
 
     public function destroy(int $id): Response

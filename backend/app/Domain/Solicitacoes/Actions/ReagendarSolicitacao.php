@@ -2,10 +2,10 @@
 
 namespace App\Domain\Solicitacoes\Actions;
 
+use App\Domain\Solicitacoes\Exceptions\ConflitoDeEstado;
 use App\Models\Agendamento;
 use App\Models\Solicitacao;
 use Carbon\CarbonImmutable;
-use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -24,10 +24,7 @@ class ReagendarSolicitacao
             $solicitacao = Solicitacao::lockForUpdate()->findOrFail($solicitacao->id);
 
             if ($solicitacao->status !== 'AGENDADA') {
-                throw new HttpResponseException(response()->json([
-                    'message' => 'Somente solicitações agendadas podem ser reagendadas.',
-                    'errors' => [],
-                ], 409));
+                throw new ConflitoDeEstado('Somente solicitações agendadas podem ser reagendadas.');
             }
 
             $agendamentoAtivo = Agendamento::query()
