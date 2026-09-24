@@ -14,7 +14,6 @@ dist/
 *.swp
 *.tmp
 *.tsbuildinfo
-
 # Controle de agentes de IA (não vai para o GitHub)
 AGENTS.md
 CLAUDE.md
@@ -25,3 +24,4 @@ prompts/
 .superpowers/
 .claude/
 graphify-out/
+.codex/

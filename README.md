@@ -34,7 +34,7 @@ Aguarde até ver `Application ready` nos logs do backend (~30s na primeira vez).
 
 > Os seeders rodam automaticamente na primeira inicialização (`APP_SEED=true` no docker-compose.yml), populando 10 solicitações fictícias que cobrem todos os status e prioridades.
 
-Para entrar na interface local, crie um operador com `docker compose exec backend php artisan operadores:criar` e informe usuário e senha nos prompts. A conta fica apenas no banco local. O backend limpa manifestos de pacotes gerados no host ao iniciar, pois a imagem de execução instala somente dependências de produção.
+Para entrar na interface local, crie um operador com `docker compose exec backend php artisan operadores:criar` e informe usuário e senha nos prompts. A conta fica apenas no banco local. O Compose local instala as dependências de desenvolvimento para disponibilizar Pest e Pint; a imagem de produção instala apenas dependências de execução. O backend limpa manifestos de pacotes gerados no host ao iniciar.
 
 As migrations são aplicadas automaticamente na inicialização. Para preservar os dados locais, não use `docker compose down -v`; se precisar de uma base limpa, crie um projeto Compose isolado com volumes próprios.
 
@@ -130,12 +130,12 @@ Documentação completa (OpenAPI): [`docs/openapi.yaml`](docs/openapi.yaml)
 
 ## Rodar os testes
 
-O container `backend` de execução instala apenas as dependências de produção (`composer install --no-dev`), portanto não contém Pest nem Pint. A suíte completa do backend é executada pelo job `test-backend` em `.github/workflows/ci.yml`, com PostgreSQL 16 e banco `vlab_test` isolado. Para reproduzir localmente, prepare um ambiente de teste separado com PHP 8.3, dependências de desenvolvimento (`composer install --no-scripts`) e PostgreSQL 16; configure `DB_*` para esse servidor e crie apenas `vlab_test`. Em `backend/`, execute:
+O Compose local instala Pest e Pint no container `backend`. Ao iniciar em `APP_ENV=local`, o entrypoint cria o banco separado `vlab_test` se necessário, sem apagar dados. Em produção, a imagem instala apenas dependências de execução e não cria banco de testes. O job `test-backend` da CI também usa PostgreSQL 16 e banco isolado. Para reproduzir localmente:
 
 ```bash
-php artisan migrate --database=pgsql_test --force
-./vendor/bin/pest
-./vendor/bin/pint --test
+docker compose exec backend php artisan migrate --database=pgsql_test --force
+docker compose exec backend ./vendor/bin/pest
+docker compose exec backend ./vendor/bin/pint --test
 ```
 
 `backend/tests/TestCase.php` força `DB_CONNECTION=pgsql_test` antes de cada teste. Nunca execute migrations de teste, `migrate:fresh` ou `db:seed` no banco `vlab`.

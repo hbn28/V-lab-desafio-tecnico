@@ -34,6 +34,14 @@ fi
 echo "Limpando manifestos de pacotes gerados fora do container..."
 rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
 
+case "${APP_ENV:-production}" in
+    local|testing)
+        if [ -n "${DB_DATABASE_TEST:-}" ] && [ "$DB_DATABASE_TEST" != "$DB_DATABASE" ]; then
+            php /app/docker/criar-banco-testes.php || echo "Aviso: não foi possível criar o banco de testes."
+        fi
+        ;;
+esac
+
 echo "Banco disponível. Executando migrations..."
 php artisan migrate --force
 

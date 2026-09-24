@@ -21,6 +21,7 @@ class AtualizarSolicitacaoRequest extends FormRequest
             'prioridade' => ['required', 'string', 'in:BAIXA,MEDIA,ALTA,URGENTE'],
             'descricao' => ['required', 'string', 'max:2000'],
             'justificativa_prioridade' => ['nullable', 'string', 'max:1000'],
+            'celular' => ['nullable', 'string', 'regex:/^\(?\d{2}\)?\s?9?\d{4}-?\d{4}$/'],
             // campos que não devem ser aceitos
             'id' => ['prohibited'],
             'protocolo' => ['prohibited'],
@@ -53,6 +54,8 @@ class AtualizarSolicitacaoRequest extends FormRequest
             'descricao.max' => 'A descrição não pode ter mais de 2000 caracteres.',
 
             'justificativa_prioridade.max' => 'A justificativa não pode ter mais de 1000 caracteres.',
+
+            'celular.regex' => 'O celular deve estar em um formato brasileiro válido, como (81) 99999-0000.',
 
             'id.prohibited' => 'O campo id não é permitido.',
             'protocolo.prohibited' => 'O campo protocolo não é permitido.',

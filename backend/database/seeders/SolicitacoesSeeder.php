@@ -51,27 +51,43 @@ class SolicitacoesSeeder extends Seeder
                 $dados
             );
 
-            if ($solicitacao->status === 'AGENDADA' && $solicitacao->agendado_para !== null) {
-                $momentoLocal = $solicitacao->agendado_para->setTimezone($fuso);
-                $hora = $momentoLocal->format('H:i');
-
-                Agendamento::firstOrCreate(
-                    ['solicitacao_id' => $solicitacao->id, 'status' => 'AGENDADO'],
-                    [
-                        'data_agendada' => $momentoLocal->format('Y-m-d'),
-                        'modalidade' => 'HORARIO',
-                        'hora_agendada' => $hora,
-                        'turno' => TurnoAgendamento::derivarDaHora($hora),
-                    ]
-                );
+            // Só completa o que o próprio seeder acabou de criar: numa nova subida do
+            // container (APP_SEED=true) um registro já existente — talvez movimentado
+            // à mão desde então — nunca é alterado.
+            if ($solicitacao->wasRecentlyCreated) {
+                $this->completarEstadoOperacional($solicitacao, $fuso);
             }
+        }
+    }
 
-            if ($solicitacao->status === 'EM_ANALISE') {
-                EntradaFila::firstOrCreate(
-                    ['solicitacao_id' => $solicitacao->id, 'encerrada_em' => null],
-                    ['entrou_em' => $solicitacao->created_at]
-                );
-            }
+    /**
+     * Dá a cada solicitação semeada os registros que o fluxo real criaria:
+     * EM_ANALISE tem uma entrada aberta na fila e AGENDADA tem um agendamento
+     * ativo. Sem isso, /fila começaria vazio e as agendadas de exemplo não
+     * poderiam receber falta. Idempotente, como o resto do seeder.
+     */
+    private function completarEstadoOperacional(Solicitacao $solicitacao, string $fuso): void
+    {
+        if ($solicitacao->status === 'EM_ANALISE') {
+            EntradaFila::firstOrCreate(
+                ['solicitacao_id' => $solicitacao->id, 'encerrada_em' => null],
+                ['entrou_em' => $solicitacao->created_at]
+            );
+        }
+
+        if ($solicitacao->status === 'AGENDADA' && $solicitacao->agendado_para !== null) {
+            $local = $solicitacao->agendado_para->setTimezone($fuso);
+            $hora = $local->format('H:i');
+
+            Agendamento::firstOrCreate(
+                ['solicitacao_id' => $solicitacao->id, 'status' => 'AGENDADO'],
+                [
+                    'data_agendada' => $local->toDateString(),
+                    'modalidade' => 'HORARIO',
+                    'hora_agendada' => $hora,
+                    'turno' => TurnoAgendamento::derivarDaHora($hora),
+                ]
+            );
         }
     }
 }

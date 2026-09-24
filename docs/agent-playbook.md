@@ -13,6 +13,7 @@
 - Não crie Repository, DTO, CQRS ou abstração de uma implementação sem benefício demonstrável.
 - Preserve validação, erros, segurança, acessibilidade e prevenção de perda de dados.
 - Em alterações que atravessam frontend, API e banco, atualize contrato e teste na mesma rodada.
+- Mantenha a documentação Markdown de `.claude/` e `.codex/` espelhada nos mesmos caminhos relativos: toda alteração em uma deve ser replicada na outra e os pares devem ser comparados antes de encerrar. Arquivos de configuração específicos de cada ferramenta podem diferir.
 - Não trate o frontend como autoridade de negócio; a API e o PostgreSQL são a fonte final.
 
 ## Antes de encerrar

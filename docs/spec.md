@@ -176,7 +176,7 @@ Campos aceitos: `status` (obrigatório, pertencente a `Status`) e, somente quand
 
 Substitui os dados cadastrais da solicitação (mesmas regras de validação do POST). `id`, `protocolo` e `status` continuam não graváveis. Resposta 200: `{ "data": Solicitacao }`.
 
-Bloqueado (409) quando a solicitação está em estado final (`CONCLUIDA` ou `CANCELADA`) — dados de um atendimento encerrado não são mais editáveis.
+Bloqueado (409) quando a solicitação está em estado final (`CONCLUIDA` ou `CANCELADA`) — dados de um atendimento encerrado não são mais editáveis. O vínculo com paciente segue o CPF normalizado: trocar o CPF associa outro paciente (existente ou novo); divergência de nascimento de um cadastro compartilhado retorna 422. Se o paciente só tem esta solicitação, a edição pode corrigir sua data de nascimento. `celular` opcional atualiza o cadastro do paciente quando informado. O CPF segue mascarado na resposta; os dados pessoais completos ficam apenas no GET de detalhe.
 
 ### DELETE `/api/v1/solicitacoes/{id}`
 

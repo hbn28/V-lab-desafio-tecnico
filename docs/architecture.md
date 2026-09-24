@@ -177,7 +177,7 @@ O Resource omite `data_nascimento` e mascara `cpf_solicitante` nas listagens, na
 | Protocolo único | Upsert + `lockForUpdate` em `protocolo_counters` | Evita race condition sem sequence global; suporta rollback |
 | Transições de status | Tabela `TRANSICOES` em Action | Toda regra de negócio fora do controller; fácil de testar |
 | Geração de X-Request-ID | Middleware global no grupo `api` | Rastreabilidade sem acoplamento ao domínio |
-| Seeders idempotentes | `firstOrCreate(['protocolo' => ...])` | `db:seed` pode rodar N vezes sem duplicar dados |
+| Seeders idempotentes | `firstOrCreate(['protocolo' => ...])`; fila e agenda são criadas só para fixtures novas | Reexecutar `db:seed` não duplica nem reabre registros que foram alterados pelo operador |
 | Logs estruturados | JSON via `JsonFormatter` → stderr | Compatível com Loki/CloudWatch sem parsear texto |
 | Error envelope único | `{message, errors}` em todos os erros | Frontend trata erros de forma uniforme |
 | Fila operacional | ListarFilaOperacional ordena entradas abertas por prioridade e antiguidade | Mantém a ordem de atenção estável com paginação e deixa o controller responsável só pela orquestração |
@@ -188,7 +188,7 @@ O Resource omite `data_nascimento` e mascara `cpf_solicitante` nas listagens, na
 | Fuso da agenda | UTC no banco/API, `America/Recife` configurável na interpretação | Instante absoluto; horário local ambíguo é rejeitado |
 | Horários repetidos | Permitidos (sem UNIQUE) | O edital não define capacidade; conflito exigiria recurso e duração |
 | Falta é status do agendamento, não da solicitação | `agendamentos.status` ganha `FALTA`; `solicitacoes.status` continua só a máquina de estados original | Uma ausência não é uma nova etapa do atendimento — a solicitação segue `AGENDADA` enquanto o agendamento específico registra a falta. Isso permite reagendar (novo `Agendamento`) sem perder o histórico da falta original, e concluir corrige o registro (`falta_corrigida_em`) sem apagar `falta_registrada_em` |
-| Paciente reaproveitado por CPF | `pacientes` separado de `solicitacoes`, casado por CPF normalizado | O mesmo paciente pode abrir várias solicitações ao longo do tempo; CPF com data de nascimento divergente é tratado como erro de cadastro (422), não como pessoa nova |
+| Paciente reaproveitado por CPF | `LocalizarOuCriarPaciente` resolve o cadastro por CPF normalizado na criação e edição | A edição pode trocar o vínculo para outro CPF ou corrigir nascimento se o cadastro pertencer só à solicitação; divergência em cadastro compartilhado retorna 422 |
 | Fila como registro próprio | `entradas_fila` (não reaproveita a ordenação de `GET /solicitacoes`) | A fila operacional contínua (tempo de espera real) é um conceito distinto da listagem paginada e filtrável da tela de solicitações |
 | Contato pós-falta enxuto | `tentativas_contato.resultado` é enum fechado, sem texto livre | Reduz dado sensível armazenado e mantém o relatório de faltas simples de auditar |
 

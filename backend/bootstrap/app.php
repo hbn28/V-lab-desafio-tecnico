@@ -2,6 +2,7 @@
 
 use App\Domain\Auth\Console\CriarOperador;
 use App\Domain\Solicitacoes\Console\PopularSolicitacoesDemo;
+use App\Domain\Solicitacoes\Exceptions\ConflitoDeEstado;
 use App\Http\Middleware\RequestId;
 use App\Providers\AppServiceProvider;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -32,6 +33,10 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
+        $exceptions->render(function (ConflitoDeEstado $e, Request $request) {
+            return response()->json(['message' => $e->getMessage(), 'errors' => []], 409);
+        });
+
         $exceptions->render(function (AuthenticationException $e, Request $request) {
             return response()->json(['message' => 'Autenticação necessária.', 'errors' => []], 401);
         });

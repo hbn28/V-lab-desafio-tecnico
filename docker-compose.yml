@@ -19,6 +19,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        INSTALAR_DEPENDENCIAS_DEV: 'true'
     ports:
       - '8000:8000'
     environment:
@@ -32,6 +34,7 @@ services:
       DB_DATABASE: vlab
       DB_USERNAME: vlab
       DB_PASSWORD: secret
+      DB_DATABASE_TEST: vlab_test
       FRONTEND_URL: http://localhost:5173
       AGENDAMENTO_TIMEZONE: America/Recife
       APP_SEED: 'true'
@@ -74,6 +77,8 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      args:
+        INSTALAR_DEPENDENCIAS_DEV: 'true'
     entrypoint: ['sh', '-c']
     command: ['php artisan queue:work database --tries=3 --backoff=5 --timeout=30']
     environment:

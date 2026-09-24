@@ -66,3 +66,25 @@ test('contato aceita apenas resultado fechado em agendamento com falta', functio
         'resultado' => 'SEM_RESPOSTA',
     ])->assertCreated()->assertJsonPath('data.resultado', 'SEM_RESPOSTA');
 });
+
+test('data_agendada é serializada como data pura (Y-m-d), igual à entrada', function () {
+    CarbonImmutable::setTestNow('2026-09-25T10:01:00-03:00');
+    $solicitacao = Solicitacao::factory()->create(['status' => 'AGENDADA']);
+    $agendamento = Agendamento::factory()->create([
+        'solicitacao_id' => $solicitacao->id,
+        'status' => 'AGENDADO',
+        'modalidade' => 'HORARIO',
+        'data_agendada' => '2026-09-25',
+        'hora_agendada' => '10:00',
+        'turno' => 'MANHA',
+    ]);
+
+    $this->getJson("/api/v1/solicitacoes/{$solicitacao->id}")->assertOk()
+        ->assertJsonPath('data.agendamento_ativo.data_agendada', '2026-09-25');
+
+    $this->postJson("/api/v1/agendamentos/{$agendamento->id}/falta")->assertOk()
+        ->assertJsonPath('data.data_agendada', '2026-09-25');
+
+    $this->getJson('/api/v1/faltas')->assertOk()
+        ->assertJsonPath('data.0.data_agendada', '2026-09-25');
+});

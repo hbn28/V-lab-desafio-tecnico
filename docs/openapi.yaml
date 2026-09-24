@@ -364,6 +364,9 @@ paths:
         Extensão fora do fluxo obrigatório do edital (que define apenas criar,
         listar/consultar, filtrar e atualizar status). Permite corrigir dados
         cadastrais de uma solicitação que ainda não está em estado final.
+        O CPF normalizado define o vínculo com paciente; nascimento divergente
+        em cadastro compartilhado retorna 422. Celular opcional atualiza o contato.
+        A resposta mantém o CPF mascarado.
       operationId: atualizarSolicitacao
       parameters:
         - $ref: '#/components/parameters/SolicitacaoId'
@@ -1086,6 +1089,11 @@ components:
         justificativa_prioridade:
           type: string
           description: Obrigatório quando prioridade=URGENTE
+        celular:
+          type: string
+          nullable: true
+          description: Contato opcional do paciente; não é retornado sem máscara.
+          example: '(81) 91234-5678'
 
     HealthOk:
       type: object
