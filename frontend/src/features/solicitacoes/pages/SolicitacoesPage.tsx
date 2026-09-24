@@ -224,34 +224,6 @@ export function SolicitacoesPage() {
         </Link>
       </header>
 
-      <FilaView
-        emAgenda={emAgenda}
-        visao={visao}
-        escopo={escopo}
-        data={data}
-        loading={loading}
-        error={error}
-        reload={reload}
-        consulta={consulta}
-        page={page}
-        setPage={setPage}
-        statusDisponiveis={statusDisponiveis}
-        filaFiltradaPorAgendada={filaFiltradaPorAgendada}
-        dataFilaAgendada={dataFilaAgendada}
-        onDataFilaAgendada={setDataFilaAgendada}
-        hasFilters={hasFilters}
-        dataAgenda={dataAgenda}
-        diasDaAgenda={diasDaAgenda}
-        gruposAgenda={gruposAgenda}
-        returnContext={returnContext}
-        onChangeView={mudarVisao}
-        onChangeWeek={mudarSemana}
-        onApply={aplicarFiltros}
-        onClear={clearFilters}
-        onReloadAgenda={reloadAgenda}
-        onChangeAgendaPage={mudarPaginaDia}
-      />
-
       {!emAgenda && !resumoLoading && !resumoError && resumo && (
         <section className="dashboard-section" aria-labelledby="priority-heading">
           <div className="section-heading">
@@ -306,6 +278,34 @@ export function SolicitacoesPage() {
           </div>
         </section>
       )}
+
+      <FilaView
+        emAgenda={emAgenda}
+        visao={visao}
+        escopo={escopo}
+        data={data}
+        loading={loading}
+        error={error}
+        reload={reload}
+        consulta={consulta}
+        page={page}
+        setPage={setPage}
+        statusDisponiveis={statusDisponiveis}
+        filaFiltradaPorAgendada={filaFiltradaPorAgendada}
+        dataFilaAgendada={dataFilaAgendada}
+        onDataFilaAgendada={setDataFilaAgendada}
+        hasFilters={hasFilters}
+        dataAgenda={dataAgenda}
+        diasDaAgenda={diasDaAgenda}
+        gruposAgenda={gruposAgenda}
+        returnContext={returnContext}
+        onChangeView={mudarVisao}
+        onChangeWeek={mudarSemana}
+        onApply={aplicarFiltros}
+        onClear={clearFilters}
+        onReloadAgenda={reloadAgenda}
+        onChangeAgendaPage={mudarPaginaDia}
+      />
 
       {drilldown && (
         <DrilldownModal

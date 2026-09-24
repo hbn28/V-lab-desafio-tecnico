@@ -30,3 +30,9 @@ This section supersedes the earlier statements that no browser was available and
 - Browser flows exercised invalid form feedback, invalid login feedback, filters/search, schedule transitions, early absence rejection, contact recording and rebooking. Loading/empty/network error states are component-tested; they were not manually forced on every route.
 - Still unmeasured: 200% browser zoom, computed contrast ratios, every touch target's pixel size, screen-reader behavior and browser-level prefers-reduced-motion. CSS rules alone are not evidence for those checks.
 - Temporary screenshots were removed after inspection. Functional flow evidence and command results are summarized in docs/functional-audit.md.
+
+## Revisão visual das prioridades (24/09/2026)
+
+Na prévia local autenticada com dados fictícios, as prioridades foram movidas para antes da fila e conferidas nos temas claro e escuro, em desktop e no viewport de 320 px. No celular, os quatro cartões ocupam duas linhas; a largura do documento foi medida em 305 px de área útil, com `scrollWidth` igual a 305 px. A navegação horizontal do cabeçalho permanece contida no próprio menu.
+
+Os cartões e badges de prioridade no tema escuro usam fundos, bordas e texto distintos. Contrastes calculados entre texto e fundo dos cartões: Urgente 10,5:1; Alta 10,9:1; Média 9,4:1; Baixa 9,8:1. A ordem e os rótulos acessíveis dos quatro botões foram preservados; a inspeção visual não substitui avaliação com leitor de tela.

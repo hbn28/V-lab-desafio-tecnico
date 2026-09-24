@@ -18,7 +18,7 @@ Os tokens vivem em `frontend/src/index.css` e seguem duas camadas proporcionais 
 1. Primitivos: escalas de cor, espaço, raio e sombra.
 2. Semânticos: fundo, superfície, texto, borda, ação principal, foco e perigo. O modo escuro troca apenas valores semânticos em `:root[data-theme="dark"]`.
 
-Tokens específicos de componente só devem ser criados quando houver reutilização real. Componentes não devem introduzir cores hexadecimais próprias.
+Tokens específicos de componente só devem ser criados quando houver reutilização real. Componentes React não codificam cores; as combinações das prioridades ficam centralizadas no CSS.
 
 ### Paleta central
 
@@ -51,13 +51,13 @@ O alternador fica no cabeçalho autenticado e na tela de login/cadastro. A escol
 - Espaço operacional: a navegação persistente dá acesso à fila, solicitações agendadas, histórico e faltas. Coleções compartilham busca/filtros/ordenação e mantêm a consulta na URL; a agenda mostra sete filas independentes por dia. Remover mensagens de contexto que apenas repetem o que o título e os controles já deixam claro.
 - Badges: status com ponto + texto, em cores de etapa neutras/operacionais; prioridade com texto, em escala própria de atenção. Ambos possuem contraste e borda, mas nunca devem reutilizar a mesma convenção visual lado a lado.
 - Alertas: erro e sucesso com mensagem de recuperação; erros do formulário também aparecem em resumo focalizável e ligado aos campos.
-- Painéis e cartões: uma superfície por agrupamento funcional, sem aninhamento decorativo excessivo.
+- Painéis e cartões: as prioridades abertas aparecem logo abaixo do título, antes da fila; quatro cartões compactos no desktop e dois por linha no celular. A localização evita rolar toda a fila, sem reduzir a largura da tabela com uma barra lateral. No tema escuro, cartões e badges de prioridade usam fundos escuros e acentos distintos (vermelho, âmbar, azul e ardósia); o rótulo textual permanece obrigatório.
 - Tabela: cabeçalhos semânticos no desktop e reorganização em cartões rotulados no celular.
 - Estados assíncronos: carregando, sucesso, vazio e erro são obrigatórios.
 
 ## Responsividade
 
-- Até 480 px: uma coluna, marca compacta e ações em largura total.
+- Até 480 px: prioridades em duas colunas, marca compacta e ações principais em largura total.
 - Até 768 px: filtros empilhados, tabela reorganizada em cartões e formulário em uma coluna.
 - Até 992 px: prioridades em duas colunas, andamento em uma coluna e detalhe em uma coluna.
 - Acima disso: largura máxima de 78 rem, prioridades em quatro colunas, andamento em três etapas e detalhe em duas colunas.

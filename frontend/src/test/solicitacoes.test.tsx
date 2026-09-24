@@ -177,7 +177,7 @@ describe('SolicitacoesPage', () => {
     expect(screen.getByRole('button', { name: /1 solicitação em análise/ })).toHaveTextContent('Em análise');
   });
 
-  it('mostra a fila paginada antes do resumo de prioridades', async () => {
+  it('mostra o resumo de prioridades antes da fila paginada', async () => {
     vi.mocked(solicitacoesApi.listar).mockResolvedValue({
       data: [{ ...solicitacaoBase, prioridade: 'URGENTE' }],
       total: 1,
@@ -193,7 +193,7 @@ describe('SolicitacoesPage', () => {
     const fila = await screen.findByRole('heading', { name: 'Fila de atendimento' });
     const prioridades = screen.getByRole('heading', { name: 'Prioridades em aberto' });
 
-    expect(fila.compareDocumentPosition(prioridades) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(prioridades.compareDocumentPosition(fila) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByLabelText('Ordenar por')).toHaveValue('prioridade');
   });
 
