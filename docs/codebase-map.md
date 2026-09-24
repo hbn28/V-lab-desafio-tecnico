@@ -47,7 +47,7 @@ frontend/src/features/solicitacoes/pages
 - A fila é paginada; o resumo do painel vem de `GET /solicitacoes/resumo` e pode representar o conjunto global ou os filtros documentados.
 - A fila é ordenada no backend para não quebrar paginação.
 - API documentada em `docs/spec.md` e `docs/openapi.yaml` inclui busca, período, ordenação e faltas filtráveis.
-- `graphify-out` é artefato derivado. Em 24/09/2026, `graphify update .` atualizou `graph.json`, `graph.html` e `GRAPH_REPORT.md` (1370 nós/2642 arestas/86 comunidades). A consulta do grafo confirma a Action e os três componentes de visão; este mapa é a leitura humana curta.
+- `graphify-out` é artefato derivado. Em 24/09/2026, `graphify update .` atualizou `graph.json`, `graph.html` e `GRAPH_REPORT.md` (1434 nós/2779 arestas/96 comunidades). A consulta do grafo confirma a Action e os três componentes de visão; este mapa é a leitura humana curta.
 
 ## Autenticação, notificações e verificação
 
@@ -57,4 +57,4 @@ frontend/src/features/solicitacoes/pages
 - Evento após commit: `SolicitacaoStatusAtualizado`; listener enfileirado `CriarNotificacoesOperacionais`; serviço Docker `worker`; notificações e API em `backend/app/Domain/Notificacoes/`. A API pagina grupos de 20 por operador, e o painel carrega páginas antigas sob demanda.
 - Cobertura de fila: `backend/tests/Feature/NotificacaoQueueTest.php` (commit/rollback, worker real, isolamento, idempotência e minimização de dados).
 - Cobertura de interface/fluxos: `frontend/src/test/accessibility.test.tsx`, `agenda.test.tsx`, `solicitacoes.test.tsx`, `faltas.test.tsx`, `agendamento-detalhe.test.tsx`, `auth.test.tsx`, `notificacoes.test.tsx` e `use-solicitacoes-race.test.tsx`.
-- Revisão visual registrada em `docs/accessibility-review.md`; zoom 200%, contraste calculado e dimensões de alvos de toque ainda não foram medidos. `graphify-out/GRAPH_REPORT.md` antecede as mudanças mais recentes; use este mapa humano e o `graph.json` atualizado como orientação atual.
+- Revisão visual registrada em `docs/accessibility-review.md`; zoom 200%, contraste calculado e dimensões de alvos de toque ainda não foram medidos. Consulte também `docs/auditoria-requisitos.md` para os riscos do desafio.

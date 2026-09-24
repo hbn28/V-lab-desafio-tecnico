@@ -26,6 +26,7 @@ Em 24/09/2026, o endereço respondeu, o health check retornou `{"status":"ok","d
 - [Design e temas](docs/design-system.md)
 - [Implantação no Railway](docs/railway-deployment.md)
 - [Revisão de acessibilidade](docs/accessibility-review.md) e [auditoria funcional](docs/functional-audit.md)
+- [Auditoria dos requisitos do desafio](docs/auditoria-requisitos.md)
 
 Os arquivos em `docs/superpowers/` registram planos e decisões históricas; o comportamento atual está no código, neste README e nos documentos acima.
 
@@ -176,7 +177,7 @@ docker compose exec frontend npm run build
 
 ## Variáveis de ambiente
 
-As variáveis de conexão (banco, URLs, etc.) já vêm configuradas no `docker-compose.yml` para ambiente local — nenhuma senha ou credencial real está versionada.
+As variáveis de conexão (banco, URLs, etc.) já vêm configuradas no `docker-compose.yml` para ambiente local. A senha `secret` é uma credencial fixa **somente de desenvolvimento**, presente também em `backend/.env.example`; substitua-a antes de expor o banco em qualquer ambiente. Nenhuma credencial de produção deve ser versionada.
 
 O fuso operacional da agenda é `AGENDAMENTO_TIMEZONE=America/Recife` (backend) e `VITE_AGENDAMENTO_TIMEZONE=America/Recife` (frontend); ambos estão em `docker-compose.yml` e nos `.env.example` e devem representar o mesmo fuso.
 
@@ -194,12 +195,12 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 ## Funcionalidades implementadas
 
 - Criar solicitação com protocolo único gerado automaticamente
-- Listar solicitações com paginação e filtros por status, categoria e prioridade
+- Listar solicitações com paginação, busca por nome/protocolo, filtros por status, categoria, prioridade e datas, e ordenação no servidor
 - Visualizar detalhes de uma solicitação
 - Atualizar status respeitando a máquina de estados
 - Editar dados cadastrais de uma solicitação em aberto *(extensão fora do edital)*
 - Apagar uma solicitação definitivamente *(extensão fora do edital)*
-- Tela inicial com resumo por status e prioridade
+- Tela inicial com contadores por status e cartões de prioridades em aberto acima da fila, com acesso direto à lista filtrada
 - Estados visuais de carregamento, erro, vazio e sucesso
 - Validação de entradas com mensagens em português
 - Autenticação de operadores com sessão Laravel e autorização por perfil (`ADMINISTRADOR`/`ATENDENTE`)
@@ -212,11 +213,14 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 - Fila operacional contínua (`GET /fila`), independente da paginação e dos filtros da listagem
 - Agendamento por horário exato ou por turno (Manhã/Tarde/Noite)
 - Registro de falta no agendamento, tentativa de contato enxuta (resultado fechado) e reagendamento após falta, com o histórico da ausência preservado (`/?visao=faltas`)
+- Painel de notificações por operador para mudanças de status, processadas pelo worker após a confirmação no banco
+- Navegação entre fila atual, agenda semanal, histórico encerrado e faltas; filtros e paginação próprios de cada visão
 
 ## Limitações conhecidas
 
 - Sem recuperação de senha por e-mail; administradores são criados pelo comando interativo `operadores:criar`
 - O campo `cpf_solicitante` aceita o formato `000.000.000-00` mas não valida dígitos verificadores
+- A exclusão definitiva por administrador é uma extensão do desafio e pode apagar também o histórico relacionado; veja o risco documentado na [auditoria de requisitos](docs/auditoria-requisitos.md)
 
 ## Decisões arquiteturais
 
@@ -224,13 +228,13 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 
 **Máquina de estados:** centralizada em `AtualizarStatusSolicitacao` com `DB::transaction + lockForUpdate`, tornando transições atômicas e testáveis de forma isolada.
 
-**Controllers thin:** o controller apenas repassa FormRequest → Action → Resource. Toda regra de negócio fica na Action; toda validação fica no FormRequest.
+**Controllers enxutos:** o controller autoriza e orquestra FormRequest → Action → Resource. As transições e operações de negócio ficam nas Actions; os FormRequests validam os payloads.
 
 **RequestId:** middleware global propaga ou gera UUID `X-Request-ID` em cada requisição, gravando log JSON estruturado — facilita rastreamento em produção.
 
 **Seeders idempotentes:** usam `firstOrCreate(['protocolo' => ...])` — `db:seed` pode rodar N vezes sem duplicar dados.
 
-**Fila operacional:** a API ordena estados ativos antes dos encerrados, depois por prioridade (`URGENTE` → `BAIXA`) e, em caso de empate, pela solicitação mais antiga. A regra é server-side para permanecer estável com paginação.
+**Ordenação operacional:** a fila de triagem usa prioridade (`URGENTE` → `BAIXA`) e antiguidade, a agenda usa data e horário/turno e o histórico usa encerramento mais recente. A ordenação ocorre no servidor para permanecer estável com paginação.
 
 **Modelo enriquecido:** além dos campos mínimos do edital, o modelo inclui `cpf_solicitante` e `data_nascimento` para refletir melhor um sistema real de saúde pública com dados fictícios.
 

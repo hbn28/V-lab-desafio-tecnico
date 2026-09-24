@@ -58,16 +58,11 @@ A agenda é informação complementar do estado `AGENDADA`, não uma nova etapa:
 
 ### Campo `agendado_para`
 
-`agendado_para` é `TIMESTAMP WITH TIME ZONE` nulo, persistido e retornado em UTC (ISO 8601), com índice simples. Invariantes protegidas por CHECK no PostgreSQL:
+`agendado_para` é `TIMESTAMP WITH TIME ZONE` nulo, persistido e retornado em UTC (ISO 8601), com índice simples. Ele é preenchido para a modalidade `HORARIO` e fica nulo para `TURNO`. A tabela `agendamentos` guarda a data e o turno de ambas as modalidades. Os dois CHECKs antigos que exigiam `agendado_para` em `AGENDADA` e o proibiam em estados iniciais foram removidos pela migration `2026_09_22_000006_migrate_agenda_and_replace_legacy_checks.php`. A Action de status, as FormRequests e o índice único parcial de agendamento ativo protegem o fluxo atual.
 
-```sql
-CHECK (status <> 'AGENDADA' OR agendado_para IS NOT NULL)
-CHECK (status NOT IN ('RECEBIDA', 'EM_ANALISE') OR agendado_para IS NULL)
-```
-
-- `AGENDADA` sempre tem horário; `RECEBIDA` e `EM_ANALISE` nunca têm.
-- `CONCLUIDA` e `CANCELADA` preservam o horário quando a solicitação foi agendada antes; podem ser nulos (cancelada antes de agendar ou dado legado).
-- Não existe índice ou constraint única: **horários iguais para solicitações diferentes são permitidos**, e igualdade de horário não é conflito. Capacidade, vaga, duração, sala e profissional estão fora de escopo.
+- `AGENDADA` exige um agendamento por horário ou por turno; `agendado_para` pode ser nulo quando o agendamento é por turno.
+- `CONCLUIDA` e `CANCELADA` preservam `agendado_para` quando houve agendamento por horário; ele pode ser nulo se o atendimento foi por turno, se houve cancelamento antes de agendar ou em dados legados.
+- Não existe restrição de unicidade para a data ou o horário: **horários iguais para solicitações diferentes são permitidos**, e igualdade de horário não é conflito. Existe apenas índice simples em `agendado_para` e índice único parcial para impedir dois agendamentos ativos da mesma solicitação. Capacidade, vaga, duração, sala e profissional estão fora de escopo.
 - A agenda **não registra chegada ao local** (check-in); a ordem real de chegada permanece fora do sistema, e não há priorização clínica automática.
 - A migration converte registros legados `AGENDADA` em `EM_ANALISE` (sem inventar horário) antes de instalar as constraints; backend e banco devem ser implantados juntos.
 
@@ -83,20 +78,20 @@ O Laravel permanece em UTC. A data/hora digitada é interpretada em `AGENDAMENTO
 { "status": "AGENDADA", "data_agendada": "2026-09-25", "hora_agendada": "14:30" }
 ```
 
-- para `AGENDADA`, `data_agendada` (`YYYY-MM-DD`) e `hora_agendada` (`HH:mm`) são obrigatórias;
+- para `AGENDADA`, `data_agendada` (`YYYY-MM-DD`) e exatamente um entre `hora_agendada` (`HH:mm`) e `turno` (`MANHA`, `TARDE`, `NOITE`) são obrigatórios;
 - para qualquer outro destino, esses campos são proibidos (422);
 - campos desconhecidos retornam 422;
 - `RECEBIDA → AGENDADA` continua 409, mesmo com payload completo.
 
 ### PATCH `/api/v1/solicitacoes/{id}/agendamento`
 
-Reagendamento: altera somente `agendado_para` de uma solicitação já `AGENDADA`, na Action `ReagendarSolicitacao` (transação + `lockForUpdate`), que nunca altera `status`.
+Reagendamento: atualiza o agendamento ativo e `agendado_para` (nulo para turno) de uma solicitação já `AGENDADA`, na Action `ReagendarSolicitacao` (transação + `lockForUpdate`), que nunca altera `status`.
 
 ```json
 { "data_agendada": "2026-09-28", "hora_agendada": "09:00" }
 ```
 
-Resposta 200: `{ "data": Solicitacao }`. Reenviar o mesmo instante é idempotente (200, sem escrita, `updated_at` inalterado). Solicitação fora de `AGENDADA` retorna 409; payload inválido, no passado ou com campo desconhecido retorna 422; inexistente retorna 404. Não é possível apagar o horário de uma solicitação agendada. Em reagendamentos concorrentes, o último válido processado vence (sem controle otimista por versão).
+Resposta 200: `{ "data": Solicitacao }`. Reenviar a mesma data/modalidade/horário ou turno é idempotente (200, sem escrita, `updated_at` inalterado). Solicitação fora de `AGENDADA` retorna 409; payload inválido, no passado ou com campo desconhecido retorna 422; inexistente retorna 404. Não é possível remover o agendamento ativo por essa rota. Em reagendamentos concorrentes, o último válido processado vence (sem controle otimista por versão).
 
 ## Endpoints
 
@@ -145,8 +140,8 @@ Query: `q`, `status`, `status_grupo`, `categoria`, `prioridade`, `data_agendada`
 - `status_grupo=aberto` retorna apenas `RECEBIDA`, `EM_ANALISE` e `AGENDADA`; a ordenação é `URGENTE`, `ALTA`, `MEDIA`, `BAIXA`, depois `created_at ASC` (mais antiga primeiro), com `id ASC` como desempate.
 - `status_grupo=encerrado` retorna apenas `CONCLUIDA` e `CANCELADA`, por `updated_at DESC` (encerramento mais recente primeiro), com `id DESC` como desempate.
 - sem `status_grupo`, a listagem preserva a ordenação legada: abertas primeiro, depois encerradas.
-- `data_agendada=YYYY-MM-DD` seleciona a agenda de um dia operacional: restringe a `AGENDADA` com `agendado_para` no intervalo UTC semiaberto `[início do dia local, início do dia local seguinte)` e ordena por `agendado_para ASC`, prioridade (`URGENTE`, `ALTA`, `MEDIA`, `BAIXA`), `protocolo ASC` e `id ASC`. Combinar com `status` diferente de `AGENDADA` ou com `status_grupo=encerrado` retorna 422; `status_grupo=aberto` é aceito. Paginação preservada.
-- `status=AGENDADA` sem `data_agendada` usa a mesma ordenação da agenda (`agendado_para ASC`, prioridade, protocolo, id) em vez da ordenação por prioridade/tempo de espera: uma vez marcado o horário, quem decide a ordem é o compromisso, não a prioridade administrativa (ADR 003, `docs/decisions/003-separar-fila-de-triagem-e-agenda.md`). Qualquer outro valor de `status` mantém a ordenação da fila operacional.
+- `data_agendada=YYYY-MM-DD` seleciona a agenda de um dia operacional: restringe a `AGENDADA` com horário exato dentro do intervalo UTC semiaberto do dia local **ou** agendamento ativo por turno com a data pedida. Horários exatos vêm primeiro; depois os turnos na ordem manhã, tarde e noite, com prioridade e identificadores como desempates. Combinar com `status` diferente de `AGENDADA` ou com `status_grupo=encerrado` retorna 422; `status_grupo=aberto` é aceito. Paginação preservada.
+- `status=AGENDADA` sem `data_agendada` ordena pela data operacional do compromisso; horários exatos vêm antes dos turnos, com desempates determinísticos (ADR 003, `docs/decisions/003-separar-fila-de-triagem-e-agenda.md`). Qualquer outro valor de `status` mantém a ordenação da fila operacional.
 
 Solicitações `CONCLUIDA` e `CANCELADA` permanecem disponíveis na listagem, mas ficam depois dos estados ativos. A ordenação é aplicada no backend para permanecer consistente entre páginas e consumidores da API.
 
@@ -166,7 +161,7 @@ Resposta 200: `{ "data": Solicitacao }`. Identificador inexistente retorna 404 n
 
 ### PATCH `/api/v1/solicitacoes/{id}/status`
 
-Campos aceitos: `status` (obrigatório, pertencente a `Status`) e, somente quando `status` é `AGENDADA`, `data_agendada` e `hora_agendada` (obrigatórios; ver "Agenda de solicitações"). Resposta 200: `{ "data": Solicitacao }`. Transição não permitida retorna 409.
+Campos aceitos: `status` (obrigatório, pertencente a `Status`) e, somente quando `status` é `AGENDADA`, `data_agendada` e exatamente um entre `hora_agendada` e `turno` (ver "Agenda de solicitações"). Resposta 200: `{ "data": Solicitacao }`. Transição não permitida retorna 409.
 
 ## Extensão além do edital — editar e apagar
 
@@ -299,7 +294,7 @@ Criar `solicitacoes` e `protocolo_counters` antes dos endpoints.
 - timestamps;
 - índices individuais em `status`, `categoria` e `prioridade`;
 - CHECK: prioridade diferente de `URGENTE` ou justificativa não nula e não vazia após `btrim`;
-- CHECK: `chk_agendada_com_horario` e `chk_estado_inicial_sem_horario` (ver "Agenda de solicitações").
+- Os CHECKs legados `chk_agendada_com_horario` e `chk_estado_inicial_sem_horario` foram removidos para aceitar agendamentos por turno; a tabela `agendamentos` tem CHECKs próprios e índice único parcial para o registro ativo.
 
 ### `protocolo_counters`
 
