@@ -1,6 +1,7 @@
 <?php
 
 use App\Domain\Auth\Console\CriarOperador;
+use App\Domain\Solicitacoes\Console\PopularSolicitacoesDemo;
 use App\Http\Middleware\RequestId;
 use App\Providers\AppServiceProvider;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -18,7 +19,7 @@ use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withProviders([AppServiceProvider::class])
-    ->withCommands([CriarOperador::class])
+    ->withCommands([CriarOperador::class, PopularSolicitacoesDemo::class])
     ->withRouting(
         api: __DIR__.'/../routes/api.php',
         apiPrefix: '',

@@ -317,6 +317,8 @@ A geração pertence exclusivamente à Action `CriarSolicitacao`, na mesma trans
 
 O índice único em `protocolo` permanece como defesa final.
 
+A carga operacional fictícia `solicitacoes:popular-demonstracao`, quando explicitamente acionada, é exceção restrita aos 500 registros de demonstração: seus `id` e `protocolo` são valores únicos aleatórios de oito dígitos. O endpoint normal de criação continua usando a Action e o formato sequencial acima; a carga não altera `protocolo_counters`.
+
 ## Separação de responsabilidades
 
 - Form Requests validam e normalizam criação, filtros e PATCH.
