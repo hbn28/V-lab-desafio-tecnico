@@ -33,7 +33,7 @@ sequenceDiagram
     A->>DB: INSERT INTO solicitacoes
     A->>DB: COMMIT
     A-->>FR: Solicitacao
-    FR-->>M: 201 SolicitacaoResource
+    FR-->>M: 201 SolicitacaoResource (CPF mascarado; sem data de nascimento)
     M->>M: Anexa X-Request-ID na resposta
     M-->>C: 201 {data: {...}} + X-Request-ID header
 ```
@@ -99,13 +99,14 @@ backend/
 │   │       │   ├── AtualizarStatusSolicitacao.php  # máquina de estados + agendamento inicial + fila
 │   │       │   ├── ReagendarSolicitacao.php   # só altera o Agendamento ativo de uma AGENDADA
 │   │       │   ├── ApagarSolicitacao.php      # extensão documentada
+│   │       │   ├── ListarFilaOperacional.php # filtros, prioridade e paginação da fila
 │   │       │   ├── RegistrarFaltaAgendamento.php   # marca Agendamento ativo como FALTA
 │   │       │   ├── RegistrarTentativaContato.php   # registra contato pós-falta (enum fechado)
 │   │       │   └── ReagendarAposFalta.php     # cria novo Agendamento, preserva a FALTA antiga
 │   │       ├── Support/
 │   │       │   ├── HorarioAgendamento.php     # data/hora local <-> UTC, sem normalização silenciosa
 │   │       │   ├── TurnoAgendamento.php       # deriva/limita turno (MANHA/TARDE/NOITE)
-│   │       │   └── MascararContato.php        # mascara celular do paciente para a API
+│   │       │   └── MascararContato.php        # mascara celular e CPF para a API
 │   │       └── Http/
 │   │           ├── Controllers/
 │   │           │   └── SolicitacaoController.php  # thin controller
@@ -163,6 +164,12 @@ backend/
         └── ReagendarAposFaltaTest.php
 ```
 
+## Privacidade e visões do frontend
+
+O Resource omite `data_nascimento` e mascara `cpf_solicitante` nas listagens, na fila e nas respostas de escrita. Somente `GET /solicitacoes/{id}` usa `SolicitacaoResource::detalhe()` para retornar os dados completos. O TypeScript e o OpenAPI separam o tipo de item de lista do tipo de detalhe.
+
+`SolicitacoesPage.tsx` mantém a consulta na URL e os dados compartilhados; `FilaView.tsx`, `AgendaView.tsx` e `FaltasView.tsx` apresentam as visões. O histórico encerrado usa o filtro de status CONCLUIDA/CANCELADA da fila atual.
+
 ## Decisões de Design
 
 | Decisão | Escolha | Motivo |
@@ -173,7 +180,7 @@ backend/
 | Seeders idempotentes | `firstOrCreate(['protocolo' => ...])` | `db:seed` pode rodar N vezes sem duplicar dados |
 | Logs estruturados | JSON via `JsonFormatter` → stderr | Compatível com Loki/CloudWatch sem parsear texto |
 | Error envelope único | `{message, errors}` em todos os erros | Frontend trata erros de forma uniforme |
-| Fila operacional | Abertas, prioridade descendente, mais antigas primeiro | Mantém a ordem de atenção estável com paginação |
+| Fila operacional | ListarFilaOperacional ordena entradas abertas por prioridade e antiguidade | Mantém a ordem de atenção estável com paginação e deixa o controller responsável só pela orquestração |
 | Agendamento híbrido | Agendar via `PATCH /status`; reagendar via `PATCH /agendamento` | Uma única autoridade para transições; reagendar não é mudança de estado |
 | Invariantes de agenda | Agendamento ativo único (`agendamentos.status='AGENDADO'`) validado na Action + lock, não mais por CHECK entre tabelas | Agenda por turno fica sem `agendado_para` de propósito; o CHECK `chk_agendada_com_horario` foi removido na migration `2026_09_22_000006_migrate_agenda_and_replace_legacy_checks` quando a agenda por turno foi introduzida |
 | `turno` sempre preenchido | `agendamentos.turno` é `NOT NULL` nas duas modalidades; ao agendar por `HORARIO`, o turno é derivado (`TurnoAgendamento::derivarDaHora`) e persistido no mesmo `INSERT`, dentro da FormRequest/Action — nunca calculado sob demanda na leitura | Permite agrupar/filtrar por turno (agenda, faltas) sem depender de `hora_agendada`, que é exclusiva de `HORARIO`; só `hora_agendada` fica de fora do CHECK em `TURNO`, `turno` nunca fica `NULL` |

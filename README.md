@@ -201,7 +201,7 @@ Diagrama e decisões detalhadas: [`docs/architecture.md`](docs/architecture.md)
 
 ## Uso de inteligência artificial
 
-Este projeto foi desenvolvido com auxílio do **Claude (Anthropic)** via ferramenta Cowork, operando em modo de engenharia autônoma (loop de implementação). O uso de IA foi declarado e é explicitamente encorajado pelo edital.
+Este projeto foi desenvolvido com apoio do **Claude (Anthropic)** via Cowork e do **Codex (OpenAI)**. As ferramentas foram usadas como apoio de implementação, revisão, correção e documentação; o candidato revisou e validou as alterações. O uso de IA foi declarado e é explicitamente encorajado pelo edital.
 
 **Partes geradas com apoio de IA:**
 - Estrutura inicial do projeto (scaffolding de pastas e arquivos base)
@@ -211,6 +211,8 @@ Este projeto foi desenvolvido com auxílio do **Claude (Anthropic)** via ferrame
 - Especificação OpenAPI (`docs/openapi.yaml`)
 - Documentação arquitetural (`docs/architecture.md`)
 - Configuração do Docker e entrypoint do backend
+- Auditoria das alterações, correções de segurança/privacidade, extração da Action da fila, atualização dos tipos/OpenAPI e revisão da documentação com apoio do Codex
+- Atualização e consulta do grafo Graphify do repositório
 
 **Responsabilidade do candidato:**
 - Todo o código foi revisado e é compreendido pelo candidato

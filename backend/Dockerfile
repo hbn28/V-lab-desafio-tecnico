@@ -14,7 +14,6 @@ WORKDIR /app
 
 COPY composer.json composer.lock* ./
 RUN composer config --global --no-interaction allow-plugins.pestphp/pest-plugin true \
-    && composer config --global --no-interaction policy.advisories.block false \
     && composer install --no-dev --no-scripts --no-interaction --prefer-dist
 
 COPY . .

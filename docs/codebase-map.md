@@ -23,13 +23,13 @@ frontend/src/features/solicitacoes/pages
 - Busca, filtros por período e ordenação de solicitações: `ListarSolicitacoesRequest.php` valida os parâmetros; `Actions/ListarSolicitacoes.php` aplica-os no servidor. `data_agendada` combina horário no intervalo UTC semiaberto com turno na data local; horário exato vem antes dos turnos (MANHA/TARDE/NOITE), com desempate por prioridade, protocolo e id.
 - ADR 003 (`docs/decisions/003-separar-fila-de-triagem-e-agenda.md`): `status=AGENDADA` sem `data_agendada` ordena por data operacional em `ListarSolicitacoes`; a "Fila atual" tem filtro de dia opcional e mostra o horário ou turno da linha ativa. Solicitações cujo agendamento virou `FALTA` deixam de aparecer na agenda.
 - Formulário de horário: `frontend/.../components/AgendamentoForm.tsx`, usado por `SolicitacaoDetailPage.tsx` (agendar/reagendar) e visão `agenda` de `SolicitacoesPage.tsx`.
-- Listagem e grupos de status: `SolicitacaoController::index()` delega a `Actions/ListarSolicitacoes.php`; fila por padrão prioriza urgência/antiguidade, agenda por horário/turno e histórico por encerramento. Ordenações alternativas são allowlisted e paginadas no servidor.
+- Listagem e grupos de status: `SolicitacaoController::index()` delega a `Actions/ListarSolicitacoes.php`; fila por padrão prioriza urgência/antiguidade, agenda por horário/turno e histórico por encerramento. `GET /fila` delega filtros e ordenação à `Actions/ListarFilaOperacional.php`. Ordenações alternativas são allowlisted e paginadas no servidor.
 - Validação de `status_grupo` (`aberto`/`encerrado`): `ListarSolicitacoesRequest.php`.
-- Contrato de saída: `SolicitacaoResource.php` e `frontend/src/features/solicitacoes/types/index.ts`.
+- Contrato de saída: `SolicitacaoResource.php`, `frontend/src/features/solicitacoes/types/index.ts` e `docs/openapi.yaml`. Listas, fila e respostas de escrita mascaram CPF e omitem data de nascimento; apenas o detalhe retorna os dados completos.
 - Cliente e envelope de erro: `frontend/src/features/solicitacoes/api/client.ts`.
 - Tokens e responsividade: `frontend/src/index.css` e `docs/design-system.md`; o cabeçalho reflui até 62rem, a tabela rola dentro do painel e o popup de notificações/toolbar do modal têm regras próprias para espaços estreitos.
 - Testes de comportamento: `backend/tests/Feature/` e `frontend/src/test/solicitacoes.test.tsx`.
-- Tela de fila, solicitações agendadas, histórico e faltas: `frontend/src/features/solicitacoes/pages/SolicitacoesPage.tsx`; `SolicitacoesToolbar.tsx` padroniza busca/filtros/ordenação; `useSolicitacoesQuery.ts` mantém o estado na URL; `useAgendaSemanal.ts` mantém paginação individual em sete filas diárias.
+- Orquestração de visões e consulta pela URL: `frontend/src/features/solicitacoes/pages/SolicitacoesPage.tsx` e `useSolicitacoesQuery.ts`. `components/FilaView.tsx`, `AgendaView.tsx` e `FaltasView.tsx` isolam a interface de cada visão; `SolicitacoesToolbar.tsx` padroniza busca/filtros/ordenação; `useAgendaSemanal.ts` mantém paginação individual em sete filas diárias. O histórico encerrado usa o filtro de status CONCLUIDA/CANCELADA na visão `?visao=historico`.
 - Navegação operacional persistente: `frontend/src/components/Layout.tsx`. Ao abrir detalhe/edição, `location.state.from` preserva a consulta local para o retorno seguro à coleção.
 
 ## Pacientes, fila contínua, agenda por turno e faltas
@@ -47,7 +47,7 @@ frontend/src/features/solicitacoes/pages
 - A fila é paginada; o resumo do painel vem de `GET /solicitacoes/resumo` e pode representar o conjunto global ou os filtros documentados.
 - A fila é ordenada no backend para não quebrar paginação.
 - API documentada em `docs/spec.md` e `docs/openapi.yaml` inclui busca, período, ordenação e faltas filtráveis.
-- `graphify-out` é artefato derivado. Em 23/09/2026, `graphify . --update --code-only` atualizou `graph.json` (1072 nós/2028 arestas/70 comunidades); o relatório textual não foi regenerado por `--code-only`. Este mapa permanece a leitura humana curta.
+- `graphify-out` é artefato derivado. Em 24/09/2026, `graphify update .` atualizou `graph.json`, `graph.html` e `GRAPH_REPORT.md` (1370 nós/2642 arestas/86 comunidades). A consulta do grafo confirma a Action e os três componentes de visão; este mapa é a leitura humana curta.
 
 ## Autenticação, notificações e verificação
 
