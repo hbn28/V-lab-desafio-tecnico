@@ -5,6 +5,8 @@ info:
   version: '1.0.0'
 
 servers:
+  - url: https://vlabsolicitacao.up.railway.app/api/v1
+    description: Demonstração pública via proxy do frontend
   - url: http://localhost:8000/api/v1
     description: Servidor local de desenvolvimento
 

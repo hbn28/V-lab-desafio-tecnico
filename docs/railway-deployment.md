@@ -1,6 +1,6 @@
 # Implantação no Railway
 
-O projeto usa três serviços no mesmo ambiente: `Postgres`, backend Laravel e frontend estático. O worker de notificações é um quarto serviço, sem domínio público. O `docker-compose.yml` permanece voltado ao desenvolvimento local.
+A aplicação pública está em [https://vlabsolicitacao.up.railway.app/](https://vlabsolicitacao.up.railway.app/). O projeto usa três serviços no mesmo ambiente: `Postgres`, backend Laravel e frontend estático. O worker de notificações é um quarto serviço, sem domínio público. O `docker-compose.yml` permanece voltado ao desenvolvimento local.
 
 ## Frontend
 
@@ -23,15 +23,17 @@ Se o domínio público do backend mudar, atualize `BACKEND_URL` no serviço fron
 - Defina `SANCTUM_STATEFUL_DOMAINS=DOMINIO-PUBLICO-DO-FRONTEND` **sem** `https://` e sem barra final. Não configure `SESSION_DOMAIN`, para que os cookies sejam vinculados à origem apresentada ao navegador. Use `SESSION_SECURE_COOKIE=true` com HTTPS.
 - As rotas autenticadas usam a sessão web do Laravel, inclusive após o login. Se a lista aparecer por um instante e a tela voltar ao login, confirme que a sessão e os cookies persistem entre `/auth/login` e `/fila` e confira os códigos HTTP no navegador; não compartilhe cookies ou senhas.
 
-No ambiente atual, o domínio frontend exibido no Railway é `beneficial-curiosity-production-b56d.up.railway.app`. Atualize as variáveis se algum domínio mudar. A alteração de variáveis exige novo deploy do serviço afetado.
+O domínio público atual do frontend é `vlabsolicitacao.up.railway.app`. Use `FRONTEND_URL=https://vlabsolicitacao.up.railway.app` e `SANCTUM_STATEFUL_DOMAINS=vlabsolicitacao.up.railway.app` no backend, preservando as demais configurações de sessão acima. Atualize as variáveis se o domínio mudar; a alteração exige novo deploy do serviço afetado.
+
+Em 24/09/2026, `GET /`, `GET /api/v1/health` e `GET /api/v1/auth/cadastro` no domínio público retornaram 200; o health check informou banco disponível e o cadastro informou `habilitado: true`. O fluxo de criação de conta não foi executado nesta conferência para não gerar uma conta desnecessária.
 
 ## Verificação após publicar
 
 1. Confirme `GET /api/v1/health` no backend e o carregamento da página de login no domínio frontend.
 2. Abra `/api/v1/health` **no domínio frontend**; deve retornar o mesmo JSON do backend, provando o proxy.
-3. Confira `/sanctum/csrf-cookie`, login, atualização da página em uma rota interna, logout e uma ação autenticada. Verifique que o navegador recebe cookies do domínio frontend.
-4. Com `APP_SEED=false`, crie uma conta administrativa no serviço backend. No Railway, abra o terminal SSH do backend e execute `php artisan operadores:criar`. Informe usuário (mínimo de 3 caracteres), e-mail opcional e uma senha não vazia nos prompts interativos. A senha não aparece no terminal. O comando recusa usuário ou e-mail já cadastrado e não altera contas existentes. Entre no frontend com o usuário e a senha. O e-mail opcional ainda não habilita recuperação de senha, pois esse fluxo não está implementado. Não coloque credenciais em Variables, comandos, GitHub ou capturas de tela.
-5. Veja os logs de deploy de cada serviço se algum passo falhar. O healthcheck de frontend em `/` prova que os arquivos estão sendo servidos; não substitui o healthcheck do banco nem o teste de login.
+3. Confira `GET /api/v1/auth/cadastro`: `habilitado: true` oferece **Criar conta** no login. Crie uma conta fictícia pela interface, confirme a entrada automática e depois teste atualização da página, logout, novo login e uma ação autenticada. Verifique que o navegador recebe cookies do domínio frontend. Para desativar o cadastro público, configure `CADASTRO_PUBLICO=false` no backend.
+4. Para criar uma conta administrativa no serviço backend, mantenha `APP_SEED=false`. No Railway, abra o terminal SSH do backend e execute `php artisan operadores:criar`. Informe usuário (mínimo de 3 caracteres), e-mail opcional e uma senha não vazia nos prompts interativos. A senha não aparece no terminal. O comando recusa usuário ou e-mail já cadastrado e não altera contas existentes. Entre no frontend com o usuário e a senha. O e-mail opcional ainda não habilita recuperação de senha, pois esse fluxo não está implementado. Não coloque credenciais em Variables, comandos, GitHub ou capturas de tela.
+5. Veja os logs de deploy de cada serviço se algum passo falhar. O healthcheck de frontend em `/` prova que os arquivos estão sendo servidos; não substitui o healthcheck do banco nem o teste de cadastro e login.
 
 O worker de notificações precisa ser implantado como serviço separado usando a imagem do backend e a mesma conexão com o banco. A ausência dele não deve desfazer transições já gravadas, mas deixa os jobs pendentes; consulte `docs/architecture.md` para operação e retry.
 

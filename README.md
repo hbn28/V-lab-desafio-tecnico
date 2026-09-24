@@ -2,6 +2,14 @@
 
 Sistema de gerenciamento de solicitações de atendimento desenvolvido como desafio técnico para o processo seletivo do V-Lab.
 
+## Acessar a demonstração
+
+**Aplicação publicada:** [https://vlabsolicitacao.up.railway.app/](https://vlabsolicitacao.up.railway.app/)
+
+Na tela de entrada, clique em **Criar conta**, informe nome, usuário (mínimo de 3 caracteres), senha (mínimo de 8 caracteres) e confirmação. O e-mail é opcional. A conta é criada com o perfil **ATENDENTE** e a sessão é iniciada automaticamente. Use somente informações fictícias ao experimentar o sistema. Se a opção não aparecer, o cadastro público foi desabilitado pelo administrador.
+
+Em 24/09/2026, o endereço respondeu, o health check retornou `{"status":"ok","db":"ok"}` e `GET /api/v1/auth/cadastro` retornou `{"data":{"habilitado":true}}`. Essas verificações não substituem um teste completo de criação de conta e navegação autenticada. Administradores são criados separadamente com `php artisan operadores:criar`; o formulário público não concede esse perfil.
+
 ## Stack e versões
 
 | Camada | Tecnologia | Versão |
@@ -11,16 +19,26 @@ Sistema de gerenciamento de solicitações de atendimento desenvolvido como desa
 | Banco | PostgreSQL | 16 |
 | Infra | Docker + Docker Compose | Compose v2 |
 
+## Mapa da documentação
+
+- [Contrato da API e dados](docs/spec.md) e [OpenAPI](docs/openapi.yaml)
+- [Arquitetura e decisões](docs/architecture.md)
+- [Design e temas](docs/design-system.md)
+- [Implantação no Railway](docs/railway-deployment.md)
+- [Revisão de acessibilidade](docs/accessibility-review.md) e [auditoria funcional](docs/functional-audit.md)
+
+Os arquivos em `docs/superpowers/` registram planos e decisões históricas; o comportamento atual está no código, neste README e nos documentos acima.
+
 ## Como rodar
 
 **Pré-requisitos:** Docker e Docker Compose instalados.
 
 ```bash
 # Clonar e entrar na pasta
-git clone <url-do-repositorio>
-cd <pasta>
+git clone https://github.com/hbn28/V-lab-desafio-tecnico.git
+cd V-lab-desafio-tecnico
 
-# Subir todos os serviços (backend, frontend e banco)
+# Subir os serviços (frontend, backend, PostgreSQL e worker)
 docker compose up --build
 ```
 
@@ -32,9 +50,9 @@ Aguarde até ver `Application ready` nos logs do backend (~30s na primeira vez).
 | API | http://localhost:8000/api/v1 |
 | Health check | http://localhost:8000/api/v1/health |
 
-> Os seeders rodam automaticamente na primeira inicialização (`APP_SEED=true` no docker-compose.yml), populando 10 solicitações fictícias que cobrem todos os status e prioridades.
+> Com `APP_SEED=true` no `docker-compose.yml`, os seeders idempotentes preparam registros fictícios para desenvolvimento local, sem duplicá-los ao reiniciar.
 
-Para entrar na interface local, crie um operador com `docker compose exec backend php artisan operadores:criar` e informe usuário e senha nos prompts. A conta fica apenas no banco local. O Compose local instala as dependências de desenvolvimento para disponibilizar Pest e Pint; a imagem de produção instala apenas dependências de execução. O backend limpa manifestos de pacotes gerados no host ao iniciar.
+Para entrar na interface local, use **Criar conta** na página inicial (`CADASTRO_PUBLICO=true` por padrão). A conta fica apenas no banco local. Para criar um administrador, execute `docker compose exec backend php artisan operadores:criar` e informe usuário e senha nos prompts. O Compose local instala as dependências de desenvolvimento para disponibilizar Pest e Pint; a imagem de produção instala apenas dependências de execução. O backend limpa manifestos de pacotes gerados no host ao iniciar.
 
 As migrations são aplicadas automaticamente na inicialização. Para preservar os dados locais, não use `docker compose down -v`; se precisar de uma base limpa, crie um projeto Compose isolado com volumes próprios.
 
@@ -43,10 +61,15 @@ As migrations são aplicadas automaticamente na inicialização. Para preservar 
 | Método | Rota | Descrição |
 |---|---|---|
 | GET | `/api/v1/health` | Health check (banco + app) |
+| GET | `/api/v1/auth/cadastro` | Informar se o cadastro público está habilitado |
+| POST | `/api/v1/auth/cadastro` | Criar conta `ATENDENTE` e iniciar sessão |
+| POST | `/api/v1/auth/login` | Entrar com usuário ou e-mail legado |
+| GET | `/api/v1/auth/me` | Consultar operador autenticado |
+| POST | `/api/v1/auth/logout` | Encerrar sessão |
 | GET | `/api/v1/solicitacoes` | Listar com paginação e filtros |
 | POST | `/api/v1/solicitacoes` | Criar solicitação |
 | GET | `/api/v1/solicitacoes/{id}` | Buscar detalhes por ID |
-| PATCH | `/api/v1/solicitacoes/{id}/status` | Atualizar status (`AGENDADA` exige `data_agendada` e `hora_agendada`) |
+| PATCH | `/api/v1/solicitacoes/{id}/status` | Atualizar status (`AGENDADA` exige data e horário ou turno) |
 | PATCH | `/api/v1/solicitacoes/{id}/agendamento` | Reagendar uma solicitação já `AGENDADA` |
 | PUT | `/api/v1/solicitacoes/{id}` | *(extensão)* Editar dados cadastrais — bloqueado se status for final |
 | DELETE | `/api/v1/solicitacoes/{id}` | *(extensão)* Apagar solicitação definitivamente |
@@ -60,10 +83,10 @@ Filtros disponíveis em `GET /api/v1/solicitacoes`: `status`, `categoria`, `prio
 
 ### Agenda
 
-Agendar exige data e hora, interpretadas no fuso operacional (`AGENDAMENTO_TIMEZONE`, padrão `America/Recife`; o frontend usa `VITE_AGENDAMENTO_TIMEZONE`, que deve ser o mesmo). O banco e a API trabalham em UTC. Solicitações diferentes podem ocupar o mesmo horário; não há capacidade, conflito de vaga nem registro de chegada.
+Agendar exige uma data e um horário exato ou turno (`MANHA`, `TARDE`, `NOITE`), interpretados no fuso operacional (`AGENDAMENTO_TIMEZONE`, padrão `America/Recife`; o frontend usa `VITE_AGENDAMENTO_TIMEZONE`, que deve ser o mesmo). O banco e a API trabalham em UTC. Solicitações diferentes podem ocupar o mesmo horário; não há capacidade, conflito de vaga nem registro de chegada.
 
 ```bash
-# EM_ANALISE -> AGENDADA (data e hora obrigatórias)
+# EM_ANALISE -> AGENDADA (exemplo com data e horário exato)
 curl -X PATCH http://localhost:8000/api/v1/solicitacoes/1/status \
   -H "Content-Type: application/json" -H "Accept: application/json" \
   -d '{"status":"AGENDADA","data_agendada":"2026-09-25","hora_agendada":"14:30"}'
@@ -122,9 +145,11 @@ curl "http://localhost:8000/api/v1/faltas"
 
 > `solicitacoes.status` nunca vira `FALTA` — o estado é sempre do agendamento (`agendamentos.status`), como explicado em [`docs/architecture.md`](docs/architecture.md#faltas-por-que-o-estado-vive-no-agendamento).
 
-> **Implantação coordenada:** a migration converte registros legados `AGENDADA` (sem horário) para `EM_ANALISE` e instala constraints que impedem `AGENDADA` sem horário. Implante backend e banco juntos; um frontend antigo não consegue agendar sem os novos campos.
+> **Implantação coordenada:** a migration converte registros legados `AGENDADA` sem agenda válida para `EM_ANALISE` e instala constraints para exigir um agendamento válido. Implante backend e banco juntos; um frontend antigo não consegue agendar sem os novos campos.
 
 > As rotas `PUT` e `DELETE` são uma extensão fora do fluxo obrigatório do edital (criar, listar/consultar, filtrar, atualizar status). O edital não define nem proíbe editar/apagar, e permite explicitamente estender as rotas sugeridas desde que documentadas e consistentes (seção 2.3-C). Detalhes em [`docs/spec.md`](docs/spec.md#extensão-além-do-edital--editar-e-apagar).
+
+Os exemplos de escrita acima exigem sessão de operador. No navegador, a interface obtém o cookie CSRF e mantém a sessão; para usar `curl`, envie os cookies e o cabeçalho `X-XSRF-TOKEN` conforme o [contrato OpenAPI](docs/openapi.yaml).
 
 Documentação completa (OpenAPI): [`docs/openapi.yaml`](docs/openapi.yaml)
 
@@ -182,7 +207,7 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 - Modo escuro no cabeçalho e na tela de acesso, com preferência salva no navegador e fallback para a preferência do sistema
 - Health check da API com verificação do banco
 - Fila operacional ordenada por estado aberto, prioridade e tempo de espera
-- Agendamento e reagendamento com data e hora obrigatórias, e agenda diária no painel (`/?visao=agenda&data=AAAA-MM-DD`)
+- Agendamento e reagendamento com data e horário ou turno, e agenda diária no painel (`/?visao=agenda&data=AAAA-MM-DD`)
 - Cadastro de paciente reaproveitado por CPF, com celular opcional e sempre exibido mascarado
 - Fila operacional contínua (`GET /fila`), independente da paginação e dos filtros da listagem
 - Agendamento por horário exato ou por turno (Manhã/Tarde/Noite)
