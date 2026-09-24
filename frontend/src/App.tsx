@@ -6,9 +6,11 @@ import { EditarSolicitacaoPage } from './features/solicitacoes/pages/EditarSolic
 import { SolicitacaoDetailPage } from './features/solicitacoes/pages/SolicitacaoDetailPage';
 import { AuthProvider } from './features/auth/AuthProvider';
 import { ProtectedRoute } from './features/auth/ProtectedRoute';
+import { ThemeProvider } from './features/theme/ThemeProvider';
 
 export default function App() {
   return (
+    <ThemeProvider>
     <BrowserRouter>
       <AuthProvider>
       <ProtectedRoute>
@@ -24,5 +26,6 @@ export default function App() {
       </ProtectedRoute>
       </AuthProvider>
     </BrowserRouter>
+    </ThemeProvider>
   );
 }

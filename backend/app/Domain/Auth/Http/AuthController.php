@@ -2,6 +2,7 @@
 
 namespace App\Domain\Auth\Http;
 
+use App\Domain\Auth\Actions\CadastrarOperador;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,6 +33,34 @@ class AuthController
         $request->session()->regenerate();
 
         return response()->json(['data' => $this->publicUser($user)]);
+    }
+
+    /** Informa à tela de login se o cadastro público está aberto. */
+    public function statusCadastro(): JsonResponse
+    {
+        return response()->json(['data' => ['habilitado' => (bool) config('cadastro.publico')]]);
+    }
+
+    /**
+     * Cadastro público: a conta nasce sempre ATENDENTE e ativa — perfil e status
+     * nunca vêm do corpo da requisição. Administradores só são criados pelo
+     * comando `operadores:criar`.
+     */
+    public function cadastrar(CadastroRequest $request, CadastrarOperador $cadastrarOperador): JsonResponse
+    {
+        if (! config('cadastro.publico')) {
+            return response()->json([
+                'message' => 'O cadastro de novas contas está desativado. Peça uma conta ao administrador.',
+                'errors' => [],
+            ], 403);
+        }
+
+        $user = $cadastrarOperador->execute($request->validated());
+
+        Auth::guard('web')->login($user);
+        $request->session()->regenerate();
+
+        return response()->json(['data' => $this->publicUser($user)], 201);
     }
 
     public function me(Request $request): JsonResponse

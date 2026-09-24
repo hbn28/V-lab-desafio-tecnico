@@ -178,6 +178,8 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 - Estados visuais de carregamento, erro, vazio e sucesso
 - Validação de entradas com mensagens em português
 - Autenticação de operadores com sessão Laravel e autorização por perfil (`ADMINISTRADOR`/`ATENDENTE`)
+- Criação pública de contas `ATENDENTE` pela tela de login, controlada por `CADASTRO_PUBLICO` (padrão `true`; `false` desativa)
+- Modo escuro no cabeçalho e na tela de acesso, com preferência salva no navegador e fallback para a preferência do sistema
 - Health check da API com verificação do banco
 - Fila operacional ordenada por estado aberto, prioridade e tempo de espera
 - Agendamento e reagendamento com data e hora obrigatórias, e agenda diária no painel (`/?visao=agenda&data=AAAA-MM-DD`)
@@ -188,7 +190,7 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 
 ## Limitações conhecidas
 
-- Sem recuperação de senha por e-mail; contas operacionais são criadas pelo comando interativo `operadores:criar`
+- Sem recuperação de senha por e-mail; administradores são criados pelo comando interativo `operadores:criar`
 - O campo `cpf_solicitante` aceita o formato `000.000.000-00` mas não valida dígitos verificadores
 
 ## Decisões arquiteturais

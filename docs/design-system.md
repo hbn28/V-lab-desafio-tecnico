@@ -4,7 +4,7 @@ Fonte de verdade visual do frontend de Solicitações de Atendimento. O sistema 
 
 ## Direção
 
-- Interface clara, sóbria e contemporânea; sem padrões de landing page.
+- Interface sóbria e contemporânea, com temas claro e escuro; sem padrões de landing page.
 - Azul-marinho estrutura navegação e hierarquia institucional.
 - Verde-petróleo identifica ações principais e foco operacional.
 - Cores de estado sempre aparecem acompanhadas de texto; nunca são a única indicação.
@@ -16,7 +16,7 @@ Fonte de verdade visual do frontend de Solicitações de Atendimento. O sistema 
 Os tokens vivem em `frontend/src/index.css` e seguem duas camadas proporcionais ao projeto:
 
 1. Primitivos: escalas de cor, espaço, raio e sombra.
-2. Semânticos: fundo, superfície, texto, borda, ação principal, foco e perigo.
+2. Semânticos: fundo, superfície, texto, borda, ação principal, foco e perigo. O modo escuro troca apenas valores semânticos em `:root[data-theme="dark"]`.
 
 Tokens específicos de componente só devem ser criados quando houver reutilização real. Componentes não devem introduzir cores hexadecimais próprias.
 
@@ -32,6 +32,8 @@ Tokens específicos de componente só devem ser criados quando houver reutiliza�
 | Texto secundário | `--color-text-secondary` | `--slate-600` |
 | Foco | `--color-focus` | azul visível em superfícies claras |
 | Perigo | `--color-danger` | vermelho semântico |
+
+O alternador fica no cabeçalho autenticado e na tela de login/cadastro. A escolha persiste em `localStorage`; sem escolha, acompanha `prefers-color-scheme`. O `index.html` aplica o atributo de tema antes da primeira renderização.
 
 ## Tipografia e espaçamento
 

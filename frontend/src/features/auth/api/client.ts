@@ -1,4 +1,4 @@
-import type { ApiError, Operator } from '../types';
+import type { ApiError, CadastroPayload, Operator } from '../types';
 
 export function csrfHeader(): Record<string, string> {
   const cookie = document.cookie.split('; ').find(part => part.startsWith('XSRF-TOKEN='));
@@ -36,6 +36,19 @@ export const authApi = {
     return request<Operator>('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify({ login: identifier, password }),
+    });
+  },
+  /** Se a tela de login deve oferecer "Criar conta" (CADASTRO_PUBLICO no backend). */
+  async cadastroHabilitado(): Promise<boolean> {
+    const status = await request<{ habilitado: boolean }>('/api/v1/auth/cadastro');
+    return Boolean(status?.habilitado);
+  },
+  /** Cria uma conta de ATENDENTE e já inicia a sessão. */
+  async cadastrar(payload: CadastroPayload): Promise<Operator> {
+    await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
+    return request<Operator>('/api/v1/auth/cadastro', {
+      method: 'POST',
+      body: JSON.stringify(payload),
     });
   },
   async logout(): Promise<void> {

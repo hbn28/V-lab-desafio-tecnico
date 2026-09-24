@@ -279,7 +279,7 @@ Toda resposta JSON de erro usa:
 | 429 | limite de requisições excedido |
 | 500 | falha interna genérica, sem detalhes internos |
 
-A autenticação implementada como bônus usa o mesmo envelope de erro para 401 e 403. O login aceita usuário (campo `login`) e senha; e-mail de contas antigas também pode ser informado em `login`. Contas novas têm usuário único e e-mail opcional. Recuperação de senha por e-mail não está implementada.
+A autenticação implementada como bônus usa o mesmo envelope de erro para 401 e 403. O login aceita usuário (campo `login`) e senha; e-mail de contas antigas também pode ser informado em `login`. Contas novas têm usuário único e e-mail opcional. O cadastro público opcional usa `GET /api/v1/auth/cadastro` para informar se está habilitado e `POST /api/v1/auth/cadastro` para criar uma conta, com limitação de 5 tentativas por minuto. A conta sempre nasce ativa com perfil `ATENDENTE`; `role` e `is_active` enviados pelo cliente não alteram isso. `CADASTRO_PUBLICO=false` desativa o cadastro e mantém `operadores:criar` para criação administrativa. Recuperação de senha por e-mail não está implementada.
 
 ## Modelo e migrations iniciais
 

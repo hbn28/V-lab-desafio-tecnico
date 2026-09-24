@@ -74,6 +74,59 @@ paths:
         '422':
           $ref: '#/components/responses/ValidationError'
 
+  /auth/cadastro:
+    get:
+      tags: [auth]
+      summary: Informar se o cadastro público está habilitado
+      operationId: statusCadastro
+      security: []
+      responses:
+        '200':
+          description: Disponibilidade do cadastro público
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      habilitado: { type: boolean }
+    post:
+      tags: [auth]
+      summary: Criar conta pública de atendente e iniciar sessão
+      operationId: cadastrarAtendente
+      security: []
+      parameters:
+        - name: X-XSRF-TOKEN
+          in: header
+          required: true
+          schema: { type: string }
+          description: Valor do cookie XSRF-TOKEN obtido em /sanctum/csrf-cookie.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CadastroBody'
+      responses:
+        '201':
+          description: Conta ATENDENTE criada e sessão iniciada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperatorResponse'
+        '403':
+          description: Cadastro público desativado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          description: Limite de tentativas atingido
+
   /auth/me:
     get:
       tags: [auth]
@@ -743,6 +796,20 @@ components:
       properties:
         login: { type: string, description: Usuário ou e-mail de conta existente }
         password: { type: string, format: password }
+
+    CadastroBody:
+      type: object
+      required: [name, username, password, password_confirmation]
+      properties:
+        name: { type: string, maxLength: 255 }
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+          pattern: '^[a-zA-Z0-9._-]+$'
+        email: { type: string, format: email, nullable: true, maxLength: 255 }
+        password: { type: string, format: password, minLength: 8 }
+        password_confirmation: { type: string, format: password }
 
     Operator:
       type: object

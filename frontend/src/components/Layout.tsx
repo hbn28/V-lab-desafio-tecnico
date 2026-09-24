@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../features/auth/context';
 import { NotificacoesPanel } from '../features/notificacoes/components/NotificacoesPanel';
+import { ThemeToggle } from '../features/theme/ThemeToggle';
 
 export function Layout() {
   const { user, logout } = useAuth();
@@ -32,6 +33,7 @@ export function Layout() {
           </NavLink>
           </nav>
           <div className="operator-actions">
+            <ThemeToggle />
             <NotificacoesPanel />
             <span>{user?.name} · {user?.role === 'ADMINISTRADOR' ? 'Administrador' : 'Atendente'}</span>
             <button className="button button--outline button--small" type="button" onClick={() => void logout()}>Sair</button>

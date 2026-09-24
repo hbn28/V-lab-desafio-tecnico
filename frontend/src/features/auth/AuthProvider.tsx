@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { authApi } from './api/client';
-import type { ApiError, Operator } from './types';
+import type { ApiError, CadastroPayload, Operator } from './types';
 import { AuthContext } from './context';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -42,11 +42,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Erros de validação ficam com o formulário de cadastro (mensagens por campo);
+  // aqui só a sessão muda quando a conta é criada.
+  const cadastrar = async (payload: CadastroPayload) => {
+    const account = await authApi.cadastrar(payload);
+    setError(null);
+    setUser(account);
+  };
+
   const logout = async () => {
     await authApi.logout();
     setUser(null);
     setError(null);
   };
 
-  return <AuthContext.Provider value={{ user, loading, error, login, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, error, login, cadastrar, logout }}>{children}</AuthContext.Provider>;
 }

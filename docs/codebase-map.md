@@ -51,7 +51,8 @@ frontend/src/features/solicitacoes/pages
 
 ## Autenticação, notificações e verificação
 
-- Sessão e autorização: `backend/app/Domain/Auth/`, `backend/app/Policies/`, `backend/routes/api.php`; cliente/telas em `frontend/src/features/auth/`. O login aceita usuário ou e-mail legado; `operadores:criar` gera conta com usuário e e-mail opcional.
+- Sessão e autorização: `backend/app/Domain/Auth/`, `backend/app/Policies/`, `backend/routes/api.php`; cliente/telas em `frontend/src/features/auth/`. O login aceita usuário ou e-mail legado; `Actions/CadastrarOperador.php` fixa o perfil `ATENDENTE` no cadastro público, controlado por `CADASTRO_PUBLICO`; `operadores:criar` cria administradores.
+- Tema: `frontend/src/features/theme/` controla preferência do sistema e `localStorage`, enquanto `frontend/src/index.css` fornece as cores semânticas de cada tema.
 - Carga fictícia de 500 solicitações: `backend/app/Domain/Solicitacoes/Console/PopularSolicitacoesDemo.php`, registrada em `backend/bootstrap/app.php`; execução única opcional no entrypoint por `APP_DEMO_500=true`. Não altera a Action de criação nem o protocolo sequencial dos registros operacionais.
 - Evento após commit: `SolicitacaoStatusAtualizado`; listener enfileirado `CriarNotificacoesOperacionais`; serviço Docker `worker`; notificações e API em `backend/app/Domain/Notificacoes/`. A API pagina grupos de 20 por operador, e o painel carrega páginas antigas sob demanda.
 - Cobertura de fila: `backend/tests/Feature/NotificacaoQueueTest.php` (commit/rollback, worker real, isolamento, idempotência e minimização de dados).

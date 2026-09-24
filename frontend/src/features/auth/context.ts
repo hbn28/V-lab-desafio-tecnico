@@ -1,11 +1,12 @@
 import { createContext, useContext } from 'react';
-import type { Operator } from './types';
+import type { CadastroPayload, Operator } from './types';
 
 export interface AuthState {
   user: Operator | null;
   loading: boolean;
   error: string | null;
   login: (identifier: string, password: string) => Promise<void>;
+  cadastrar: (payload: CadastroPayload) => Promise<void>;
   logout: () => Promise<void>;
 }
 

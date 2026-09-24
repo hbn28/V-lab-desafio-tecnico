@@ -1,12 +1,24 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useAuth } from './context';
+import { authApi } from './api/client';
+import { CadastroForm } from './CadastroForm';
+import { ThemeToggle } from '../theme/ThemeToggle';
 
 export function LoginPage() {
   const { login, error } = useAuth();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [modo, setModo] = useState<'entrar' | 'cadastrar'>('entrar');
+  const [cadastroHabilitado, setCadastroHabilitado] = useState(false);
+
+  useEffect(() => {
+    let ativo = true;
+    // Sem resposta do backend, a opção simplesmente não aparece: o login continua funcionando.
+    authApi.cadastroHabilitado().then(habilitado => { if (ativo) setCadastroHabilitado(habilitado); }).catch(() => {});
+    return () => { ativo = false; };
+  }, []);
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -20,8 +32,18 @@ export function LoginPage() {
     }
   };
 
+  if (modo === 'cadastrar') {
+    return (
+      <main className="login-page">
+        <div className="login-page__theme"><ThemeToggle /></div>
+        <CadastroForm onVoltar={() => setModo('entrar')} />
+      </main>
+    );
+  }
+
   return (
     <main className="login-page">
+      <div className="login-page__theme"><ThemeToggle /></div>
       <form className="login-card panel" onSubmit={submit}>
         <p className="eyebrow">Solicitações de Atendimento</p>
         <h1>Entrar no sistema</h1>
@@ -34,6 +56,12 @@ export function LoginPage() {
         <button className="button button--primary" type="submit" disabled={submitting}>
           {submitting ? 'Entrando…' : 'Entrar'}
         </button>
+        {cadastroHabilitado && (
+          <p className="login-card__switch">
+            Não tem conta?{' '}
+            <button type="button" className="link-button" onClick={() => setModo('cadastrar')}>Criar conta</button>
+          </p>
+        )}
       </form>
     </main>
   );
