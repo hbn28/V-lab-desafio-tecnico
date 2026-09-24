@@ -14,6 +14,9 @@ return [
             'prefix' => '',
             'schema' => 'public',
             'sslmode' => 'prefer',
+            // A aplicação grava timestamps em UTC sem offset; fixar o fuso da sessão
+            // evita que um Postgres configurado em outro fuso desloque os instantes.
+            'timezone' => 'UTC',
         ],
         'pgsql_test' => [
             'driver' => 'pgsql',
@@ -26,6 +29,9 @@ return [
             'prefix' => '',
             'schema' => 'public',
             'sslmode' => 'prefer',
+            // A aplicação grava timestamps em UTC sem offset; fixar o fuso da sessão
+            // evita que um Postgres configurado em outro fuso desloque os instantes.
+            'timezone' => 'UTC',
         ],
     ],
     'migrations' => 'migrations',

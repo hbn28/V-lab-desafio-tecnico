@@ -30,6 +30,10 @@ if ! grep -q '^APP_KEY=base64:' .env 2>/dev/null; then
     php artisan key:generate --force
 fi
 
+# Banco usado pela suíte Pest (conexão pgsql_test). Criado aqui, e não num script
+# de init do Postgres, para funcionar também com volumes já existentes.
+php /app/docker/criar-banco-testes.php
+
 echo "Banco disponível. Executando migrations..."
 php artisan migrate --force
 

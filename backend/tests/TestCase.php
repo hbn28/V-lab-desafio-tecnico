@@ -3,12 +3,22 @@
 namespace Tests;
 
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
 abstract class TestCase extends BaseTestCase
 {
     use RefreshDatabase;
+
+    /**
+     * Instante fixo usado por todos os testes de Feature. Os cenários usam datas
+     * literais (ex.: agendar para 2026-09-25) e a API rejeita agendamentos no
+     * passado; sem um relógio congelado a suíte passaria hoje e quebraria sozinha
+     * depois dessas datas. Testes que precisam de outro "agora" chamam
+     * CarbonImmutable::setTestNow() explicitamente, sobrescrevendo este valor.
+     */
+    public const AGORA_FIXO = '2026-09-21T15:00:00Z';
 
     /**
      * docker-compose.yml define DB_CONNECTION/APP_ENV como variáveis de ambiente
@@ -29,8 +39,17 @@ abstract class TestCase extends BaseTestCase
         $_ENV['DB_CONNECTION'] = 'pgsql_test';
         $_SERVER['DB_CONNECTION'] = 'pgsql_test';
 
+        CarbonImmutable::setTestNow(self::AGORA_FIXO);
+
         parent::setUp();
 
         $this->actingAs(User::factory()->create(['role' => 'ADMINISTRADOR']));
+    }
+
+    protected function tearDown(): void
+    {
+        parent::tearDown();
+
+        CarbonImmutable::setTestNow();
     }
 }

@@ -13,9 +13,11 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 WORKDIR /app
 
 COPY composer.json composer.lock* ./
+# Imagem de desenvolvimento/avaliação: inclui as dependências de dev (Pest, Pint)
+# para que `docker compose exec backend ./vendor/bin/pest` funcione como no README.
 RUN composer config --global --no-interaction allow-plugins.pestphp/pest-plugin true \
     && composer config --global --no-interaction policy.advisories.block false \
-    && composer install --no-dev --no-scripts --no-interaction --prefer-dist
+    && composer install --no-scripts --no-interaction --prefer-dist
 
 COPY . .
 RUN mkdir -p bootstrap/cache
