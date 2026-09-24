@@ -4,7 +4,7 @@ Este arquivo é a fonte de verdade para dados, API e regras de negócio. Em caso
 
 ## Escopo
 
-O fluxo obrigatório é criar solicitação, listar/consultar, filtrar e atualizar status, com React + TypeScript consumindo exclusivamente a API Laravel e persistência em PostgreSQL. Autenticação não faz parte do núcleo; é bônus e só será considerada depois de o fluxo principal, os testes, o OpenAPI e o README estarem concluídos.
+O fluxo obrigatório é criar solicitação, listar/consultar, filtrar e atualizar status, com React + TypeScript consumindo exclusivamente a API Laravel e persistência em PostgreSQL. Autenticação não faz parte do núcleo obrigatório; foi implementada como bônus.
 
 ## Tipos do domínio
 
@@ -279,7 +279,7 @@ Toda resposta JSON de erro usa:
 | 429 | limite de requisições excedido |
 | 500 | falha interna genérica, sem detalhes internos |
 
-Se autenticação for adicionada como bônus, 401 e 403 usarão o mesmo envelope. O login aceita usuário (campo `login`) e senha; e-mail de contas antigas também pode ser informado em `login`. Contas novas têm usuário único e e-mail opcional. Recuperação de senha por e-mail não está implementada.
+A autenticação implementada como bônus usa o mesmo envelope de erro para 401 e 403. O login aceita usuário (campo `login`) e senha; e-mail de contas antigas também pode ser informado em `login`. Contas novas têm usuário único e e-mail opcional. Recuperação de senha por e-mail não está implementada.
 
 ## Modelo e migrations iniciais
 

@@ -36,11 +36,7 @@ Aguarde até ver `Application ready` nos logs do backend (~30s na primeira vez).
 
 Para entrar na interface local, crie um operador com `docker compose exec backend php artisan operadores:criar` e informe usuário e senha nos prompts. A conta fica apenas no banco local. O backend limpa manifestos de pacotes gerados no host ao iniciar, pois a imagem de execução instala somente dependências de produção.
 
-**Se o banco já existir de uma execução anterior** e você alterou as migrations, recomece com:
-
-```bash
-docker compose down -v && docker compose up --build
-```
+As migrations são aplicadas automaticamente na inicialização. Para preservar os dados locais, não use `docker compose down -v`; se precisar de uma base limpa, crie um projeto Compose isolado com volumes próprios.
 
 ## Endpoints da API
 
@@ -134,12 +130,23 @@ Documentação completa (OpenAPI): [`docs/openapi.yaml`](docs/openapi.yaml)
 
 ## Rodar os testes
 
-```bash
-# Testes de backend (Pest/PHPUnit)
-docker compose exec backend ./vendor/bin/pest
+O container `backend` de execução instala apenas as dependências de produção (`composer install --no-dev`), portanto não contém Pest nem Pint. A suíte completa do backend é executada pelo job `test-backend` em `.github/workflows/ci.yml`, com PostgreSQL 16 e banco `vlab_test` isolado. Para reproduzir localmente, prepare um ambiente de teste separado com PHP 8.3, dependências de desenvolvimento (`composer install --no-scripts`) e PostgreSQL 16; configure `DB_*` para esse servidor e crie apenas `vlab_test`. Em `backend/`, execute:
 
-# Testes de frontend (Vitest + React Testing Library)
+```bash
+php artisan migrate --database=pgsql_test --force
+./vendor/bin/pest
+./vendor/bin/pint --test
+```
+
+`backend/tests/TestCase.php` força `DB_CONNECTION=pgsql_test` antes de cada teste. Nunca execute migrations de teste, `migrate:fresh` ou `db:seed` no banco `vlab`.
+
+Os testes do frontend podem ser executados no serviço local:
+
+```bash
 docker compose exec frontend npm test -- --run
+docker compose exec frontend npx tsc --noEmit
+docker compose exec frontend npm run lint
+docker compose exec frontend npm run build
 ```
 
 ## Variáveis de ambiente
@@ -170,6 +177,7 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 - Tela inicial com resumo por status e prioridade
 - Estados visuais de carregamento, erro, vazio e sucesso
 - Validação de entradas com mensagens em português
+- Autenticação de operadores com sessão Laravel e autorização por perfil (`ADMINISTRADOR`/`ATENDENTE`)
 - Health check da API com verificação do banco
 - Fila operacional ordenada por estado aberto, prioridade e tempo de espera
 - Agendamento e reagendamento com data e hora obrigatórias, e agenda diária no painel (`/?visao=agenda&data=AAAA-MM-DD`)
@@ -180,7 +188,7 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 
 ## Limitações conhecidas
 
-- Sem autenticação (não foi implementado o bônus de auth)
+- Sem recuperação de senha por e-mail; contas operacionais são criadas pelo comando interativo `operadores:criar`
 - O campo `cpf_solicitante` aceita o formato `000.000.000-00` mas não valida dígitos verificadores
 
 ## Decisões arquiteturais
