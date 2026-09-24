@@ -34,11 +34,20 @@ Aguarde até ver `Application ready` nos logs do backend (~30s na primeira vez).
 
 > Os seeders rodam automaticamente na primeira inicialização (`APP_SEED=true` no docker-compose.yml), populando 10 solicitações fictícias que cobrem todos os status e prioridades.
 
-**Se o banco já existir de uma execução anterior** e você alterou as migrations, recomece com:
+**Atualizando um ambiente que já existe** (sem perder os dados do banco):
 
 ```bash
-docker compose down -v && docker compose up --build
+docker compose up --build -d                    # reconstrói as imagens; o volume pgdata é preservado
+docker compose exec backend composer install    # atualiza o volume de vendor (inclui Pest/Pint)
 ```
+
+O entrypoint roda `migrate --force` (só aplica migrations novas, nunca apaga dados) e o seeder padrão, que é idempotente e não altera registros que já existem.
+
+> ⚠️ `docker compose down -v` **apaga o volume do PostgreSQL** (todos os dados, inclusive os fictícios gerados à mão). Use só se quiser recomeçar o banco do zero:
+>
+> ```bash
+> docker compose down -v && docker compose up --build
+> ```
 
 ## Endpoints da API
 
@@ -153,9 +162,9 @@ docker compose exec frontend npx tsc --noEmit
 docker compose exec frontend npm run lint
 ```
 
-- O banco de testes `vlab_test` é criado automaticamente pelo entrypoint do backend (também em volumes antigos), e a suíte nunca toca o banco de desenvolvimento `vlab`.
+- O banco de testes `vlab_test` é criado automaticamente pelo entrypoint do backend (também em volumes antigos). A suíte roda sempre na conexão `pgsql_test` (forçada em `tests/TestCase.php`) e **nunca toca o banco de desenvolvimento `vlab`** — `RefreshDatabase` só recria o `vlab_test`.
 - Os testes são determinísticos: o relógio é congelado em `2026-09-21T15:00Z` (`tests/TestCase.php`), então as datas fixas usadas nos cenários de agendamento continuam "no futuro" em qualquer dia em que a suíte for executada.
-- A imagem do backend inclui as dependências de desenvolvimento (Pest e Pint). Se você já tinha a imagem de uma versão anterior, rode `docker compose up --build` para reconstruí-la.
+- A imagem do backend inclui as dependências de desenvolvimento (Pest e Pint). Num ambiente criado antes disso, o volume `backend_vendor` ainda guarda o vendor antigo: rode `docker compose exec backend composer install` uma vez (não mexe no banco).
 - A pipeline em `.github/workflows/ci.yml` roda Pint, migrations e Pest (com PostgreSQL 16) no backend e `tsc`, Vitest e build no frontend.
 
 ## Variáveis de ambiente

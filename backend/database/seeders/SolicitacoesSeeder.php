@@ -51,7 +51,12 @@ class SolicitacoesSeeder extends Seeder
                 $dados
             );
 
-            $this->completarEstadoOperacional($solicitacao, $fuso);
+            // Só completa o que o próprio seeder acabou de criar: numa nova subida do
+            // container (APP_SEED=true) um registro já existente — talvez movimentado
+            // à mão desde então — nunca é alterado.
+            if ($solicitacao->wasRecentlyCreated) {
+                $this->completarEstadoOperacional($solicitacao, $fuso);
+            }
         }
     }
 
