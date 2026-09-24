@@ -1,20 +1,15 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { useSolicitacoes, useResumoSolicitacoes, useFaltas } from '../hooks/useSolicitacoes';
-import { solicitacoesApi } from '../api/client';
-import { StatusBadge, PrioridadeBadge } from '../../../components/Badge';
+import { useSolicitacoes, useResumoSolicitacoes } from '../hooks/useSolicitacoes';
 import { DrilldownModal } from '../components/DrilldownModal';
-import { FaltaCard } from '../components/FaltaCard';
-import { ContatoFaltaDialog } from '../components/ContatoFaltaDialog';
-import { DialogOverlay } from '../components/DialogOverlay';
-import { AgendamentoForm } from '../components/AgendamentoForm';
-import { dataHojeNoFuso, dataIsoValida, formatarAgendamento } from '../config/agendamento';
-import { SolicitacoesToolbar } from '../components/SolicitacoesToolbar';
+import { FaltasView } from '../components/FaltasView';
+import { FilaView } from '../components/FilaView';
+import { dataHojeNoFuso, dataIsoValida } from '../config/agendamento';
 import { useSolicitacoesQuery } from '../hooks/useSolicitacoesQuery';
 import { deslocarDataIso, useAgendaSemanal } from '../hooks/useAgendaSemanal';
 import type { Status, Categoria, Prioridade } from '../types';
-import type { AgendamentoPayload, FaltaListItem, FiltrosSolicitacoes, ResultadoContato } from '../types';
-import { LABEL_CATEGORIA, LABEL_PRIORIDADE, LABEL_TURNO } from '../types';
+import type { FiltrosSolicitacoes } from '../types';
+import { LABEL_PRIORIDADE } from '../types';
 
 const STATUS_LIST: Status[] = ['RECEBIDA', 'EM_ANALISE', 'AGENDADA', 'CONCLUIDA', 'CANCELADA'];
 const PRIORIDADE_LIST: Prioridade[] = ['URGENTE', 'ALTA', 'MEDIA', 'BAIXA'];
@@ -43,7 +38,7 @@ const LABEL_STATUS_PLURAL: Record<Status, string> = {
 };
 
 const STATUS_ENCERRADO = ['CONCLUIDA', 'CANCELADA'] as const satisfies readonly Status[];
-type VisaoPrincipal = 'fila' | 'agenda' | 'historico' | 'faltas';
+import type { VisaoPrincipal } from '../components/FilaView';
 
 function visaoPelosParametros(searchParams: URLSearchParams): VisaoPrincipal {
   const parametro = searchParams.get('visao');
@@ -59,15 +54,6 @@ const PRIORIDADE_ACCENT: Record<Prioridade, 'urgente' | 'alta' | 'media' | 'baix
   MEDIA: 'media',
   BAIXA: 'baixa',
 };
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('pt-BR').format(new Date(value));
-}
-
-function formatDiaAgenda(value: string) {
-  return new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })
-    .format(new Date(`${value}T12:00:00Z`));
-}
 
 interface Drilldown {
   title: string;
@@ -111,18 +97,6 @@ export function SolicitacoesPage() {
   const escopo = visao === 'historico' ? 'encerrado' : 'aberto';
   const filaFiltradaPorAgendada = !emAgenda && status === 'AGENDADA';
 
-  const filtrosFaltas = {
-    q: consulta.q,
-    prioridade: consulta.prioridade,
-    data_de: consulta.data_de,
-    data_ate: consulta.data_ate,
-    resultado_contato: consulta.resultado_contato,
-    ordenar_por: consulta.ordenar_por,
-    direcao: consulta.direcao,
-    page,
-    per_page: 10,
-  };
-  const { data: faltas, loading: faltasLoading, error: faltasError, reload: reloadFaltas } = useFaltas({ enabled: emFaltas, filtros: filtrosFaltas });
   const { datas: diasDaAgenda, grupos: gruposAgenda, reload: reloadAgenda } = useAgendaSemanal({
     inicio: dataAgenda,
     filtros: {
@@ -138,59 +112,6 @@ export function SolicitacoesPage() {
     paginas: consulta.agendaPages ?? {},
     enabled: emAgenda,
   });
-  const [faltaContato, setFaltaContato] = useState<FaltaListItem | null>(null);
-  const [enviandoContato, setEnviandoContato] = useState(false);
-  const [erroContato, setErroContato] = useState<string | null>(null);
-  const [faltaReagendando, setFaltaReagendando] = useState<FaltaListItem | null>(null);
-  const [salvandoReagendamento, setSalvandoReagendamento] = useState(false);
-  const [errosReagendamento, setErrosReagendamento] = useState<Record<string, string[]>>({});
-  const [erroReagendamento, setErroReagendamento] = useState<string | null>(null);
-
-  const abrirContato = (falta: FaltaListItem) => { setErroContato(null); setFaltaContato(falta); };
-  const fecharContato = () => setFaltaContato(null);
-  const salvarContato = async (resultado: ResultadoContato) => {
-    if (!faltaContato) return;
-    setEnviandoContato(true);
-    setErroContato(null);
-    try {
-      await solicitacoesApi.registrarContato(faltaContato.id, { resultado });
-      setFaltaContato(null);
-      await reloadFaltas();
-    } catch (caught: unknown) {
-      setErroContato(caught instanceof Error ? caught.message : 'Erro ao registrar contato');
-    } finally {
-      setEnviandoContato(false);
-    }
-  };
-
-  const abrirReagendamento = (falta: FaltaListItem) => { setErroReagendamento(null); setErrosReagendamento({}); setFaltaReagendando(falta); };
-  const fecharReagendamento = () => { setErroReagendamento(null); setFaltaReagendando(null); };
-  const salvarReagendamento = async (payload: AgendamentoPayload) => {
-    if (!faltaReagendando) return;
-    setSalvandoReagendamento(true);
-    setErroReagendamento(null);
-    setErrosReagendamento({});
-    try {
-      await solicitacoesApi.reagendarAposFalta(faltaReagendando.id, payload);
-      setFaltaReagendando(null);
-      await reloadFaltas();
-    } catch (caught: unknown) {
-      const erros = caught instanceof Error && 'errors' in caught
-        ? ((caught as Error & { errors?: Record<string, string[]> }).errors ?? {})
-        : {};
-      if (Object.keys(erros).length > 0) {
-        setErrosReagendamento(erros);
-      } else {
-        setErroReagendamento(caught instanceof Error ? caught.message : 'Não foi possível reagendar após a falta. Tente novamente.');
-        if (caught instanceof Error && 'status' in caught && (caught as Error & { status?: number }).status === 409) {
-          await reloadFaltas();
-        }
-      }
-    } finally {
-      setSalvandoReagendamento(false);
-    }
-  };
-
   // Links antigos com data exata passam a usar essa data como início da janela semanal.
   useEffect(() => {
     if (visao === 'agenda' && (!consulta.inicio || searchParams.has('data'))) {
@@ -288,96 +209,8 @@ export function SolicitacoesPage() {
   };
 
   if (emFaltas) {
-    return (
-      <div className="page-stack">
-        <header className="page-heading">
-          <div>
-            <p className="eyebrow">Ausências</p>
-            <h1>Faltas</h1>
-          </div>
-        </header>
-
-        <div className="view-switcher" aria-label="Visão da fila">
-          <div className="view-switcher__group" role="group" aria-label="Escopo da listagem">
-            <button type="button" className="button button--outline" onClick={() => mudarVisao('fila')}>Fila</button>
-            <button type="button" className="button button--outline" onClick={() => mudarVisao('agenda')}>Solicitações agendadas</button>
-            <button type="button" className="button button--outline" onClick={() => mudarVisao('historico')}>Histórico</button>
-            <button type="button" className="button button--outline is-active" aria-pressed="true" onClick={() => mudarVisao('faltas')}>Faltas</button>
-          </div>
-        </div>
-
-        <SolicitacoesToolbar
-          consulta={consulta}
-          opcoesOrdenacao={['prioridade', ...(consulta.data ? [] : ['data' as const]), 'horario']}
-          ordenacaoPadrao="prioridade"
-          total={faltas?.total ?? 0}
-          mostrarPrioridade
-          mostrarPeriodo={!consulta.data}
-          mostrarResultadoContato
-          onApply={aplicarFiltros}
-          onClear={limparConsulta}
-        />
-
-
-        {faltasLoading && (
-          <div className="state-view" role="status" aria-live="polite">
-            <span className="spinner" aria-hidden="true" />
-            <strong>Carregando faltas</strong>
-          </div>
-        )}
-
-        {faltasError && (
-          <div className="alert alert--error" role="alert">
-            <div><strong>Não foi possível carregar as faltas</strong><p>{faltasError}</p></div>
-            <button onClick={reloadFaltas} className="button button--outline" type="button">Tentar novamente</button>
-          </div>
-        )}
-
-        {!faltasLoading && !faltasError && (faltas?.data.length ?? 0) === 0 && (
-          <div className="state-view">
-            <span className="state-view__icon" aria-hidden="true">○</span>
-            <strong>Nenhuma falta pendente</strong>
-          </div>
-        )}
-
-        {!faltasLoading && !faltasError && faltas && faltas.data.length > 0 && (
-          <>
-            <div className="faltas-list">
-              {faltas.data.map(falta => (
-                <FaltaCard key={falta.id} falta={falta} onRegistrarContato={abrirContato} onReagendar={abrirReagendamento} />
-              ))}
-            </div>
-            <nav className="pagination" aria-label="Paginação das faltas">
-              <p>Página <strong>{faltas.current_page}</strong> de <strong>{faltas.last_page}</strong></p>
-              <div className="pagination__actions">
-                <button className="button button--outline" disabled={faltas.current_page === 1} onClick={() => setPage(faltas.current_page - 1)} type="button">Anterior</button>
-                <button className="button button--outline" disabled={faltas.current_page === faltas.last_page} onClick={() => setPage(faltas.current_page + 1)} type="button">Próxima</button>
-              </div>
-            </nav>
-          </>
-        )}
-
-        {faltaContato && (
-          <ContatoFaltaDialog submitting={enviandoContato} error={erroContato} onSalvar={salvarContato} onCancelar={fecharContato} />
-        )}
-
-        {faltaReagendando && (
-          <DialogOverlay labelledBy="reagendar-falta-heading" onClose={fecharReagendamento}>
-            <h2 id="reagendar-falta-heading">Reagendar após falta</h2>
-            {erroReagendamento && <div className="alert alert--error" role="alert">{erroReagendamento}</div>}
-            <AgendamentoForm
-              submitting={salvandoReagendamento}
-              serverErrors={errosReagendamento}
-              submitLabel="Confirmar novo agendamento"
-              onSubmit={salvarReagendamento}
-              onCancel={fecharReagendamento}
-            />
-          </DialogOverlay>
-        )}
-      </div>
-    );
+    return <FaltasView consulta={consulta} page={page} onPageChange={setPaginaUrl} onApply={aplicarFiltros} onClear={limparConsulta} onChangeView={mudarVisao} />;
   }
-
   return (
     <div className="page-stack">
       <header className="page-heading">
@@ -391,183 +224,33 @@ export function SolicitacoesPage() {
         </Link>
       </header>
 
-      <section className="panel queue-panel" aria-labelledby="list-heading">
-        <div className="panel__header">
-          <div>
-            <p className="eyebrow">{emAgenda ? 'Agenda operacional' : escopo === 'aberto' ? 'Fila operacional' : 'Registros concluídos ou cancelados'}</p>
-            <h2 id="list-heading">{emAgenda ? 'Solicitações agendadas' : escopo === 'aberto' ? 'Fila de atendimento' : 'Histórico'}</h2>
-          </div>
-          {emAgenda
-            ? <span className="record-count">{diasDaAgenda.reduce((total, dia) => total + (gruposAgenda[dia]?.total ?? 0), 0)} no total</span>
-            : data && !loading && !error && <span className="record-count">{data.total} no total</span>}
-        </div>
-
-        <div className="view-switcher" aria-label="Visão da fila">
-          <div className="view-switcher__group" role="group" aria-label="Escopo da listagem">
-            <button type="button" className={`button button--outline ${visao === 'fila' ? 'is-active' : ''}`} aria-pressed={visao === 'fila'} onClick={() => mudarVisao('fila')}>Fila atual</button>
-            <button type="button" className={`button button--outline ${emAgenda ? 'is-active' : ''}`} aria-pressed={emAgenda} onClick={() => mudarVisao('agenda')}>Solicitações agendadas</button>
-            <button type="button" className={`button button--outline ${visao === 'historico' ? 'is-active' : ''}`} aria-pressed={visao === 'historico'} onClick={() => mudarVisao('historico')}>Histórico</button>
-            <button type="button" className="button button--outline" aria-pressed={false} onClick={() => mudarVisao('faltas')}>Faltas</button>
-          </div>
-        </div>
-
-        {emAgenda && (
-          <div className="agenda-week-nav" aria-label="Navegar pelas semanas">
-            <button type="button" className="button button--outline" onClick={() => mudarSemana(-7)}>Semana anterior</button>
-            <p><strong>{formatDate(`${dataAgenda}T12:00:00Z`)}</strong> – <strong>{formatDate(`${deslocarDataIso(dataAgenda, 6)}T12:00:00Z`)}</strong></p>
-            <button type="button" className="button button--outline" onClick={() => mudarSemana(7)}>Próxima semana</button>
-          </div>
-        )}
-
-        <SolicitacoesToolbar
-          consulta={consulta}
-          opcoesOrdenacao={emAgenda ? ['horario', 'prioridade'] : filaFiltradaPorAgendada ? (dataFilaAgendada ? ['horario', 'prioridade'] : ['horario', 'prioridade', 'data']) : ['prioridade', 'data']}
-          ordenacaoPadrao={emAgenda || filaFiltradaPorAgendada ? 'horario' : escopo === 'aberto' ? 'prioridade' : 'data'}
-          direcaoPadrao={escopo === 'encerrado' ? 'desc' : 'asc'}
-          total={emAgenda ? diasDaAgenda.reduce((total, dia) => total + (gruposAgenda[dia]?.total ?? 0), 0) : data?.total ?? 0}
-          mostrarStatus={!emAgenda}
-          statusDisponiveis={statusDisponiveis}
-          mostrarCategoria
-          mostrarPrioridade
-          mostrarPeriodo
-          onApply={aplicarFiltros}
-          onClear={clearFilters}
-        />
-
-        {filaFiltradaPorAgendada && (
-          <div className="filter-field agenda-date-field">
-            <label htmlFor="filtro-data-fila">Data agendada</label>
-            <input id="filtro-data-fila" type="date" value={dataFilaAgendada} onChange={event => setDataFilaAgendada(event.target.value)} />
-          </div>
-        )}
-
-        {!emAgenda && loading && (
-          <div className="state-view" role="status" aria-live="polite">
-            <span className="spinner" aria-hidden="true" />
-            <strong>Carregando solicitações</strong>
-          </div>
-        )}
-
-        {!emAgenda && error && (
-          <div className="alert alert--error" role="alert">
-            <div>
-              <strong>Não foi possível carregar a listagem</strong>
-              <p>{error}</p>
-            </div>
-            <button onClick={reload} className="button button--outline" type="button">Tentar novamente</button>
-          </div>
-        )}
-
-        {!emAgenda && !loading && !error && (data?.data?.length ?? -1) === 0 && (
-          <div className="state-view">
-            <span className="state-view__icon" aria-hidden="true">○</span>
-            <strong>{hasFilters ? 'Nenhum resultado para estes filtros' : 'Nenhuma solicitação cadastrada'}</strong>
-            <p>{hasFilters ? 'Revise ou limpe os filtros para ampliar a busca.' : 'Crie a primeira solicitação para iniciar o acompanhamento.'}</p>
-            {hasFilters ? (
-              <button className="button button--outline" type="button" onClick={clearFilters}>Limpar filtros</button>
-            ) : (
-              <Link to="/solicitacoes/nova" className="button button--outline">Criar solicitação</Link>
-            )}
-          </div>
-        )}
-
-        {!emAgenda && !loading && !error && data && (data.data?.length ?? 0) > 0 && (
-          <>
-            <div className="table-wrap" tabIndex={0} role="region" aria-label="Tabela de solicitações; use as setas para rolar horizontalmente">
-              <table className="requests-table">
-                <caption className="sr-only">Solicitações de atendimento encontradas</caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Prioridade</th>
-                    <th scope="col">Solicitação</th>
-                    <th scope="col">Categoria</th>
-                    <th scope="col">Etapa</th>
-                    <th scope="col">{emAgenda ? 'Agendado para' : 'Data'}</th>
-                    <th scope="col"><span className="sr-only">Ações</span></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.data?.map(request => (
-                    <tr key={request.id}>
-                      <td data-label="Prioridade"><PrioridadeBadge prioridade={request.prioridade} /></td>
-                      <td data-label="Solicitação">
-                        <Link to={`/solicitacoes/${request.id}`} {...returnContext} className="protocol-link">{request.protocolo}</Link>
-                        <span className="requester-name">{request.nome_solicitante}</span>
-                      </td>
-                      <td data-label="Categoria">{LABEL_CATEGORIA[request.categoria]}</td>
-                      <td data-label="Etapa"><StatusBadge status={request.status} /></td>
-                      {request.agendado_para ? (
-                        <td data-label="Agendado para"><time dateTime={request.agendado_para}>{formatarAgendamento(request.agendado_para)}</time></td>
-                      ) : request.agendamento_ativo?.modalidade === 'TURNO' && request.agendamento_ativo.turno ? (
-                        <td data-label="Turno">{LABEL_TURNO[request.agendamento_ativo.turno]}</td>
-                      ) : (
-                        <td data-label="Registrada em"><time dateTime={request.data_criacao}>{formatDate(request.data_criacao)}</time></td>
-                      )}
-                      <td data-label="Ações">
-                        <Link to={`/solicitacoes/${request.id}`} {...returnContext} className="button button--outline button--small" aria-label={`Ver detalhes da solicitação ${request.protocolo}`}>
-                          Ver detalhes
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <nav className="pagination" aria-label="Paginação da fila">
-              <p>Página <strong>{page}</strong> de <strong>{data.last_page}</strong></p>
-              <div className="pagination__actions">
-                <button className="button button--outline" disabled={page === 1} onClick={() => setPage(current => current - 1)} type="button">
-                  Anterior
-                </button>
-                <button className="button button--outline" disabled={page === data.last_page} onClick={() => setPage(current => current + 1)} type="button">
-                  Próxima
-                </button>
-              </div>
-            </nav>
-          </>
-        )}
-
-        {emAgenda && <div className="agenda-week" aria-label="Filas de solicitações por dia">
-          {diasDaAgenda.map(dia => {
-            const grupo = gruposAgenda[dia];
-            const paginaDia = consulta.agendaPages?.[dia] ?? 1;
-            return (
-              <section className="agenda-day" key={dia} aria-labelledby={`agenda-dia-${dia}`}>
-                <header className="agenda-day__header">
-                  <h3 id={`agenda-dia-${dia}`}>{formatDiaAgenda(dia)}</h3>
-                  {!grupo?.loading && !grupo?.error && <span className="record-count">{grupo?.total ?? 0} solicitações</span>}
-                </header>
-                {grupo?.loading && <p className="state-view state-view--compact" role="status">Carregando este dia</p>}
-                {grupo?.error && <div className="alert alert--error" role="alert"><p>{grupo.error}</p><button type="button" className="button button--outline" onClick={reloadAgenda}>Tentar novamente</button></div>}
-                {!grupo?.loading && !grupo?.error && grupo?.data.length === 0 && <p className="agenda-day__empty">Nenhuma solicitação agendada.</p>}
-                {!grupo?.loading && !grupo?.error && grupo && grupo.data.length > 0 && <>
-                  <ul className="agenda-day__list">
-                    {grupo.data.map(item => (
-                      <li key={item.id}>
-                        <Link to={`/solicitacoes/${item.id}`} {...returnContext} className="agenda-day__item">
-                          <span className="agenda-day__time">{item.agendado_para ? formatarAgendamento(item.agendado_para) : item.agendamento_ativo?.turno ? LABEL_TURNO[item.agendamento_ativo.turno] : 'Horário não informado'}</span>
-                          <span className="agenda-day__request"><strong>{item.protocolo}</strong><span>{item.nome_solicitante}</span></span>
-                          <PrioridadeBadge prioridade={item.prioridade} />
-                          <StatusBadge status={item.status} />
-                          <span>{LABEL_CATEGORIA[item.categoria]}</span>
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                  {grupo.last_page > 1 && <nav className="pagination" aria-label={`Paginação de ${formatDiaAgenda(dia)}`}>
-                    <p>Página <strong>{paginaDia}</strong> de <strong>{grupo.last_page}</strong></p>
-                    <div className="pagination__actions">
-                      <button className="button button--outline" disabled={paginaDia <= 1} onClick={() => mudarPaginaDia(dia, paginaDia - 1)} type="button">Anterior</button>
-                      <button className="button button--outline" disabled={paginaDia >= grupo.last_page} onClick={() => mudarPaginaDia(dia, paginaDia + 1)} type="button">Próxima</button>
-                    </div>
-                  </nav>}
-                </>}
-              </section>
-            );
-          })}
-        </div>}
-      </section>
+      <FilaView
+        emAgenda={emAgenda}
+        visao={visao}
+        escopo={escopo}
+        data={data}
+        loading={loading}
+        error={error}
+        reload={reload}
+        consulta={consulta}
+        page={page}
+        setPage={setPage}
+        statusDisponiveis={statusDisponiveis}
+        filaFiltradaPorAgendada={filaFiltradaPorAgendada}
+        dataFilaAgendada={dataFilaAgendada}
+        onDataFilaAgendada={setDataFilaAgendada}
+        hasFilters={hasFilters}
+        dataAgenda={dataAgenda}
+        diasDaAgenda={diasDaAgenda}
+        gruposAgenda={gruposAgenda}
+        returnContext={returnContext}
+        onChangeView={mudarVisao}
+        onChangeWeek={mudarSemana}
+        onApply={aplicarFiltros}
+        onClear={clearFilters}
+        onReloadAgenda={reloadAgenda}
+        onChangeAgendaPage={mudarPaginaDia}
+      />
 
       {!emAgenda && !resumoLoading && !resumoError && resumo && (
         <section className="dashboard-section" aria-labelledby="priority-heading">
