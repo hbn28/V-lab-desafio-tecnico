@@ -32,6 +32,7 @@ services:
       DB_DATABASE: vlab
       DB_USERNAME: vlab
       DB_PASSWORD: secret
+      DB_DATABASE_TEST: vlab_test
       FRONTEND_URL: http://localhost:5173
       AGENDAMENTO_TIMEZONE: America/Recife
       APP_SEED: 'true'
