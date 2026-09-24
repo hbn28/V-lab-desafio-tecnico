@@ -47,7 +47,7 @@ O alternador fica no cabeçalho autenticado e na tela de login/cadastro. A escol
 ## Componentes e estados
 
 - Botões: principal, contorno, fantasma, transição de status e perigo em contorno.
-- Campos: rótulo visível, ajuda persistente quando necessária, erro inline e foco perceptível.
+- Campos: rótulo visível, ajuda persistente quando necessária, erro inline e foco perceptível. Na barra de filtros, a ação de aplicar ocupa uma linha própria da grade; seu alinhamento não depende de o campo Ordem estar visível.
 - Espaço operacional: a navegação persistente dá acesso à fila, solicitações agendadas, histórico e faltas. Coleções compartilham busca/filtros/ordenação e mantêm a consulta na URL; a agenda mostra sete filas independentes por dia. Remover mensagens de contexto que apenas repetem o que o título e os controles já deixam claro.
 - Badges: status com ponto + texto, em cores de etapa neutras/operacionais; prioridade com texto, em escala própria de atenção. Ambos possuem contraste e borda, mas nunca devem reutilizar a mesma convenção visual lado a lado.
 - Alertas: erro e sucesso com mensagem de recuperação; erros do formulário também aparecem em resumo focalizável e ligado aos campos.

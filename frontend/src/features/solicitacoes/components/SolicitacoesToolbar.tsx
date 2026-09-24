@@ -186,7 +186,9 @@ export function SolicitacoesToolbar({
             </select>
           </div>
         )}
-        <button className="button button--primary" type="submit">Aplicar filtros</button>
+        <div className="collection-toolbar__actions">
+          <button className="button button--primary" type="submit">Aplicar filtros</button>
+        </div>
       </form>
       <div className="collection-controls__footer">
         <p className="record-count" aria-live="polite">{total} {total === 1 ? 'resultado' : 'resultados'}</p>

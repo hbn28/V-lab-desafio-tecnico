@@ -800,6 +800,7 @@ p, h1, h2, h3 { margin: 0; }
 .collection-toolbar__search { grid-column: span 1; }
 /* Linha própria para a ação: o botão não muda de lugar quando filtros aparecem ou somem. */
 .collection-toolbar__actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
+.collection-toolbar__actions .button { min-width: 12rem; }
 .collection-controls__footer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
 .active-filters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .filter-chip { min-height: 2.5rem; padding: var(--space-1) var(--space-3); border: 1px solid var(--color-border-strong); border-radius: var(--radius-full); background: var(--color-surface); color: var(--color-text); cursor: pointer; }
