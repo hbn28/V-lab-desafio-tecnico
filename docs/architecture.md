@@ -169,6 +169,11 @@ backend/
 |---|---|---|
 | Protocolo único | Upsert + `lockForUpdate` em `protocolo_counters` | Evita race condition sem sequence global; suporta rollback |
 | Transições de status | Tabela `TRANSICOES` em Action | Toda regra de negócio fora do controller; fácil de testar |
+| Conflito de estado sem HTTP no domínio | Actions lançam `ConflitoDeEstado`; `bootstrap/app.php` traduz para 409 `{message, errors}` | As Actions não dependem de Response/HTTP e podem ser reusadas por comandos e filas |
+| Validação de agenda compartilhada | Trait `ValidaAgendamento` usado por `AtualizarStatusRequest`, `ReagendarSolicitacaoRequest` e `ReagendarAposFaltaRequest` | Uma única regra para horário XOR turno, fuso operacional e instante futuro |
+| Timestamps sempre em UTC | Conexões `pgsql` com `timezone => UTC` | A aplicação grava instantes sem offset; um Postgres em outro fuso deslocaria os horários de agendamento |
+| Dados pessoais nas respostas | CPF mascarado (`***.456.789-**`) em listagens e celular sempre mascarado; CPF completo só no detalhe (`SolicitacaoResource::detalhe()`) | Minimiza exposição sem impedir a edição do cadastro |
+| Testes determinísticos | `tests/TestCase.php` congela o relógio e força a conexão `pgsql_test` | As datas literais dos cenários não "vencem" e a suíte nunca toca o banco de desenvolvimento |
 | Geração de X-Request-ID | Middleware global no grupo `api` | Rastreabilidade sem acoplamento ao domínio |
 | Seeders idempotentes | `firstOrCreate(['protocolo' => ...])` | `db:seed` pode rodar N vezes sem duplicar dados |
 | Logs estruturados | JSON via `JsonFormatter` → stderr | Compatível com Loki/CloudWatch sem parsear texto |

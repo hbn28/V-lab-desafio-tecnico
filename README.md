@@ -34,11 +34,20 @@ Aguarde até ver `Application ready` nos logs do backend (~30s na primeira vez).
 
 > Os seeders rodam automaticamente na primeira inicialização (`APP_SEED=true` no docker-compose.yml), populando 10 solicitações fictícias que cobrem todos os status e prioridades.
 
-**Se o banco já existir de uma execução anterior** e você alterou as migrations, recomece com:
+**Atualizando um ambiente que já existe** (sem perder os dados do banco):
 
 ```bash
-docker compose down -v && docker compose up --build
+docker compose up --build -d                    # reconstrói as imagens; o volume pgdata é preservado
+docker compose exec backend composer install    # atualiza o volume de vendor (inclui Pest/Pint)
 ```
+
+O entrypoint roda `migrate --force` (só aplica migrations novas, nunca apaga dados) e os seeders, que são idempotentes e não duplicam registros.
+
+> ⚠️ `docker compose down -v` **apaga o volume do PostgreSQL** (todos os dados, inclusive a carga fictícia). Use só se quiser recomeçar o banco do zero:
+>
+> ```bash
+> docker compose down -v && docker compose up --build
+> ```
 
 ## Endpoints da API
 
@@ -128,17 +137,51 @@ curl "http://localhost:8000/api/v1/faltas"
 
 > As rotas `PUT` e `DELETE` são uma extensão fora do fluxo obrigatório do edital (criar, listar/consultar, filtrar, atualizar status). O edital não define nem proíbe editar/apagar, e permite explicitamente estender as rotas sugeridas desde que documentadas e consistentes (seção 2.3-C). Detalhes em [`docs/spec.md`](docs/spec.md#extensão-além-do-edital--editar-e-apagar).
 
+Convenções de resposta:
+
+- Erros sempre em `{ "message": "...", "errors": { campo: [mensagens] } }`: **422** para entrada inválida, **409** para operação que conflita com o estado atual (ex.: transição proibida), **404** para recurso inexistente — inclusive `{id}` não numérico —, **401/403** sem sessão ou sem permissão.
+- `data_agendada` é sempre uma data local `YYYY-MM-DD` e `hora_agendada` um horário local `HH:mm`, no fuso operacional; `agendado_para` é o instante em UTC.
+- Privacidade: o celular vem sempre mascarado; o CPF vem mascarado (`***.456.789-**`) nas listagens e completo apenas no detalhe de uma solicitação.
+
 Documentação completa (OpenAPI): [`docs/openapi.yaml`](docs/openapi.yaml)
+
+## Autenticação e perfis
+
+Todas as rotas de negócio exigem sessão (Laravel Sanctum em modo SPA, cookie de sessão; `POST /api/v1/auth/login` aceita usuário ou e-mail, com limite de 5 tentativas por minuto). Apenas `GET /api/v1/health` e o login são públicos.
+
+| Perfil | Pode |
+|---|---|
+| `ATENDENTE` | Consultar, criar, editar e movimentar solicitações, agendas e faltas |
+| `ADMINISTRADOR` | Tudo o que o atendente faz, mais apagar solicitações |
+
+As regras ficam em `app/Policies/SolicitacaoPolicy.php`; usuários desativados (`is_active=false`) são barrados pelo middleware `EnsureActiveUser`.
+
+Para ter usuários locais:
+
+- defina `DEMO_ADMIN_EMAIL`/`DEMO_ADMIN_PASSWORD` e `DEMO_ATTENDANT_EMAIL`/`DEMO_ATTENDANT_PASSWORD` em `backend/.env` antes de subir (o `UsuariosDemoSeeder` cria as contas só em ambiente `local`/`testing`); ou
+- crie um administrador interativamente: `docker compose exec backend php artisan operadores:criar`.
+
+Nenhuma senha é versionada: `backend/.env.example` traz essas variáveis vazias.
 
 ## Rodar os testes
 
+Com os containers no ar (`docker compose up --build`):
+
 ```bash
-# Testes de backend (Pest/PHPUnit)
+# Backend: Pest (PHPUnit) contra o PostgreSQL, no banco separado vlab_test
 docker compose exec backend ./vendor/bin/pest
 
-# Testes de frontend (Vitest + React Testing Library)
+# Backend: lint (Pint)
+docker compose exec backend ./vendor/bin/pint --test
+
+# Frontend: Vitest + React Testing Library e checagem de tipos
 docker compose exec frontend npm test -- --run
+docker compose exec frontend npx tsc --noEmit
 ```
+
+- O banco de testes `vlab_test` é criado automaticamente pelo entrypoint do backend (também em volumes antigos). A suíte roda sempre na conexão `pgsql_test` (forçada em `tests/TestCase.php`) e **nunca toca o banco de desenvolvimento `vlab`** — `RefreshDatabase` só recria o `vlab_test`.
+- Os testes são determinísticos: o relógio é congelado em `2026-09-21T15:00Z` (`tests/TestCase.php`), então as datas fixas usadas nos cenários de agendamento continuam "no futuro" em qualquer dia em que a suíte for executada.
+- A imagem do backend inclui as dependências de desenvolvimento (Pest e Pint). Num ambiente criado antes disso, o volume `backend_vendor` ainda guarda o vendor antigo: rode `docker compose exec backend composer install` uma vez (não mexe no banco).
 
 ## Variáveis de ambiente
 
@@ -178,7 +221,7 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 
 ## Limitações conhecidas
 
-- Sem autenticação (não foi implementado o bônus de auth)
+- Não há tela de gestão de usuários: contas são criadas por seeder de demonstração ou pelo comando `operadores:criar`
 - O campo `cpf_solicitante` aceita o formato `000.000.000-00` mas não valida dígitos verificadores
 
 ## Decisões arquiteturais
@@ -187,7 +230,11 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 
 **Máquina de estados:** centralizada em `AtualizarStatusSolicitacao` com `DB::transaction + lockForUpdate`, tornando transições atômicas e testáveis de forma isolada.
 
-**Controllers thin:** o controller apenas repassa FormRequest → Action → Resource. Toda regra de negócio fica na Action; toda validação fica no FormRequest.
+**Controllers thin:** o controller apenas repassa FormRequest → Action → Resource. Toda regra de negócio fica na Action; toda validação fica no FormRequest, com a validação de agendamento (horário ou turno, fuso operacional, sempre no futuro) compartilhada no trait `ValidaAgendamento`.
+
+**Erros de domínio sem HTTP:** as Actions lançam `ConflitoDeEstado` e não conhecem respostas HTTP; `bootstrap/app.php` traduz essa exceção para 409 no envelope padrão.
+
+**Timestamps em UTC:** as conexões PostgreSQL fixam `timezone=UTC`, então um servidor configurado em outro fuso não desloca os horários de agendamento.
 
 **RequestId:** middleware global propaga ou gera UUID `X-Request-ID` em cada requisição, gravando log JSON estruturado — facilita rastreamento em produção.
 
@@ -211,6 +258,7 @@ Este projeto foi desenvolvido com auxílio do **Claude (Anthropic)** via ferrame
 - Especificação OpenAPI (`docs/openapi.yaml`)
 - Documentação arquitetural (`docs/architecture.md`)
 - Configuração do Docker e entrypoint do backend
+- Auditoria final contra os requisitos do edital e as correções dela resultantes (relógio congelado nos testes, fuso UTC na conexão, execução dos testes no Docker, exceção de domínio para 409, CPF mascarado em listagens, rotas com id numérico e atualização desta documentação)
 
 **Responsabilidade do candidato:**
 - Todo o código foi revisado e é compreendido pelo candidato

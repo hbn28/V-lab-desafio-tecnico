@@ -25,7 +25,9 @@ frontend/src/features/solicitacoes/pages
 - Formulário de horário: `frontend/.../components/AgendamentoForm.tsx`, usado por `SolicitacaoDetailPage.tsx` (agendar/reagendar) e visão `agenda` de `SolicitacoesPage.tsx`.
 - Listagem e grupos de status: `SolicitacaoController::index()` delega a `Actions/ListarSolicitacoes.php`; fila por padrão prioriza urgência/antiguidade, agenda por horário/turno e histórico por encerramento. Ordenações alternativas são allowlisted e paginadas no servidor.
 - Validação de `status_grupo` (`aberto`/`encerrado`): `ListarSolicitacoesRequest.php`.
-- Contrato de saída: `SolicitacaoResource.php` e `frontend/src/features/solicitacoes/types/index.ts`.
+- Erros de regra (409): Actions lançam `Exceptions/ConflitoDeEstado.php`, traduzida em `bootstrap/app.php`.
+- Validação de agenda compartilhada (horário XOR turno, fuso, futuro): `Http/Requests/Concerns/ValidaAgendamento.php`.
+- Contrato de saída: `SolicitacaoResource.php` (CPF mascarado em listagens; `SolicitacaoResource::detalhe()` traz o completo) e `frontend/src/features/solicitacoes/types/index.ts`.
 - Cliente e envelope de erro: `frontend/src/features/solicitacoes/api/client.ts`.
 - Tokens e responsividade: `frontend/src/index.css` e `docs/design-system.md`; o cabeçalho reflui até 62rem, a tabela rola dentro do painel e o popup de notificações/toolbar do modal têm regras próprias para espaços estreitos.
 - Testes de comportamento: `backend/tests/Feature/` e `frontend/src/test/solicitacoes.test.tsx`.

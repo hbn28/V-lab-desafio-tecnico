@@ -722,7 +722,7 @@ components:
       schema:
         type: integer
         minimum: 1
-      description: ID do agendamento
+      description: ID do agendamento (só dígitos; qualquer outro valor responde 404)
 
     SolicitacaoId:
       name: id
@@ -731,7 +731,7 @@ components:
       schema:
         type: integer
         minimum: 1
-      description: ID da solicitação
+      description: ID da solicitação (só dígitos; qualquer outro valor responde 404)
 
   schemas:
     LoginBody:
@@ -825,6 +825,11 @@ components:
         cpf_solicitante:
           type: string
           example: '123.456.789-00'
+          description: >-
+            Completo apenas nas respostas de uma solicitação específica (GET/PUT
+            /solicitacoes/{id}, POST /solicitacoes e PATCH de status/agendamento).
+            Em listagens (GET /solicitacoes, /fila, /faltas) vem mascarado:
+            "***.456.789-**".
         data_nascimento:
           type: string
           format: date
