@@ -13,7 +13,7 @@ Route::prefix('api/v1')->group(function () {
     Route::get('/auth/me', [AuthController::class, 'me'])->middleware(['web', 'auth:sanctum', EnsureActiveUser::class]);
     Route::post('/auth/logout', [AuthController::class, 'logout'])->middleware(['web', 'auth:sanctum', EnsureActiveUser::class]);
 
-    Route::middleware(['auth:sanctum', EnsureActiveUser::class])->group(function () {
+    Route::middleware(['web', 'auth:web', EnsureActiveUser::class])->group(function () {
         Route::get('/notificacoes', [NotificacaoController::class, 'index']);
         Route::patch('/notificacoes/{id}/lida', [NotificacaoController::class, 'markRead']);
         Route::post('/solicitacoes', [SolicitacaoController::class, 'store']);

@@ -54,3 +54,21 @@ test('operador sem e-mail entra com usuário e senha', function () {
         ->assertOk()
         ->assertJsonPath('data.id', $user->id);
 });
+
+test('sessão iniciada acessa a fila mesmo sem domínio Sanctum configurado', function () {
+    config()->set('sanctum.stateful', ['localhost']);
+    User::factory()->create([
+        'username' => 'operador-fila',
+        'email' => null,
+        'password' => 'senha-simples',
+    ]);
+
+    $this->withHeader('Origin', 'https://vlabsolicitacao.up.railway.app')
+        ->postJson('/api/v1/auth/login', ['login' => 'operador-fila', 'password' => 'senha-simples'])
+        ->assertOk();
+    Auth::forgetGuards();
+
+    $this->withHeader('Origin', 'https://vlabsolicitacao.up.railway.app')
+        ->getJson('/api/v1/fila')
+        ->assertOk();
+});

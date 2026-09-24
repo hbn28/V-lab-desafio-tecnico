@@ -21,6 +21,7 @@ Se o domínio público do backend mudar, atualize `BACKEND_URL` no serviço fron
 - Mantenha `APP_KEY` estável e secreta, `APP_ENV=production`, `APP_DEBUG=false`, `APP_SEED=false`, `PORT=8000` e as referências `DB_*` do serviço Postgres.
 - Defina `APP_URL=https://DOMINIO-PUBLICO-DO-BACKEND` e `FRONTEND_URL=https://DOMINIO-PUBLICO-DO-FRONTEND`.
 - Defina `SANCTUM_STATEFUL_DOMAINS=DOMINIO-PUBLICO-DO-FRONTEND` **sem** `https://` e sem barra final. Não configure `SESSION_DOMAIN`, para que os cookies sejam vinculados à origem apresentada ao navegador. Use `SESSION_SECURE_COOKIE=true` com HTTPS.
+- As rotas autenticadas usam a sessão web do Laravel, inclusive após o login. Se a lista aparecer por um instante e a tela voltar ao login, confirme que a sessão e os cookies persistem entre `/auth/login` e `/fila` e confira os códigos HTTP no navegador; não compartilhe cookies ou senhas.
 
 No ambiente atual, o domínio frontend exibido no Railway é `beneficial-curiosity-production-b56d.up.railway.app`. Atualize as variáveis se algum domínio mudar. A alteração de variáveis exige novo deploy do serviço afetado.
 
