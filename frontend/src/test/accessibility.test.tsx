@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { expect, test, vi } from 'vitest';
 import { DrilldownModal } from '../features/solicitacoes/components/DrilldownModal';
 import { Layout } from '../components/Layout';
+import { ThemeProvider } from '../features/theme/ThemeProvider';
 import { SolicitacaoForm } from '../features/solicitacoes/components/SolicitacaoForm';
 
 vi.mock('../features/auth/context', () => ({
@@ -47,9 +48,11 @@ test('diálogo mantém o foco com Tab e devolve o foco ao fechar', async () => {
 test('main navigation has an accessible name and Tab starts with the skip link', async () => {
   const user = userEvent.setup();
   render(
-    <MemoryRouter initialEntries={['/']}>
-      <Layout />
-    </MemoryRouter>,
+    <ThemeProvider>
+      <MemoryRouter initialEntries={['/']}>
+        <Layout />
+      </MemoryRouter>
+    </ThemeProvider>,
   );
   const skip = screen.getByRole('link', { name: /Ir para o conte/ });
   const navigation = screen.getByRole('navigation');
