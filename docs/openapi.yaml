@@ -397,12 +397,25 @@ paths:
   /faltas:
     get:
       tags: [faltas]
-      summary: Listar agendamentos em falta
+      summary: Listar faltas pendentes
       description: >-
-        Agendamentos com status=FALTA, com paciente (telefone mascarado), protocolo,
-        data/hora ou turno original e a última tentativa de contato, se houver.
+        Faltas que ainda pedem ação: agendamento com status=FALTA, solicitação ainda
+        AGENDADA e nenhum agendamento posterior para a mesma solicitação. Quando a
+        solicitação é reagendada, cancelada ou concluída, a falta sai desta lista
+        (o registro FALTA continua no histórico). Traz paciente (telefone mascarado),
+        protocolo, data/hora ou turno original e a última tentativa de contato.
+        Ordenação: falta mais recente primeiro.
       operationId: listarFaltas
       parameters:
+        - name: data
+          in: query
+          description: Dia local (YYYY-MM-DD) do agendamento em que houve a falta
+          schema: { type: string, format: date }
+        - name: resultado_contato
+          in: query
+          description: Resultado da última tentativa de contato
+          schema:
+            $ref: '#/components/schemas/ResultadoContato'
         - name: page
           in: query
           schema: { type: integer, minimum: 1, default: 1 }
@@ -546,7 +559,7 @@ components:
       schema:
         type: integer
         minimum: 1
-      description: ID do agendamento
+      description: ID do agendamento (só dígitos; qualquer outro valor responde 404)
 
     SolicitacaoId:
       name: id
@@ -555,7 +568,7 @@ components:
       schema:
         type: integer
         minimum: 1
-      description: ID da solicitação
+      description: ID da solicitação (só dígitos; qualquer outro valor responde 404)
 
   schemas:
     Status:
@@ -583,6 +596,11 @@ components:
         cpf_solicitante:
           type: string
           example: '123.456.789-00'
+          description: >-
+            Completo apenas nas respostas de uma solicitação específica (GET/PUT
+            /solicitacoes/{id}, POST /solicitacoes e PATCH de status/agendamento).
+            Em listagens (GET /solicitacoes, /fila, /faltas) vem mascarado:
+            "***.456.789-**".
         data_nascimento:
           type: string
           format: date
@@ -693,10 +711,13 @@ components:
         data_agendada:
           type: string
           format: date
+          example: '2026-09-25'
+          description: Data local no fuso operacional (AGENDAMENTO_TIMEZONE), sempre YYYY-MM-DD.
         hora_agendada:
           type: string
           nullable: true
           example: '14:30'
+          description: Horário local (HH:mm) no fuso operacional; nulo na modalidade TURNO.
         turno:
           $ref: '#/components/schemas/Turno'
           nullable: true
@@ -741,14 +762,11 @@ components:
       type: object
       properties:
         id: { type: integer }
-        solicitacao_id: { type: integer }
         entrou_em:
           type: string
           format: date-time
-        protocolo: { type: string }
-        nome_solicitante: { type: string }
-        prioridade:
-          $ref: '#/components/schemas/Prioridade'
+        solicitacao:
+          $ref: '#/components/schemas/Solicitacao'
 
     SolicitacaoResponse:
       type: object

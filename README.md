@@ -48,17 +48,23 @@ docker compose down -v && docker compose up --build
 | GET | `/api/v1/solicitacoes` | Listar com paginação e filtros |
 | POST | `/api/v1/solicitacoes` | Criar solicitação |
 | GET | `/api/v1/solicitacoes/{id}` | Buscar detalhes por ID |
-| PATCH | `/api/v1/solicitacoes/{id}/status` | Atualizar status (`AGENDADA` exige `data_agendada` e `hora_agendada`) |
+| PATCH | `/api/v1/solicitacoes/{id}/status` | Atualizar status (`AGENDADA` exige `data_agendada` e **um** entre `hora_agendada` e `turno`) |
 | PATCH | `/api/v1/solicitacoes/{id}/agendamento` | Reagendar uma solicitação já `AGENDADA` |
 | PUT | `/api/v1/solicitacoes/{id}` | *(extensão)* Editar dados cadastrais — bloqueado se status for final |
 | DELETE | `/api/v1/solicitacoes/{id}` | *(extensão)* Apagar solicitação definitivamente |
 | GET | `/api/v1/fila` | Fila operacional contínua (entradas/saídas independentes da paginação) |
-| GET | `/api/v1/faltas` | Agendamentos em falta, com telefone mascarado e última tentativa de contato |
+| GET | `/api/v1/faltas` | Faltas **pendentes** (sem reagendamento posterior e com a solicitação ainda `AGENDADA`), com telefone mascarado e última tentativa de contato |
 | POST | `/api/v1/agendamentos/{id}/falta` | Registrar falta no agendamento (não altera `solicitacoes.status`) |
 | POST | `/api/v1/agendamentos/{id}/tentativas-contato` | Registrar tentativa de contato (payload só `{ "resultado": ... }`) |
 | POST | `/api/v1/agendamentos/{id}/reagendar-apos-falta` | Reagendar preservando a falta original como histórico |
 
-Filtros disponíveis em `GET /api/v1/solicitacoes`: `status`, `categoria`, `prioridade`, `data_agendada`, `page`, `per_page`.
+Filtros disponíveis em `GET /api/v1/solicitacoes`: `status`, `status_grupo` (`aberto`/`encerrado`), `categoria`, `prioridade`, `data_agendada`, `page`, `per_page`. Em `GET /api/v1/faltas`: `data`, `resultado_contato`, `page`, `per_page`.
+
+Convenções de resposta:
+
+- Erros sempre em `{ "message": "...", "errors": { campo: [mensagens] } }`: **422** para entrada inválida, **409** para operação que conflita com o estado atual (ex.: transição proibida), **404** para recurso inexistente — inclusive `{id}` não numérico.
+- `data_agendada` é sempre uma data local `YYYY-MM-DD` e `hora_agendada` um horário local `HH:mm`, no fuso operacional; `agendado_para` é o instante em UTC.
+- Privacidade: o celular vem sempre mascarado; o CPF vem mascarado (`***.456.789-**`) nas listagens e completo apenas no detalhe de uma solicitação.
 
 ### Agenda
 
@@ -105,7 +111,7 @@ curl -X PATCH http://localhost:8000/api/v1/solicitacoes/2/status \
 # Fila operacional contínua
 curl "http://localhost:8000/api/v1/fila"
 
-# Marcar falta (só aceito após o horário/turno já ter passado)
+# Marcar falta (só aceito após o horário/turno já ter passado; na interface: botão "Registrar falta" no detalhe)
 curl -X POST http://localhost:8000/api/v1/agendamentos/1/falta
 
 # Registrar contato após falta (payload fechado, sem texto livre)
@@ -132,13 +138,25 @@ Documentação completa (OpenAPI): [`docs/openapi.yaml`](docs/openapi.yaml)
 
 ## Rodar os testes
 
+Com os containers no ar (`docker compose up --build`):
+
 ```bash
-# Testes de backend (Pest/PHPUnit)
+# Backend: Pest (PHPUnit) contra o PostgreSQL, no banco separado vlab_test
 docker compose exec backend ./vendor/bin/pest
 
-# Testes de frontend (Vitest + React Testing Library)
+# Backend: lint (Pint)
+docker compose exec backend ./vendor/bin/pint --test
+
+# Frontend: Vitest + React Testing Library, checagem de tipos e lint
 docker compose exec frontend npm test -- --run
+docker compose exec frontend npx tsc --noEmit
+docker compose exec frontend npm run lint
 ```
+
+- O banco de testes `vlab_test` é criado automaticamente pelo entrypoint do backend (também em volumes antigos), e a suíte nunca toca o banco de desenvolvimento `vlab`.
+- Os testes são determinísticos: o relógio é congelado em `2026-09-21T15:00Z` (`tests/TestCase.php`), então as datas fixas usadas nos cenários de agendamento continuam "no futuro" em qualquer dia em que a suíte for executada.
+- A imagem do backend inclui as dependências de desenvolvimento (Pest e Pint). Se você já tinha a imagem de uma versão anterior, rode `docker compose up --build` para reconstruí-la.
+- A pipeline em `.github/workflows/ci.yml` roda Pint, migrations e Pest (com PostgreSQL 16) no backend e `tsc`, Vitest e build no frontend.
 
 ## Variáveis de ambiente
 
@@ -174,12 +192,17 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 - Cadastro de paciente reaproveitado por CPF, com celular opcional e sempre exibido mascarado
 - Fila operacional contínua (`GET /fila`), independente da paginação e dos filtros da listagem
 - Agendamento por horário exato ou por turno (Manhã/Tarde/Noite)
-- Registro de falta no agendamento, tentativa de contato enxuta (resultado fechado) e reagendamento após falta, com o histórico da ausência preservado (`/?visao=faltas`)
+- Registro de falta pelo detalhe da solicitação (botão "Registrar falta", liberado pela API após o horário ou fim do turno), aba Faltas (`/?visao=faltas`) com as faltas pendentes, tentativa de contato enxuta (resultado fechado) e reagendamento após falta, com o histórico da ausência preservado
+- Logs estruturados em JSON (`api_request` com método, caminho, status, duração e `X-Request-ID`) em `docker compose logs backend`
 
 ## Limitações conhecidas
 
-- Sem autenticação (não foi implementado o bônus de auth)
+- Sem autenticação (não foi implementado o bônus de auth); a rota de exclusão definitiva fica aberta a qualquer usuário da interface
 - O campo `cpf_solicitante` aceita o formato `000.000.000-00` mas não valida dígitos verificadores
+- A aba Faltas exibe a primeira página (15 faltas pendentes); a API aceita `page`/`per_page`, mas a interface ainda não pagina essa lista
+- A fila operacional contínua (`GET /api/v1/fila`) está disponível na API, mas a tela inicial usa a listagem ordenada (`GET /solicitacoes`), que aplica a mesma regra de prioridade
+- Não há capacidade/conflito de agenda: várias solicitações podem ocupar o mesmo horário
+- `composer.json` ignora alguns avisos de segurança de dependências (`policy.advisories`) para manter a instalação reprodutível; atualizar o Laravel e remover essas exceções é o próximo passo antes de qualquer uso real
 
 ## Decisões arquiteturais
 
@@ -187,11 +210,13 @@ Em produção, defina `APP_ENV=production`, gere uma `APP_KEY` própria e nunca 
 
 **Máquina de estados:** centralizada em `AtualizarStatusSolicitacao` com `DB::transaction + lockForUpdate`, tornando transições atômicas e testáveis de forma isolada.
 
-**Controllers thin:** o controller apenas repassa FormRequest → Action → Resource. Toda regra de negócio fica na Action; toda validação fica no FormRequest.
+**Controllers thin:** o controller apenas repassa FormRequest → Action → Resource. Toda regra de negócio fica na Action — inclusive as consultas de listagem (`ListarSolicitacoes`, `ListarFilaOperacional`, `ListarFaltasPendentes`); toda validação fica no FormRequest, com a validação de agendamento compartilhada no trait `ValidaAgendamento`.
 
-**RequestId:** middleware global propaga ou gera UUID `X-Request-ID` em cada requisição, gravando log JSON estruturado — facilita rastreamento em produção.
+**Erros de domínio sem HTTP:** as Actions lançam `ConflitoDeEstado` e não conhecem respostas HTTP; `bootstrap/app.php` traduz essa exceção para 409 no envelope padrão.
 
-**Seeders idempotentes:** usam `firstOrCreate(['protocolo' => ...])` — `db:seed` pode rodar N vezes sem duplicar dados.
+**RequestId:** middleware do grupo `api` propaga ou gera UUID `X-Request-ID` em cada requisição e grava uma linha JSON `api_request` (canal `stderr` com `JsonFormatter`) — facilita rastreamento em produção.
+
+**Seeders idempotentes:** usam `firstOrCreate(['protocolo' => ...])` — `db:seed` pode rodar N vezes sem duplicar dados. Cada solicitação semeada ganha os registros que o fluxo real criaria (entrada de fila para `EM_ANALISE`, agendamento ativo para `AGENDADA`).
 
 **Fila operacional:** a API ordena estados ativos antes dos encerrados, depois por prioridade (`URGENTE` → `BAIXA`) e, em caso de empate, pela solicitação mais antiga. A regra é server-side para permanecer estável com paginação.
 
@@ -211,6 +236,7 @@ Este projeto foi desenvolvido com auxílio do **Claude (Anthropic)** via ferrame
 - Especificação OpenAPI (`docs/openapi.yaml`)
 - Documentação arquitetural (`docs/architecture.md`)
 - Configuração do Docker e entrypoint do backend
+- Auditoria final contra os requisitos do edital e as correções dela resultantes (relógio congelado nos testes, contrato de datas da API, faltas pendentes, registro de falta pela interface, revínculo de paciente na edição e atualização desta documentação)
 
 **Responsabilidade do candidato:**
 - Todo o código foi revisado e é compreendido pelo candidato

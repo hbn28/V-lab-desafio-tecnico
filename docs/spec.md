@@ -249,7 +249,7 @@ Uma falta é um **estado do agendamento**, não da solicitação:
 ### Novos endpoints de leitura
 
 - `GET /api/v1/fila`: fila operacional contínua (uma linha por `EntradaFila` aberta, join com `solicitacoes`), ordenada por prioridade (`URGENTE`, `ALTA`, `MEDIA`, `BAIXA`) e, no empate, por `entrou_em ASC`.
-- `GET /api/v1/faltas`: lista agendamentos em `FALTA`, com paciente (nome, telefone mascarado), protocolo, data/horário ou turno original e última tentativa de contato (`ultima_tentativa_contato`, se houver).
+- `GET /api/v1/faltas`: lista as faltas **pendentes** — agendamento em `FALTA`, solicitação ainda `AGENDADA` e nenhum agendamento posterior para ela (reagendar, cancelar ou concluir tira a falta da lista sem apagar o registro) —, com paciente (nome, telefone mascarado), protocolo, data/horário ou turno original e última tentativa de contato (`ultima_tentativa_contato`, se houver).
 
 ## Contrato de erros
 
@@ -451,7 +451,7 @@ Usar `Monolog\Formatter\JsonFormatter`. Cada requisição à API emite uma linha
 }
 ```
 
-Implementar via `terminate()` do middleware com `microtime(true)` no `handle()`.
+Implementado no próprio `handle()`, depois de `$next($request)`, medindo com `microtime(true)`. Não usar `terminate()`: o Laravel resolve uma instância nova do middleware ao terminar a requisição, e o instante de início se perderia.
 
 ### Configuração em `bootstrap/app.php`
 
