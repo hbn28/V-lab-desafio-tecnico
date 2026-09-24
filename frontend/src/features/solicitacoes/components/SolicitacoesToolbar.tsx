@@ -69,6 +69,13 @@ export function SolicitacoesToolbar({
     });
   }, [consulta, direcaoPadrao, primeiraOpcaoOrdenacao, ordenacaoPadrao]);
 
+  // As opções vêm do filtro já aplicado; o rascunho pode ter escolhido outra ordenação
+  // (ex.: status Agendada ordena por horário antes de aplicar). Ela precisa aparecer no
+  // seletor, senão o campo mostraria "Prioridade" enquanto o valor real é outro.
+  const opcoesVisiveis: OrdenarPor[] = opcoesOrdenacao.length > 0 && !opcoesOrdenacao.includes(rascunho.ordenar_por)
+    ? [rascunho.ordenar_por, ...opcoesOrdenacao]
+    : opcoesOrdenacao;
+
   const patch = <K extends keyof ToolbarDraft>(chave: K, valor: ToolbarDraft[K]) => {
     setRascunho(current => ({ ...current, [chave]: valor }));
   };
@@ -161,17 +168,25 @@ export function SolicitacoesToolbar({
           <div className="filter-field">
             <label htmlFor={`${prefix}-ordenar`}>Ordenar por</label>
             <select id={`${prefix}-ordenar`} value={rascunho.ordenar_por} onChange={event => patch('ordenar_por', event.target.value as OrdenarPor)}>
-              {opcoesOrdenacao.map(item => <option value={item} key={item}>{item === 'prioridade' ? 'Prioridade' : item === 'data' ? 'Data' : 'Horário'}</option>)}
+              {opcoesVisiveis.map(item => <option value={item} key={item}>{item === 'prioridade' ? 'Prioridade' : item === 'data' ? 'Data' : 'Horário'}</option>)}
             </select>
           </div>
         )}
-        {rascunho.ordenar_por !== 'prioridade' && (
+        {opcoesOrdenacao.length > 0 && (
+          // Sempre presente para a grade não mudar de forma ao trocar a ordenação:
+          // por prioridade a ordem é fixa (URGENTE primeiro), então o campo fica desabilitado.
           <div className="filter-field">
             <label htmlFor={`${prefix}-direcao`}>Ordem</label>
-            <select id={`${prefix}-direcao`} value={rascunho.direcao} onChange={event => patch('direcao', event.target.value as Direcao)}>
-              <option value="asc">Crescente</option>
-              <option value="desc">Decrescente</option>
-            </select>
+            {rascunho.ordenar_por === 'prioridade' ? (
+              <select id={`${prefix}-direcao`} value="fixa" disabled>
+                <option value="fixa">Maior prioridade primeiro</option>
+              </select>
+            ) : (
+              <select id={`${prefix}-direcao`} value={rascunho.direcao} onChange={event => patch('direcao', event.target.value as Direcao)}>
+                <option value="asc">Crescente</option>
+                <option value="desc">Decrescente</option>
+              </select>
+            )}
           </div>
         )}
         {mostrarResultadoContato && (
@@ -186,7 +201,9 @@ export function SolicitacoesToolbar({
             </select>
           </div>
         )}
-        <button className="button button--primary" type="submit">Aplicar filtros</button>
+        <div className="collection-toolbar__actions">
+          <button className="button button--primary" type="submit">Aplicar filtros</button>
+        </div>
       </form>
       <div className="collection-controls__footer">
         <p className="record-count" aria-live="polite">{total} {total === 1 ? 'resultado' : 'resultados'}</p>
