@@ -275,7 +275,7 @@ Toda resposta JSON de erro usa:
 | 429 | limite de requisições excedido |
 | 500 | falha interna genérica, sem detalhes internos |
 
-Se autenticação for adicionada como bônus, 401 e 403 usarão o mesmo envelope.
+Se autenticação for adicionada como bônus, 401 e 403 usarão o mesmo envelope. O login aceita usuário (campo `login`) e senha; e-mail de contas antigas também pode ser informado em `login`. Contas novas têm usuário único e e-mail opcional. Recuperação de senha por e-mail não está implementada.
 
 ## Modelo e migrations iniciais
 

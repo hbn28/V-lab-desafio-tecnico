@@ -12,6 +12,11 @@ class AuthController
     public function login(LoginRequest $request): JsonResponse
     {
         $credentials = $request->validated();
+        if (isset($credentials['login'])) {
+            $login = $credentials['login'];
+            unset($credentials['login']);
+            $credentials[str_contains($login, '@') ? 'email' : 'username'] = $login;
+        }
         if (! Auth::guard('web')->attempt($credentials)) {
             return response()->json(['message' => 'Credenciais inválidas.', 'errors' => []], 422);
         }
@@ -45,6 +50,6 @@ class AuthController
 
     private function publicUser(User $user): array
     {
-        return $user->only(['id', 'name', 'email', 'role']);
+        return $user->only(['id', 'name', 'username', 'email', 'role']);
     }
 }

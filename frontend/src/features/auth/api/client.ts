@@ -31,11 +31,11 @@ export const authApi = {
   async me(): Promise<Operator> {
     return request<Operator>('/api/v1/auth/me');
   },
-  async login(email: string, password: string): Promise<Operator> {
+  async login(identifier: string, password: string): Promise<Operator> {
     await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
     return request<Operator>('/api/v1/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ login: identifier, password }),
     });
   },
   async logout(): Promise<void> {

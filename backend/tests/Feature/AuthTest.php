@@ -42,3 +42,15 @@ test('usuário inativo não pode entrar', function () {
         ->assertStatus(422)
         ->assertExactJson(['message' => 'Credenciais inválidas.', 'errors' => []]);
 });
+
+test('operador sem e-mail entra com usuário e senha', function () {
+    $user = User::factory()->create([
+        'username' => 'operador-novo',
+        'email' => null,
+        'password' => 'senha-simples',
+    ]);
+
+    $this->postJson('/api/v1/auth/login', ['login' => 'operador-novo', 'password' => 'senha-simples'])
+        ->assertOk()
+        ->assertJsonPath('data.id', $user->id);
+});

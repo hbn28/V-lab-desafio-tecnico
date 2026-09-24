@@ -51,7 +51,7 @@ frontend/src/features/solicitacoes/pages
 
 ## Autenticação, notificações e verificação
 
-- Sessão e autorização: `backend/app/Domain/Auth/`, `backend/app/Policies/`, `backend/routes/api.php`; cliente/telas em `frontend/src/features/auth/`.
+- Sessão e autorização: `backend/app/Domain/Auth/`, `backend/app/Policies/`, `backend/routes/api.php`; cliente/telas em `frontend/src/features/auth/`. O login aceita usuário ou e-mail legado; `operadores:criar` gera conta com usuário e e-mail opcional.
 - Evento após commit: `SolicitacaoStatusAtualizado`; listener enfileirado `CriarNotificacoesOperacionais`; serviço Docker `worker`; notificações e API em `backend/app/Domain/Notificacoes/`. A API pagina grupos de 20 por operador, e o painel carrega páginas antigas sob demanda.
 - Cobertura de fila: `backend/tests/Feature/NotificacaoQueueTest.php` (commit/rollback, worker real, isolamento, idempotência e minimização de dados).
 - Cobertura de interface/fluxos: `frontend/src/test/accessibility.test.tsx`, `agenda.test.tsx`, `solicitacoes.test.tsx`, `faltas.test.tsx`, `agendamento-detalhe.test.tsx`, `auth.test.tsx`, `notificacoes.test.tsx` e `use-solicitacoes-race.test.tsx`.

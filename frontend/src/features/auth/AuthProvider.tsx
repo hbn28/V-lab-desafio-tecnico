@@ -30,10 +30,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (identifier: string, password: string) => {
     setError(null);
     try {
-      const account = await authApi.login(email, password);
+      const account = await authApi.login(identifier, password);
       setUser(account);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Não foi possível entrar.';
