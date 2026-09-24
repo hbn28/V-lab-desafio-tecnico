@@ -33,6 +33,8 @@ Tokens específicos de componente só devem ser criados quando houver reutiliza�
 | Foco | `--color-focus` | azul visível em superfícies claras |
 | Perigo | `--color-danger` | vermelho semântico |
 
+Hovers, linhas de tabela, itens da agenda e painéis de destaque usam `--color-interactive-surface` com `--color-interactive-text`; ambos mudam juntos no tema escuro para manter a leitura. `--color-accent-border` acompanha superfícies destacadas. Superfícies de alerta que exibem texto semântico também recebem fundo escuro no tema escuro.
+
 O alternador fica no cabeçalho autenticado e na tela de login/cadastro. A escolha persiste em `localStorage`; sem escolha, acompanha `prefers-color-scheme`. O `index.html` aplica o atributo de tema antes da primeira renderização.
 
 ## Tipografia e espaçamento
