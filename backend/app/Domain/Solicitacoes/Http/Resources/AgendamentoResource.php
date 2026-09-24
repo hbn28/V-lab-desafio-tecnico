@@ -11,7 +11,9 @@ class AgendamentoResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'data_agendada' => $this->data_agendada,
+            // Data local pura (Y-m-d), como foi informada. Sem isto o Carbon do cast
+            // serializaria como instante UTC ("2026-09-25T00:00:00.000000Z").
+            'data_agendada' => $this->data_agendada?->toDateString(),
             'modalidade' => $this->modalidade,
             'hora_agendada' => $this->hora_agendada !== null ? substr($this->hora_agendada, 0, 5) : null,
             'turno' => $this->turno,

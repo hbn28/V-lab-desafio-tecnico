@@ -2,11 +2,11 @@
 
 namespace App\Domain\Solicitacoes\Actions;
 
+use App\Domain\Solicitacoes\Exceptions\ConflitoDeEstado;
 use App\Models\Agendamento;
 use App\Models\EntradaFila;
 use App\Models\Solicitacao;
 use Carbon\CarbonImmutable;
-use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 
 class AtualizarStatusSolicitacao
@@ -35,13 +35,13 @@ class AtualizarStatusSolicitacao
             $permitidos = self::TRANSICOES[$solicitacao->status] ?? [];
 
             if (! in_array($novoStatus, $permitidos, true)) {
-                $this->conflito(
+                throw new ConflitoDeEstado(
                     "Transição de '{$solicitacao->status}' para '{$novoStatus}' não é permitida."
                 );
             }
 
             if ($novoStatus === 'AGENDADA' && $agendamento === null) {
-                $this->conflito('A data e o horário ou turno são obrigatórios para agendar a solicitação.');
+                throw new ConflitoDeEstado('A data e o horário ou turno são obrigatórios para agendar a solicitação.');
             }
 
             // Concluir/cancelar preservam agendado_para como histórico; só AGENDADA o escreve.
@@ -126,12 +126,5 @@ class AtualizarStatusSolicitacao
             ->whereNull('encerrada_em')
             ->lockForUpdate()
             ->update(['encerrada_em' => now(), 'motivo_encerramento' => $motivo]);
-    }
-
-    private function conflito(string $mensagem): never
-    {
-        throw new HttpResponseException(
-            response()->json(['message' => $mensagem, 'errors' => []], 409)
-        );
     }
 }

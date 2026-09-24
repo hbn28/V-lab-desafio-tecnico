@@ -2,12 +2,14 @@
 
 namespace App\Domain\Solicitacoes\Actions;
 
+use App\Domain\Solicitacoes\Exceptions\ConflitoDeEstado;
 use App\Models\Solicitacao;
-use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 
 class AtualizarSolicitacao
 {
+    public function __construct(private readonly LocalizarOuCriarPaciente $localizarOuCriarPaciente) {}
+
     /**
      * Estados finais não podem mais ser editados: a trilha de auditoria
      * de uma solicitação concluída ou cancelada é considerada encerrada.
@@ -22,12 +24,17 @@ class AtualizarSolicitacao
             $solicitacao = Solicitacao::lockForUpdate()->findOrFail($solicitacao->id);
 
             if (in_array($solicitacao->status, self::ESTADOS_ENCERRADOS, true)) {
-                $this->conflito(
+                throw new ConflitoDeEstado(
                     "Não é possível editar uma solicitação com status '{$solicitacao->status}'."
                 );
             }
 
+            // Trocar o CPF troca de paciente: o vínculo segue o CPF, com a mesma
+            // regra de consistência de nascimento usada na criação.
+            $paciente = $this->localizarOuCriarPaciente->execute($data, $solicitacao);
+
             $solicitacao->update([
+                'paciente_id' => $paciente->id,
                 'nome_solicitante' => $data['nome_solicitante'],
                 'cpf_solicitante' => $data['cpf_solicitante'],
                 'data_nascimento' => $data['data_nascimento'],
@@ -39,12 +46,5 @@ class AtualizarSolicitacao
 
             return $solicitacao->fresh();
         });
-    }
-
-    private function conflito(string $mensagem): never
-    {
-        throw new HttpResponseException(
-            response()->json(['message' => $mensagem, 'errors' => []], 409)
-        );
     }
 }

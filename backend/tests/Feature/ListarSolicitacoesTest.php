@@ -180,3 +180,13 @@ test('filtra a fila por status AGENDADA e ordena por agendado_para, não por pri
     ]);
     expect($response->json('data.*.status'))->each->toBe('AGENDADA');
 });
+
+test('listagem mascara o CPF; o detalhe traz o CPF completo', function () {
+    $solicitacao = Solicitacao::factory()->create(['cpf_solicitante' => '123.456.789-00']);
+
+    $this->getJson('/api/v1/solicitacoes')->assertOk()
+        ->assertJsonPath('data.0.cpf_solicitante', '***.456.789-**');
+
+    $this->getJson("/api/v1/solicitacoes/{$solicitacao->id}")->assertOk()
+        ->assertJsonPath('data.cpf_solicitante', '123.456.789-00');
+});

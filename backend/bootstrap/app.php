@@ -1,5 +1,6 @@
 <?php
 
+use App\Domain\Solicitacoes\Exceptions\ConflitoDeEstado;
 use App\Http\Middleware\RequestId;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -48,6 +49,14 @@ return Application::configure(basePath: dirname(__DIR__))
                 'message' => $e->getMessage(),
                 'errors' => $e->errors(),
             ], 422);
+        });
+
+        // Regra de negócio violada pelo estado atual (ex.: transição proibida).
+        $exceptions->render(function (ConflitoDeEstado $e, Request $request) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'errors' => [],
+            ], 409);
         });
 
         $exceptions->render(function (Throwable $e, Request $request) {

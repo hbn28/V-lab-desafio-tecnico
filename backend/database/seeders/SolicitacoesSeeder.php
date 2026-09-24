@@ -2,6 +2,9 @@
 
 namespace Database\Seeders;
 
+use App\Domain\Solicitacoes\Support\TurnoAgendamento;
+use App\Models\Agendamento;
+use App\Models\EntradaFila;
 use App\Models\Paciente;
 use App\Models\Solicitacao;
 use Illuminate\Database\Seeder;
@@ -43,9 +46,42 @@ class SolicitacoesSeeder extends Seeder
             );
             $dados['paciente_id'] = $paciente->id;
 
-            Solicitacao::firstOrCreate(
+            $solicitacao = Solicitacao::firstOrCreate(
                 ['protocolo' => $dados['protocolo']],
                 $dados
+            );
+
+            $this->completarEstadoOperacional($solicitacao, $fuso);
+        }
+    }
+
+    /**
+     * Dá a cada solicitação semeada os registros que o fluxo real criaria:
+     * EM_ANALISE tem uma entrada aberta na fila e AGENDADA tem um agendamento
+     * ativo. Sem isso, /fila começaria vazio e as agendadas de exemplo não
+     * poderiam receber falta. Idempotente, como o resto do seeder.
+     */
+    private function completarEstadoOperacional(Solicitacao $solicitacao, string $fuso): void
+    {
+        if ($solicitacao->status === 'EM_ANALISE') {
+            EntradaFila::firstOrCreate(
+                ['solicitacao_id' => $solicitacao->id, 'encerrada_em' => null],
+                ['entrou_em' => $solicitacao->created_at]
+            );
+        }
+
+        if ($solicitacao->status === 'AGENDADA' && $solicitacao->agendado_para !== null) {
+            $local = $solicitacao->agendado_para->setTimezone($fuso);
+            $hora = $local->format('H:i');
+
+            Agendamento::firstOrCreate(
+                ['solicitacao_id' => $solicitacao->id, 'status' => 'AGENDADO'],
+                [
+                    'data_agendada' => $local->toDateString(),
+                    'modalidade' => 'HORARIO',
+                    'hora_agendada' => $hora,
+                    'turno' => TurnoAgendamento::derivarDaHora($hora),
+                ]
             );
         }
     }

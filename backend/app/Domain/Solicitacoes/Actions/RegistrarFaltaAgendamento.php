@@ -2,10 +2,10 @@
 
 namespace App\Domain\Solicitacoes\Actions;
 
+use App\Domain\Solicitacoes\Exceptions\ConflitoDeEstado;
 use App\Domain\Solicitacoes\Support\HorarioAgendamento;
 use App\Domain\Solicitacoes\Support\TurnoAgendamento;
 use App\Models\Agendamento;
-use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -17,7 +17,7 @@ class RegistrarFaltaAgendamento
             $agendamento = Agendamento::query()->whereKey($agendamento->id)->lockForUpdate()->firstOrFail();
 
             if ($agendamento->status !== 'AGENDADO') {
-                $this->conflito('Somente agendamentos ativos podem receber falta.');
+                throw new ConflitoDeEstado('Somente agendamentos ativos podem receber falta.');
             }
 
             $timezone = config('agendamento.timezone');
@@ -36,12 +36,5 @@ class RegistrarFaltaAgendamento
 
             return $agendamento->fresh();
         });
-    }
-
-    private function conflito(string $mensagem): never
-    {
-        throw new HttpResponseException(
-            response()->json(['message' => $mensagem, 'errors' => []], 409)
-        );
     }
 }

@@ -19,5 +19,16 @@ return [
             'formatter' => JsonFormatter::class,
             'level' => env('LOG_LEVEL', 'debug'),
         ],
+        // Canal usado no docker-compose (LOG_CHANNEL=stderr): uma linha JSON por
+        // evento em `docker compose logs backend`, com o request_id no contexto.
+        'stderr' => [
+            'driver' => 'monolog',
+            'handler' => StreamHandler::class,
+            'with' => [
+                'stream' => 'php://stderr',
+            ],
+            'formatter' => JsonFormatter::class,
+            'level' => env('LOG_LEVEL', 'debug'),
+        ],
     ],
 ];

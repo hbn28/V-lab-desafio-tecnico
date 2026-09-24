@@ -8,18 +8,22 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
+/**
+ * Propaga (ou gera) um X-Request-ID por requisição e registra uma linha de log
+ * estruturada `api_request` com método, caminho, status e duração.
+ *
+ * O log é escrito no próprio handle(), depois da resposta pronta: um
+ * terminate() rodaria numa instância nova do middleware (o Laravel resolve de
+ * novo a classe ao terminar), sem acesso ao instante de início.
+ */
 class RequestId
 {
-    private ?float $startTime = null;
-
     public function handle(Request $request, Closure $next): Response
     {
-        $this->startTime = microtime(true);
+        $inicio = microtime(true);
 
-        $incomingId = $request->header('X-Request-ID', '');
-        $requestId = $this->isValidUuid($incomingId)
-            ? $incomingId
-            : (string) Str::uuid();
+        $incomingId = (string) $request->header('X-Request-ID', '');
+        $requestId = $this->isValidUuid($incomingId) ? $incomingId : (string) Str::uuid();
 
         $request->attributes->set('request_id', $requestId);
         Log::withContext(['request_id' => $requestId]);
@@ -27,23 +31,14 @@ class RequestId
         $response = $next($request);
         $response->headers->set('X-Request-ID', $requestId);
 
-        return $response;
-    }
-
-    public function terminate(Request $request, Response $response): void
-    {
-        if ($this->startTime === null) {
-            return;
-        }
-
-        $durationMs = (int) round((microtime(true) - $this->startTime) * 1000);
-
         Log::info('api_request', [
             'method' => $request->method(),
             'path' => $request->path(),
             'status' => $response->getStatusCode(),
-            'duration_ms' => $durationMs,
+            'duration_ms' => (int) round((microtime(true) - $inicio) * 1000),
         ]);
+
+        return $response;
     }
 
     private function isValidUuid(string $value): bool
