@@ -35,7 +35,11 @@ After rebooking an absence, the old record still displayed Reagendar and some re
 
 ## Graph follow-up
 
-The initial CLI check ran without elevated access and did not find Graphify. With the authorized worktree access, `graphify . --update --code-only` completed: 1072 nodes, 2028 edges and 70 communities. `docs/codebase-map.md` now records these counts. `GRAPH_REPORT.md` was not regenerated because `--code-only` skips documents.
+The initial CLI check ran without elevated access and did not find Graphify. With the authorized worktree access, `graphify . --update --code-only` completed: 1072 nodes, 2028 edges and 70 communities. `docs/codebase-map.md` recorded these counts at the time; it now records a later update. `GRAPH_REPORT.md` was not regenerated in that run because `--code-only` skipped documents.
+
+## Conferência posterior (24/09/2026)
+
+Esta seção registra evidências posteriores à auditoria de 23/09. O PDF oficial do edital foi encontrado fora do repositório em `Downloads/DesafioTecnico_FullStack.docx.pdf` e sua matriz corresponde à usada em `docs/auditoria-requisitos.md`; a afirmação acima de indisponibilidade refere-se apenas à sessão original. A suíte backend passou com 157 testes/2549 assertions em PostgreSQL 16 isolado após a preparação correta dos manifestos Laravel e a correção da simulação de produção no teste do seeder. A suíte frontend passou com 67 testes. O deploy respondeu 200 em `/` e `/api/v1/health`, com banco `ok`; um fluxo autenticado completo no deploy ainda não foi refeito nesta conferência.
 
 ## CI failure follow-up (2026-09-23)
 

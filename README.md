@@ -25,6 +25,7 @@ Em 24/09/2026, o endereço respondeu, o health check retornou `{"status":"ok","d
 - [Arquitetura e decisões](docs/architecture.md)
 - [Design e temas](docs/design-system.md)
 - [Implantação no Railway](docs/railway-deployment.md)
+- [Dependências e avisos de segurança conhecidos](docs/security-dependencies.md)
 - [Revisão de acessibilidade](docs/accessibility-review.md) e [auditoria funcional](docs/functional-audit.md)
 - [Auditoria dos requisitos do desafio](docs/auditoria-requisitos.md)
 

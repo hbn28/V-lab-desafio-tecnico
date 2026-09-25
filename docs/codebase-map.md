@@ -47,7 +47,7 @@ frontend/src/features/solicitacoes/pages
 - A fila é paginada; o resumo do painel vem de `GET /solicitacoes/resumo` e pode representar o conjunto global ou os filtros documentados.
 - A fila é ordenada no backend para não quebrar paginação.
 - API documentada em `docs/spec.md` e `docs/openapi.yaml` inclui busca, período, ordenação e faltas filtráveis.
-- `graphify-out` é artefato derivado. Em 24/09/2026, `graphify update .` atualizou `graph.json`, `graph.html` e `GRAPH_REPORT.md` (1434 nós/2779 arestas/96 comunidades). A consulta do grafo confirma a Action e os três componentes de visão; este mapa é a leitura humana curta.
+- `graphify-out` é artefato derivado. Em 24/09/2026, `graphify update .` atualizou `graph.json`, `graph.html` e `GRAPH_REPORT.md` (1437 nós/2783 arestas/93 comunidades). A consulta do grafo confirma a Action e os três componentes de visão; este mapa é a leitura humana curta.
 
 ## Autenticação, notificações e verificação
 

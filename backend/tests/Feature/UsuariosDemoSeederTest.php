@@ -57,8 +57,14 @@ test('credenciais locais fictícias são idempotentes e não sobrescrevem senha'
 });
 
 test('produção não cria usuários de demonstração', function () {
-    config()->set('app.env', 'production');
-    $before = User::count();
-    $this->seed(UsuariosDemoSeeder::class);
-    expect(User::count())->toBe($before);
+    // app()->environment() usa o ambiente detectado da aplicação, não config('app.env').
+    $this->app->detectEnvironment(fn () => 'production');
+
+    try {
+        $before = User::count();
+        app(UsuariosDemoSeeder::class)->run();
+        expect(User::count())->toBe($before);
+    } finally {
+        $this->app->detectEnvironment(fn () => 'testing');
+    }
 });
